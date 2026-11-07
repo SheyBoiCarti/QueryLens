@@ -65,7 +65,7 @@ class ResultCache:
             self._cache[query_id] = entry
             self._total_bytes += approx_bytes
 
-    def get(self, query_id: str, snapshot_hash: str) -> tuple[list[dict[str, str]], list[dict[str, Any]]] | None:
+    def get(self, query_id: str, snapshot_hash: str | None = None) -> tuple[list[dict[str, str]], list[dict[str, Any]]] | None:
         """Retrieve cached rows if unexpired and snapshot matches."""
         now = time.time()
         self._purge_expired(now)
@@ -79,7 +79,7 @@ class ResultCache:
             self._total_bytes -= entry.approx_bytes
             return None
 
-        if entry.snapshot_hash != snapshot_hash:
+        if snapshot_hash is not None and entry.snapshot_hash != snapshot_hash:
             # Policy/snapshot changed; cache invalidated (Contract C05)
             self._cache.pop(query_id, None)
             self._total_bytes -= entry.approx_bytes

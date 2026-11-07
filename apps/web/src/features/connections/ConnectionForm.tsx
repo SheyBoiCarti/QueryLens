@@ -4,7 +4,7 @@ import { ConnectionCreate, ConnectionResponse } from '../../api/generated/schema
 
 interface ConnectionFormProps {
   onSuccess: (conn: ConnectionResponse) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 }
 
 export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): React.JSX.Element {
@@ -67,21 +67,27 @@ export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): Re
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Connection Name</label>
+          <label htmlFor="conn-name" className="block text-sm font-medium text-slate-700 mb-1">
+            Connection Name
+          </label>
           <input
+            id="conn-name"
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md text-sm"
-            placeholder="e.g. Analytics PostgreSQL"
+            placeholder="e.g. Production Analytics"
+            className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Engine</label>
+            <label htmlFor="conn-engine" className="block text-sm font-medium text-slate-700 mb-1">
+              Database Engine
+            </label>
             <select
+              id="conn-engine"
               value={engine}
               onChange={handleEngineChange}
               className="w-full px-3 py-2 border rounded-md text-sm bg-white"
@@ -91,8 +97,11 @@ export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): Re
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
+            <label htmlFor="conn-port" className="block text-sm font-medium text-slate-700 mb-1">
+              Port
+            </label>
             <input
+              id="conn-port"
               type="number"
               required
               value={port}
@@ -103,21 +112,27 @@ export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): Re
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Host / Address</label>
+          <label htmlFor="conn-host" className="block text-sm font-medium text-slate-700 mb-1">
+            Hostname
+          </label>
           <input
+            id="conn-host"
             type="text"
             required
             value={host}
             onChange={(e) => setHost(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md text-sm"
             placeholder="pg.internal or db.aivencloud.com"
+            className="w-full px-3 py-2 border rounded-md text-sm"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Database Name</label>
+            <label htmlFor="conn-database" className="block text-sm font-medium text-slate-700 mb-1">
+              Database Name
+            </label>
             <input
+              id="conn-database"
               type="text"
               required
               value={database}
@@ -126,8 +141,11 @@ export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): Re
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+            <label htmlFor="conn-username" className="block text-sm font-medium text-slate-700 mb-1">
+              Username
+            </label>
             <input
+              id="conn-username"
               type="text"
               required
               value={username}
@@ -138,8 +156,11 @@ export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): Re
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+          <label htmlFor="conn-password" className="block text-sm font-medium text-slate-700 mb-1">
+            Password
+          </label>
           <input
+            id="conn-password"
             type="password"
             required
             value={password}
@@ -157,19 +178,21 @@ export function ConnectionForm({ onSuccess, onCancel }: ConnectionFormProps): Re
             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           />
           <label htmlFor="tls-checkbox" className="text-sm font-medium text-slate-700">
-            Enable TLS / SSL Verification (Required for production)
+            Enable TLS / SSL Verification
           </label>
         </div>
 
         <div className="flex justify-end space-x-3 pt-4 border-t">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 border rounded-md text-sm text-slate-700 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="px-4 py-2 border rounded-md text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={loading}
