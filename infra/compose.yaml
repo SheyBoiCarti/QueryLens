@@ -1,0 +1,84 @@
+services:
+  metadata-db:
+    image: postgres:16-alpine
+    container_name: querylens-metadata-db
+    environment:
+      POSTGRES_USER: querylens_meta
+      POSTGRES_PASSWORD: meta_dev_password_only
+      POSTGRES_DB: querylens_metadata
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - metadata_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querylens_meta -d querylens_metadata"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres-fixture:
+    image: postgres:16-alpine
+    container_name: querylens-postgres-fixture
+    environment:
+      POSTGRES_USER: querylens_admin
+      POSTGRES_PASSWORD: fixture_pg_password
+      POSTGRES_DB: analytics_pg
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_fixture_data:/var/lib/postgresql/data
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querylens_admin -d analytics_pg"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mysql-fixture:
+    image: mysql:8.4
+    container_name: querylens-mysql-fixture
+    environment:
+      MYSQL_ROOT_PASSWORD: fixture_root_password
+      MYSQL_DATABASE: analytics_my
+      MYSQL_USER: querylens_admin
+      MYSQL_PASSWORD: fixture_my_password
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_fixture_data:/var/lib/mysql
+      - ./init/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pfixture_root_password"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: querylens-api
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ENVIRONMENT: development
+      METADATA_DATABASE_URL: postgresql+psycopg://querylens_meta:meta_dev_password_only@metadata-db:5432/querylens_metadata
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: querylens-web
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  metadata_data:
+  postgres_fixture_data:
+  mysql_fixture_data:

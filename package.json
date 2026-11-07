@@ -1,0 +1,20 @@
+{
+  "name": "querylens-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "bootstrap": "pwsh scripts/bootstrap.ps1",
+    "dev": "pwsh scripts/dev.ps1",
+    "seed": "pwsh scripts/seed.ps1",
+    "lint": "npm run lint --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=apps/web",
+    "test": "npm run test --workspace=apps/web",
+    "verify": "pwsh scripts/verify.ps1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
