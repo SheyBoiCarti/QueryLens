@@ -53,6 +53,6 @@ class ValidatedQuery:
 class QueryResult:
     columns: list[dict[str, str]]
     rows: list[dict[str, Any]]
-    row_count: number if False else int
+    row_count: int
     truncated: bool
     execution_time_ms: int

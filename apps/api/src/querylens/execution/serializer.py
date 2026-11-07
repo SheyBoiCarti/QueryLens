@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 import math
-from typing import Any
+from typing import Any, Sequence
 
 from querylens.domain.schema import CanonicalType
 from querylens.schema.normalizer import normalize_data_type

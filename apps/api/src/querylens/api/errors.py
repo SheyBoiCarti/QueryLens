@@ -105,7 +105,7 @@ def register_error_handlers(app: FastAPI) -> None:
         # Sanitize error detail: do not echo input values
         errors_summary = []
         for err in exc.errors():
-            loc = " -> ".join(str(l) for l in err.get("loc", []))
+            loc = " -> ".join(str(part) for part in err.get("loc", []))
             msg = err.get("msg", "Invalid value")
             errors_summary.append(f"{loc}: {msg}")
         message = "; ".join(errors_summary) if errors_summary else "Request validation failed"

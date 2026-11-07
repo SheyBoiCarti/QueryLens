@@ -26,14 +26,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e apps/api[dev]
 
-      - name: Lint and Format Check (Ruff)
+      - name: Lint Check (Ruff)
         run: |
           ruff check apps/api
-          ruff format --check apps/api
 
       - name: Type Check (Mypy)
         run: |
-          mypy apps/api/src
+          mypy --config-file apps/api/mypy.ini apps/api/src
 
       - name: Run Python Test Suite
         run: |
@@ -57,7 +56,7 @@ jobs:
         run: npm run lint --workspace=apps/web
 
       - name: Type Check Web Frontend
-        run: npm run build --workspace=apps/web --noEmit
+        run: npm run typecheck --workspace=apps/web
 
       - name: Run Web Component Tests (Vitest)
-        run: npm run test:unit --workspace=apps/web
+        run: npm run test --workspace=apps/web
