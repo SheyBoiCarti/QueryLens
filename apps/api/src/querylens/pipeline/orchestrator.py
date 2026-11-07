@@ -8,9 +8,11 @@ import uuid
 from typing import Any
 
 from querylens.auth.ownership import verify_connection_ownership
+from querylens.config import get_settings
 from querylens.execution.executor import SafeExecutor
 from querylens.jobs.results import get_result_cache
 from querylens.llm.fake import get_fake_llm_provider
+from querylens.llm.live import get_live_llm_provider
 from querylens.llm.protocol import GeneratedCandidate
 from querylens.llm.provider import LLMProvider
 from querylens.observability.logging import log_event
@@ -51,7 +53,14 @@ async def run_query_pipeline(
     """Execute full natural-language query pipeline with bounded repair (Contract C08)."""
     repo = QueryRunRepository()
     catalog_service = CatalogService()
-    llm = provider or get_fake_llm_provider()
+    if provider is not None:
+        llm = provider
+    else:
+        settings = get_settings()
+        if settings.environment != "test" and settings.llm_provider != "fake":
+            llm = get_live_llm_provider(settings)
+        else:
+            llm = get_fake_llm_provider()
     cache = get_result_cache()
 
     budget = RunAttemptBudget(start_time=time.monotonic(), total_deadline_sec=30.0, cleanup_reserve_sec=5.0)

@@ -27,8 +27,8 @@ yarn-error.log*
 apps/web/dist/
 .playwright-mcp/
 
-# Superpowers specs and plans
-docs/superpowers/
+# Documentation
+docs/
 
 # Backups and temp
 backups/
