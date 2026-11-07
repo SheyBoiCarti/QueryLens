@@ -26,8 +26,8 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
       setLoading(true);
       setError(null);
       const url = cursor
-        ? `/queries/history?limit=20&cursor=${encodeURIComponent(cursor)}`
-        : '/queries/history?limit=20';
+        ? `/api/v1/queries/history?limit=20&cursor=${encodeURIComponent(cursor)}`
+        : '/api/v1/queries/history?limit=20';
       const data = await api.get<{ items: HistoryItem[]; next_cursor: string | null }>(url);
       setItems(data.items);
       setNextCursor(data.next_cursor);
@@ -47,7 +47,7 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
       return;
     }
     try {
-      await api.delete(`/queries/${queryId}`);
+      await api.delete(`/api/v1/queries/${queryId}`);
       setItems((prev) => prev.filter((item) => item.id !== queryId));
     } catch (err: any) {
       alert(`Delete failed: ${err?.message || 'Unknown error'}`);

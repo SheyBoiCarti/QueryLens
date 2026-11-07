@@ -27,8 +27,17 @@ def resolve_identifiers(ast: exp.Expression, snapshot: CatalogSnapshot) -> list[
     for cte in ast.find_all(exp.CTE):
         cte_alias = cte.alias_or_name.lower()
         cte_names.add(cte_alias)
+    for sub in ast.find_all(exp.Subquery):
+        if sub.alias:
+            cte_names.add(sub.alias.lower())
+
+    # Track column aliases defined in query projections
+    select_aliases: set[str] = {
+        a.alias.lower() for a in ast.find_all(exp.Alias) if a.alias
+    }
 
     referenced_identifiers: set[str] = set()
+    table_aliases: dict[str, str] = {}
 
     # 1. Validate Table references
     for table_node in ast.find_all(exp.Table):
@@ -44,6 +53,9 @@ def resolve_identifiers(ast: exp.Expression, snapshot: CatalogSnapshot) -> list[
             raise IdentifierPolicyError(f"Table '{table_node.name}' is not in visible schema catalog")
 
         referenced_identifiers.add(t_name)
+        table_aliases[t_name] = t_name
+        if table_node.alias:
+            table_aliases[table_node.alias.lower()] = t_name
 
     # 2. Expand star projections if present
     for select in ast.find_all(exp.Select):
@@ -77,19 +89,22 @@ def resolve_identifiers(ast: exp.Expression, snapshot: CatalogSnapshot) -> list[
         if t_name:
             if t_name in cte_names:
                 continue
-            if t_name not in visible_tables:
+            # Map alias to physical table name
+            phys_table = table_aliases.get(t_name, t_name)
+            if phys_table in cte_names:
+                continue
+            if phys_table not in visible_tables:
                 raise IdentifierPolicyError(f"Table '{col_node.table}' referenced in column '{col_node.sql()}' is unauthorized")
-            if c_name not in visible_tables[t_name]:
-                raise IdentifierPolicyError(f"Column '{c_name}' on table '{t_name}' is not in visible schema catalog")
+            if c_name not in visible_tables[phys_table]:
+                raise IdentifierPolicyError(f"Column '{c_name}' on table '{phys_table}' is not in visible schema catalog")
         else:
-            # Unqualified column: must belong to at least one visible table
-            found = False
-            for t, cols in visible_tables.items():
-                if c_name in cols:
-                    found = True
-                    break
-            # Also could be CTE column or alias
-            if not found and not cte_names:
+            # Unqualified column: can be projection alias, CTE column, or belong to a visible table
+            if c_name in select_aliases or cte_names:
+                found = True
+            else:
+                found = any(c_name in cols for cols in visible_tables.values())
+
+            if not found:
                 raise IdentifierPolicyError(f"Unqualified column '{c_name}' not found in authorized catalog")
 
         referenced_identifiers.add(c_name)

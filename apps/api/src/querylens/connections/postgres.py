@@ -97,8 +97,8 @@ class PostgresAdapter:
                 "sslmode": sslmode,
                 "connect_timeout": 5,
             },
-            pool_size=1,
-            max_overflow=0,
-            pool_timeout=2.0,
+            pool_size=5,
+            max_overflow=5,
+            pool_timeout=5.0,
             pool_pre_ping=True,
         )

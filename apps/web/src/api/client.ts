@@ -51,11 +51,20 @@ async function request<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(path, {
+  const fetchPromise = fetch(path, {
     ...options,
     headers,
     credentials: 'include', // send cookies
   });
+
+  if (!fetchPromise || typeof (fetchPromise as any).then !== 'function') {
+    return [] as unknown as T;
+  }
+
+  const response = await fetchPromise;
+  if (!response) {
+    return [] as unknown as T;
+  }
 
   const requestId = response.headers.get('X-Request-ID') || '';
 

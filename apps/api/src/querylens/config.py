@@ -31,7 +31,7 @@ def validate_security_profile(settings: Settings, deployment: str = "production"
         # 3. LLM Provider credentials
         if settings.llm_provider == "fake":
             raise SecurityProfileError("Production forbids fake LLM provider")
-        if settings.llm_provider == "live" and not settings.llm_api_key:
+        if settings.llm_provider != "fake" and not settings.llm_api_key:
             raise SecurityProfileError("Production requires llm_api_key for live LLM provider")
 
         # 4. Budgets and Limits
@@ -126,10 +126,30 @@ class Settings(BaseSettings):
     result_cache_bytes: int = Field(default=33554432)
 
     # LLM Settings (C08)
-    llm_provider: Literal["fake", "live"] = Field(default="fake")
+    llm_provider: Literal["fake", "live", "groq", "openrouter", "openai"] = Field(default="fake")
     llm_model: str = Field(default="gpt-4o-mini")
     llm_api_key: str | None = Field(default=None)
     llm_api_base: str | None = Field(default=None)
+
+    def get_effective_llm_config(self) -> tuple[str, str, str | None]:
+        """Resolve effective (api_base, model, api_key) based on provider presets."""
+        provider = self.llm_provider
+        api_key = self.llm_api_key
+
+        if provider == "groq":
+            api_base = self.llm_api_base or "https://api.groq.com/openai/v1"
+            model = self.llm_model if self.llm_model != "gpt-4o-mini" else "openai/gpt-oss-120b"
+        elif provider == "openrouter":
+            api_base = self.llm_api_base or "https://openrouter.ai/api/v1"
+            model = self.llm_model if self.llm_model != "gpt-4o-mini" else "meta-llama/llama-3.3-70b-instruct:free"
+        elif provider in ("openai", "live"):
+            api_base = self.llm_api_base or "https://api.openai.com/v1"
+            model = self.llm_model
+        else:
+            api_base = self.llm_api_base or ""
+            model = self.llm_model
+
+        return api_base, model, api_key
 
     # External Fixture / Source Credentials (from .env)
     postgres_host: str | None = Field(default=None)

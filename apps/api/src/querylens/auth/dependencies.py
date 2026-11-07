@@ -34,25 +34,39 @@ def get_auth_service() -> AuthService:
     return AuthService()
 
 
+DEFAULT_DEV_USER = {
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "session_id": "default-local-session",
+    "email": "admin@querylens.local",
+    "role": "admin",
+}
+
+
 async def get_current_user(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
-    """Extract and validate session cookie."""
+    """Extract and validate session cookie, or fall back to default dev user in development."""
     cookie_name = settings.session_cookie_name
-    token = request.cookies.get(cookie_name)
+    token = request.cookies.get(cookie_name) or request.cookies.get("querylens_session")
+
     if not token:
-        # Fallback for dev if standard name is used
-        token = request.cookies.get("querylens_session")
-        if not token:
-            raise UnauthorizedError("Missing session cookie")
+        if settings.environment == "development":
+            request.state.current_user = DEFAULT_DEV_USER
+            request.state.session_token = "dev-token"
+            return DEFAULT_DEV_USER
+        raise UnauthorizedError("Missing session cookie")
 
     user_session = auth_service.validate_session(
         token,
         idle_expiry_sec=settings.session_idle_expiry_sec,
     )
     if not user_session:
+        if settings.environment == "development":
+            request.state.current_user = DEFAULT_DEV_USER
+            request.state.session_token = "dev-token"
+            return DEFAULT_DEV_USER
         raise UnauthorizedError("Invalid or expired session")
 
     # Store raw token and user in request state
@@ -68,16 +82,14 @@ async def verify_csrf_token(
     settings: Settings = Depends(get_settings),
 ) -> None:
     """Verify CSRF token on authenticated mutation routes."""
+    if settings.environment == "development" and current_user.get("user_id") == DEFAULT_DEV_USER["user_id"]:
+        return
+
     # Check Origin header
     origin = request.headers.get("origin")
     if origin:
-        if settings.environment == "development":
-            # Origin must match approved origin
-            if origin not in settings.allowed_origins:
-                raise ForbiddenError("Unapproved request origin")
-        elif settings.environment == "production":
-            if origin not in settings.allowed_origins:
-                raise ForbiddenError("Unapproved request origin")
+        if origin not in settings.allowed_origins:
+            raise ForbiddenError("Unapproved request origin")
 
     # Verify session-bound CSRF token
     session_id = current_user.get("session_id")

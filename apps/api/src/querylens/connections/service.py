@@ -97,6 +97,8 @@ class ConnectionService:
         for r in rows:
             m = dict(r._mapping)
             allowed = json.loads(m["allowed_tables"]) if m["allowed_tables"] else {}
+            if isinstance(allowed, list):
+                allowed = {}
             results.append(
                 ConnectionResponse(
                     id=m["id"],
