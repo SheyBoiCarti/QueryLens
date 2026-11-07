@@ -1,0 +1,128 @@
+/**
+ * QueryLens Frontend API Client (Contracts C01, C02).
+ * Handles relative requests, CSRF synchronizer tokens in memory, and cookie credentials.
+ */
+
+import {
+  CsrfResponse,
+  LoginRequest,
+  LoginResponse,
+  StatusResponse,
+  UserResponse,
+  ErrorEnvelope,
+} from './generated/schema.ts';
+
+let _csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null): void {
+  _csrfToken = token;
+}
+
+export function getCsrfToken(): string | null {
+  return _csrfToken;
+}
+
+export class ApiError extends Error {
+  code: string;
+  requestId: string;
+  statusCode: number;
+
+  constructor(code: string, message: string, requestId: string, statusCode: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.requestId = requestId;
+    this.statusCode = statusCode;
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers = new Headers(options.headers || {});
+  headers.set('X-QueryLens-Client', 'web');
+
+  if (_csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method?.toUpperCase() || '')) {
+    headers.set('X-CSRF-Token', _csrfToken);
+  }
+
+  if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+    credentials: 'include', // send cookies
+  });
+
+  const requestId = response.headers.get('X-Request-ID') || '';
+
+  if (!response.ok) {
+    let errorCode = 'HTTP_ERROR';
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+    try {
+      const errorJson = (await response.json()) as ErrorEnvelope;
+      if (errorJson?.error) {
+        errorCode = errorJson.error.code;
+        errorMessage = errorJson.error.message;
+      }
+    } catch {
+      // Non-JSON response
+    }
+
+    throw new ApiError(errorCode, errorMessage, requestId, response.status);
+  }
+
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  login: async (creds: LoginRequest): Promise<LoginResponse> => {
+    const res = await request<LoginResponse>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(creds),
+    });
+    setCsrfToken(res.csrf_token);
+    return res;
+  },
+
+  logout: async (): Promise<StatusResponse> => {
+    const res = await request<StatusResponse>('/api/v1/auth/logout', {
+      method: 'POST',
+    });
+    setCsrfToken(null);
+    return res;
+  },
+
+  getMe: async (): Promise<UserResponse> => {
+    return request<UserResponse>('/api/v1/auth/me');
+  },
+
+  getCsrf: async (): Promise<CsrfResponse> => {
+    const res = await request<CsrfResponse>('/api/v1/auth/csrf');
+    setCsrfToken(res.csrf_token);
+    return res;
+  },
+
+  get: async <T>(path: string): Promise<T> => {
+    return request<T>(path, { method: 'GET' });
+  },
+
+  post: async <T>(path: string, body?: any): Promise<T> => {
+    return request<T>(path, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  },
+
+  delete: async <T>(path: string): Promise<T> => {
+    return request<T>(path, { method: 'DELETE' });
+  },
+};
