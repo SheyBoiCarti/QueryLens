@@ -1,0 +1,96 @@
+-- QueryLens Benchmark Golden Schema (PostgreSQL)
+-- Contracts: C05, C10
+
+DROP TABLE IF EXISTS refunds CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS line_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS historical_assignments CASCADE;
+DROP TABLE IF EXISTS expenses CASCADE;
+DROP TABLE IF EXISTS employees CASCADE;
+DROP TABLE IF EXISTS departments CASCADE;
+
+CREATE TABLE departments (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    budget DECIMAL(15,2) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE employees (
+    id VARCHAR(36) PRIMARY KEY,
+    department_id VARCHAR(36) NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    hire_date DATE NOT NULL,
+    salary DECIMAL(15,2) NOT NULL
+);
+
+CREATE TABLE historical_assignments (
+    id VARCHAR(36) PRIMARY KEY,
+    employee_id VARCHAR(36) NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    department_id VARCHAR(36) NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    start_date DATE NOT NULL,
+    end_date DATE NULL
+);
+
+CREATE TABLE customers (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    tier VARCHAR(20) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE products (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    price DECIMAL(15,2) NOT NULL,
+    cost DECIMAL(15,2) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE orders (
+    id VARCHAR(36) PRIMARY KEY,
+    customer_id VARCHAR(36) NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+    order_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    total_amount DECIMAL(15,2) NOT NULL
+);
+
+CREATE TABLE line_items (
+    id VARCHAR(36) PRIMARY KEY,
+    order_id VARCHAR(36) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id VARCHAR(36) NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    quantity INT NOT NULL,
+    unit_price DECIMAL(15,2) NOT NULL,
+    discount DECIMAL(15,2) NOT NULL DEFAULT 0.00
+);
+
+CREATE TABLE payments (
+    id VARCHAR(36) PRIMARY KEY,
+    order_id VARCHAR(36) NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+    payment_date DATE NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    payment_method VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE refunds (
+    id VARCHAR(36) PRIMARY KEY,
+    payment_id VARCHAR(36) NOT NULL REFERENCES payments(id) ON DELETE RESTRICT,
+    refund_date DATE NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    reason VARCHAR(255) NULL
+);
+
+CREATE TABLE expenses (
+    id VARCHAR(36) PRIMARY KEY,
+    department_id VARCHAR(36) NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    expense_date DATE NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    category VARCHAR(50) NOT NULL
+);

@@ -1,0 +1,1632 @@
+[
+  {
+    "id": "filter_001",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 100",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 100)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_002",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 200",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 200)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_003",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 300",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 300)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_004",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 400",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 400)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_005",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 500",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 500)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_006",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 600",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 600)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_007",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 700",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 700)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_008",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 800",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 800)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_009",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 900",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 900)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_010",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1000",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1000)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_011",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1100",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1100)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_012",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1200",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1200)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_013",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1300",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1300)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_014",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1400",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1400)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_015",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1500",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1500)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_016",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1600",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1600)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_017",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1700",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1700)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_018",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1800",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1800)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_019",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 1900",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 1900)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "filter_020",
+    "category": "filters",
+    "dialect": "both",
+    "question": "Find customers with tier gold and order total greater than 2000",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, name FROM customers WHERE tier = 'gold' AND id IN (SELECT customer_id FROM orders WHERE total_amount > 2000)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_001",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 1",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_002",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 2",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-03' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_003",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 3",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-04' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_004",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 4",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-01' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_005",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 5",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_006",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 6",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-03' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_007",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 7",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-04' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_008",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 8",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-01' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_009",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 9",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_010",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 10",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-03' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_011",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 11",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-04' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_012",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 12",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-01' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_013",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 13",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_014",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 14",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-03' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_015",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 15",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-04' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_016",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 16",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-01' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_017",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 17",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_018",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 18",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-03' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_019",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 19",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-04' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_020",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 20",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-01' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_021",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 21",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_022",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 22",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-03' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_023",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 23",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-04' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_024",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 24",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-01' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "agg_025",
+    "category": "aggregates",
+    "dialect": "both",
+    "question": "Total revenue and average order value for customer 25",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT customer_id, SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_order FROM orders WHERE customer_id = 'cust-02' GROUP BY customer_id",
+    "order_keys": [],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_001",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 1",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_002",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 2",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-03'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_003",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 3",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-04'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_004",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 4",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-01'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_005",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 5",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_006",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 6",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-03'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_007",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 7",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-04'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_008",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 8",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-01'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_009",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 9",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_010",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 10",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-03'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_011",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 11",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-04'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_012",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 12",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-01'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_013",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 13",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_014",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 14",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-03'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_015",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 15",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-04'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_016",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 16",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-01'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_017",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 17",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_018",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 18",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-03'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_019",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 19",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-04'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_020",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 20",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-01'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_021",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 21",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_022",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 22",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-03'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_023",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 23",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-04'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_024",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 24",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-01'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "join_025",
+    "category": "joins",
+    "dialect": "both",
+    "question": "List line items and product names for order 25",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT l.id, p.name, l.quantity, l.unit_price FROM line_items l JOIN products p ON l.product_id = p.id WHERE l.order_id = 'ord-02'",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_001",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 1",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_002",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 2",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_003",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 3",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_004",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 4",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_005",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 5",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_006",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 6",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_007",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 7",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_008",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 8",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_009",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 9",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_010",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 10",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_011",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 11",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_012",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 12",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_013",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 13",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_014",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 14",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_015",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 15",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_016",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 16",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_017",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 17",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_018",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 18",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_019",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 19",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "subq_020",
+    "category": "subqueries",
+    "dialect": "both",
+    "question": "Employees whose salary is higher than the average in their department tier 20",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT e.id, e.name, e.salary FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE department_id = e.department_id)",
+    "order_keys": [
+      "id"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "temporal_001",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 1",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_002",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 2",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_003",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 3",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_004",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 4",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_005",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 5",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_006",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 6",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_007",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 7",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_008",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 8",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_009",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 9",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_010",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 10",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_011",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 11",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_012",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 12",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_013",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 13",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_014",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 14",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_015",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 15",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_016",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 16",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_017",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 17",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_018",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 18",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_019",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 19",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "temporal_020",
+    "category": "temporal",
+    "dialect": "both",
+    "question": "Orders placed in February 2024 with status completed limit 20",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT id, order_date, total_amount FROM orders WHERE order_date >= '2024-02-01' AND order_date <= '2024-02-29' AND status = 'completed'",
+    "order_keys": [
+      "order_date",
+      "id"
+    ],
+    "tie_breakers": [
+      "id"
+    ]
+  },
+  {
+    "id": "complex_001",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 1",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_002",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 2",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_003",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 3",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_004",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 4",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_005",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 5",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_006",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 6",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_007",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 7",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_008",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 8",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_009",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 9",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_010",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 10",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_011",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 11",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_012",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 12",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_013",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 13",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_014",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 14",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_015",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 15",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_016",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 16",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_017",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 17",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_018",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 18",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_019",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 19",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_020",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 20",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_021",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 21",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_022",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 22",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_023",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 23",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_024",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 24",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  },
+  {
+    "id": "complex_025",
+    "category": "complex_analytical",
+    "dialect": "both",
+    "question": "Department net revenue after deducting expenses and employee salaries 25",
+    "expected_behavior": "answerable",
+    "reference_sql": "SELECT d.name, d.budget - COALESCE(SUM(e.amount), 0) AS remaining_budget FROM departments d LEFT JOIN expenses e ON d.id = e.department_id GROUP BY d.id, d.name, d.budget",
+    "order_keys": [
+      "name"
+    ],
+    "tie_breakers": []
+  }
+]
