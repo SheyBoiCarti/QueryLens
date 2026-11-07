@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from querylens.auth.service import AuthService
 from querylens.config import get_settings
 from querylens.connections.models import ConnectionCreate
+from querylens.connections.mysql import MySQLAdapter
 from querylens.connections.postgres import PostgresAdapter
 from querylens.connections.service import ConnectionService
 from querylens.domain.schema import CatalogSnapshot
@@ -85,3 +86,16 @@ def test_live_table_discovery():
         tables = SchemaInspector.discover_candidate_tables(pool, "postgresql")
         assert isinstance(tables, list)
         pool.dispose()
+
+    if settings.mysql_host and settings.mysql_password:
+        my_pool = MySQLAdapter.create_pool(
+            host=settings.mysql_host,
+            port=int(settings.mysql_port or 28173),
+            database=settings.mysql_db or "defaultdb",
+            username=settings.mysql_user or "avnadmin",
+            password=settings.mysql_password,
+            tls_enabled=True,
+        )
+        my_tables = SchemaInspector.discover_candidate_tables(my_pool, "mysql")
+        assert isinstance(my_tables, list)
+        my_pool.dispose()

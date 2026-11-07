@@ -80,3 +80,39 @@ def test_live_execution_on_postgresql():
     assert result.row_count == 1
     assert result.rows[0]["greeting"] == "hello"
     assert result.rows[0]["num"] == "100"
+
+
+def test_live_execution_on_mysql():
+    """Execute ValidatedQuery against live MySQL 8.4 instance."""
+    settings = get_settings()
+    if not (settings.mysql_host and settings.mysql_password):
+        pytest.skip("No live MySQL credentials configured")
+
+    auth = AuthService()
+    user = auth.create_user("exec_mysql_tester@example.com", "hash")
+    conn_service = ConnectionService()
+
+    conn_res = conn_service.create(
+        user["id"],
+        ConnectionCreate(
+            name="Live MySQL Exec",
+            engine="mysql",
+            host=settings.mysql_host,
+            port=int(settings.mysql_port or 28173),
+            database=settings.mysql_db or "defaultdb",
+            username=settings.mysql_user or "avnadmin",
+            password=settings.mysql_password,
+            tls_enabled=True,
+        ),
+    )
+
+    snap = CatalogSnapshot(connection_id=conn_res.id, engine="mysql", tables=[])
+    snap.snapshot_hash = snap.compute_hash()
+
+    token = validate_and_bound_sql("SELECT 200 AS num, 'world' AS greeting;", conn_res.id, "mysql", snap, max_rows=10)
+
+    result = SafeExecutor.execute(token)
+    assert result.row_count == 1
+    assert result.rows[0]["greeting"] == "world"
+    assert result.rows[0]["num"] == "200"
+
