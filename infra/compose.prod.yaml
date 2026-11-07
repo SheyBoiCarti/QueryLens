@@ -1,0 +1,104 @@
+# QueryLens Hardened Production Docker Compose Topology
+# Contracts: C01, C03, C11
+
+services:
+  proxy:
+    image: caddy:2.7-alpine
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - web-static:/srv/web:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - querylens-internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      ENVIRONMENT: production
+      HOST: 0.0.0.0
+      PORT: 8000
+      METADATA_DATABASE_URL: postgresql+psycopg://querylens_app:${METADATA_DB_PASSWORD}@metadata-db:5432/querylens_prod
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_NAME: "__Host-querylens_session"
+      CREDENTIAL_KEYS_FILE: /run/secrets/keyring.json
+      CREDENTIAL_ACTIVE_KEY_ID: prod-key-01
+      LLM_PROVIDER: live
+      LLM_API_KEY: ${LLM_API_KEY}
+    volumes:
+      - keyring-secret:/run/secrets:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+    networks:
+      - querylens-internal
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+
+  metadata-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: querylens_prod
+      POSTGRES_USER: querylens_app
+      POSTGRES_PASSWORD: ${METADATA_DB_PASSWORD}
+    volumes:
+      - metadata-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querylens_app -d querylens_prod"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - querylens-internal
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+volumes:
+  metadata-data:
+  keyring-secret:
+  web-static:
+
+networks:
+  querylens-internal:
+    driver: bridge
+    internal: false

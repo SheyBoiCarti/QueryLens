@@ -1,0 +1,45 @@
+name: Release Gate & Publication
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PowerShell
+        run: |
+          which pwsh
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bootstrap Environment
+        shell: pwsh
+        run: |
+          scripts/bootstrap.ps1
+
+      - name: Run Full Release Gate
+        shell: pwsh
+        run: |
+          scripts/verify.ps1 -Phase 10
+
+      - name: Verify Docker Production Build
+        run: |
+          docker compose -f infra/compose.prod.yaml config

@@ -1,0 +1,50 @@
+# Caddy Reverse Proxy Configuration for QueryLens Production
+# Contract C01, C03, C11
+
+{
+    admin off
+    auto_https off
+}
+
+:443 {
+    tls internal
+
+    # Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';"
+    }
+
+    # API endpoints
+    handle /api/* {
+        reverse_proxy api:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # OpenAPI docs
+    handle /docs* {
+        reverse_proxy api:8000
+    }
+    handle /openapi.json {
+        reverse_proxy api:8000
+    }
+
+    # Health check
+    handle /health {
+        reverse_proxy api:8000
+    }
+
+    # Frontend SPA
+    handle {
+        root * /srv/web
+        try_files {path} /index.html
+        file_server
+    }
+}

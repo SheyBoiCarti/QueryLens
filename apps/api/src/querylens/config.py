@@ -8,6 +8,41 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class SecurityProfileError(Exception):
+    """Raised when application configuration violates security contracts."""
+    pass
+
+
+def validate_security_profile(settings: Settings, deployment: str = "production") -> None:
+    """Validate settings against production security contracts (Contracts C01, C02, C03, C07, C11)."""
+    if deployment == "production":
+        # 1. Cookies & TLS
+        if not settings.session_cookie_secure:
+            raise SecurityProfileError("Production requires session_cookie_secure=True (HTTPS only)")
+        if not settings.session_cookie_name.startswith("__Host-"):
+            raise SecurityProfileError("Production requires session_cookie_name to start with '__Host-'")
+        if settings.session_cookie_samesite not in ("lax", "strict"):
+            raise SecurityProfileError("Production requires session_cookie_samesite='lax' or 'strict'")
+
+        # 2. Credential encryption keyring
+        if not settings.credential_keys_file or not settings.credential_active_key_id:
+            raise SecurityProfileError("Production requires credential_keys_file and credential_active_key_id")
+
+        # 3. LLM Provider credentials
+        if settings.llm_provider == "fake":
+            raise SecurityProfileError("Production forbids fake LLM provider")
+        if settings.llm_provider == "live" and not settings.llm_api_key:
+            raise SecurityProfileError("Production requires llm_api_key for live LLM provider")
+
+        # 4. Budgets and Limits
+        if settings.max_sql_bytes > 32768:
+            raise SecurityProfileError("max_sql_bytes exceeds maximum allowed hard bound (32768)")
+        if settings.max_request_bytes > 65536:
+            raise SecurityProfileError("max_request_bytes exceeds maximum allowed hard bound (65536)")
+        if settings.session_absolute_expiry_sec > 28800:
+            raise SecurityProfileError("session_absolute_expiry_sec cannot exceed 28800s (8h)")
+
+
 class Settings(BaseSettings):
     """Application runtime settings complying with contracts C01, C02, C03, C07."""
 
