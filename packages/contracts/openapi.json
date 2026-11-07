@@ -1,6 +1,98 @@
 {
   "components": {
     "schemas": {
+      "CatalogSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "policy_version": {
+            "default": 1,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "snapshot_hash": {
+            "default": "",
+            "title": "Snapshot Hash",
+            "type": "string"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TableMetadata"
+            },
+            "title": "Tables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "connection_id",
+          "engine"
+        ],
+        "title": "CatalogSnapshot",
+        "type": "object"
+      },
+      "ColumnMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_type": {
+            "enum": [
+              "integer",
+              "decimal",
+              "float",
+              "string",
+              "boolean",
+              "date",
+              "datetime"
+            ],
+            "title": "Canonical Type",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "db_type": {
+            "description": "Engine-native data type",
+            "title": "Db Type",
+            "type": "string"
+          },
+          "name": {
+            "description": "Column identifier name",
+            "title": "Name",
+            "type": "string"
+          },
+          "nullable": {
+            "default": true,
+            "title": "Nullable",
+            "type": "boolean"
+          },
+          "primary_key": {
+            "default": false,
+            "title": "Primary Key",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "canonical_type",
+          "db_type"
+        ],
+        "title": "ColumnMetadata",
+        "type": "object"
+      },
       "ConnectionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -347,6 +439,67 @@
         "title": "CsrfResponse",
         "type": "object"
       },
+      "ForeignKeyConstraint": {
+        "additionalProperties": false,
+        "properties": {
+          "cardinality": {
+            "default": "many_to_one",
+            "enum": [
+              "many_to_one",
+              "one_to_many",
+              "one_to_one",
+              "many_to_many",
+              "unknown"
+            ],
+            "title": "Cardinality",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 1.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "source_columns": {
+            "description": "Ordered source column names",
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Columns",
+            "type": "array"
+          },
+          "target_columns": {
+            "description": "Ordered target column names",
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Columns",
+            "type": "array"
+          },
+          "target_table": {
+            "description": "Referenced target table",
+            "title": "Target Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_columns",
+          "target_table",
+          "target_columns"
+        ],
+        "title": "ForeignKeyConstraint",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -382,6 +535,33 @@
           "status"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "IndexMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unique": {
+            "default": false,
+            "title": "Unique",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "columns"
+        ],
+        "title": "IndexMetadata",
         "type": "object"
       },
       "LoginRequest": {
@@ -437,6 +617,66 @@
           "status"
         ],
         "title": "StatusResponse",
+        "type": "object"
+      },
+      "TableMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnMetadata"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "foreign_keys": {
+            "items": {
+              "$ref": "#/components/schemas/ForeignKeyConstraint"
+            },
+            "title": "Foreign Keys",
+            "type": "array"
+          },
+          "indexes": {
+            "items": {
+              "$ref": "#/components/schemas/IndexMetadata"
+            },
+            "title": "Indexes",
+            "type": "array"
+          },
+          "name": {
+            "description": "Table name",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "default": "public",
+            "description": "Schema/Database namespace",
+            "title": "Namespace",
+            "type": "string"
+          },
+          "primary_key_columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Primary Key Columns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "TableMetadata",
         "type": "object"
       },
       "UserResponse": {
@@ -905,6 +1145,155 @@
         "summary": "Update Connection",
         "tags": [
           "connections"
+        ]
+      }
+    },
+    "/api/v1/connections/{connection_id}/schema": {
+      "get": {
+        "description": "Get the current reflected schema snapshot for authorized visible objects.",
+        "operationId": "get_catalog_api_v1_connections__connection_id__schema_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Catalog",
+        "tags": [
+          "schema"
+        ]
+      }
+    },
+    "/api/v1/connections/{connection_id}/schema/discover": {
+      "get": {
+        "description": "Discover candidate table names in approved namespaces without sampling rows.",
+        "operationId": "discover_tables_api_v1_connections__connection_id__schema_discover_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Discover Tables Api V1 Connections  Connection Id  Schema Discover Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discover Tables",
+        "tags": [
+          "schema"
+        ]
+      }
+    },
+    "/api/v1/connections/{connection_id}/schema/refresh": {
+      "post": {
+        "description": "Trigger reflection and atomically update the catalog snapshot.",
+        "operationId": "refresh_catalog_api_v1_connections__connection_id__schema_refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Catalog",
+        "tags": [
+          "schema"
         ]
       }
     },
