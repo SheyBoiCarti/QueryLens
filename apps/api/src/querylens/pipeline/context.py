@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from typing import Any
 from querylens.domain.schema import CatalogSnapshot
 
 MAX_INPUT_TOKENS = 6000
+
+
+@dataclass(frozen=True)
+class SchemaContext:
+    """Bounded schema context for LLM prompt assembly."""
+
+    tables: list[Any] = field(default_factory=list)
+    formatted_schema: str = ""
+
 
 
 def estimate_tokens(text: str) -> int:

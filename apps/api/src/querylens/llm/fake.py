@@ -12,10 +12,15 @@ class FakeLLMProvider(LLMProvider):
 
     def __init__(self) -> None:
         self._canned: dict[tuple[str, str], GeneratedCandidate] = {}
+        self._canned_sequences: dict[tuple[str, str], list[GeneratedCandidate]] = {}
         self._init_defaults()
 
     def _normalize(self, q: str) -> str:
         return re.sub(r"\s+", " ", q.strip().lower())
+
+    def _normalize_dialect(self, d: str) -> str:
+        dl = d.strip().lower()
+        return "postgres" if dl in ("postgres", "postgresql") else dl
 
     def register_response(
         self,
@@ -24,8 +29,18 @@ class FakeLLMProvider(LLMProvider):
         candidate: GeneratedCandidate,
     ) -> None:
         """Register a canned response for a dialect and question."""
-        key = (dialect.lower(), self._normalize(question))
+        key = (self._normalize_dialect(dialect), self._normalize(question))
         self._canned[key] = candidate
+
+    def register_sequence(
+        self,
+        dialect: str,
+        question: str,
+        candidates: list[GeneratedCandidate],
+    ) -> None:
+        """Register a sequence of candidates returned on consecutive calls."""
+        key = (self._normalize_dialect(dialect), self._normalize(question))
+        self._canned_sequences[key] = list(candidates)
 
     def _init_defaults(self) -> None:
         # Standard smoke questions
@@ -61,13 +76,18 @@ class FakeLLMProvider(LLMProvider):
         schema_context: str,
         timeout_sec: float = 15.0,
     ) -> GeneratedCandidate:
-        key = (dialect.lower(), self._normalize(question))
+        norm_d = self._normalize_dialect(dialect)
+        norm_q = self._normalize(question)
+        key = (norm_d, norm_q)
+        if key in self._canned_sequences and self._canned_sequences[key]:
+            return self._canned_sequences[key].pop(0)
+
         if key in self._canned:
             return self._canned[key]
 
         # Check question alone across any dialect
         for (d, q), cand in self._canned.items():
-            if q == self._normalize(question):
+            if q == norm_q:
                 return cand
 
         # Contract C08: Unknown fake questions raise a test error; never default to SELECT 1

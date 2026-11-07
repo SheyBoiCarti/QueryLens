@@ -195,12 +195,7 @@ async def cancel_query(
     _csrf: None = Depends(verify_csrf_token),
 ) -> dict[str, str]:
     """Idempotently cancel an active query run."""
+    from querylens.jobs.cancel import request_cancel
+
     user_id = current_user["user_id"]
-    repo = QueryRunRepository()
-    run = repo.get(query_id, user_id=user_id)
-
-    if run["status"] not in ("completed", "failed", "rejected", "clarification_required", "cancelled", "interrupted"):
-        cancel_active_task(query_id)
-        repo.update_state(query_id, "cancelled", safe_message="Query was cancelled by user")
-
-    return {"query_id": query_id, "status": "cancelled"}
+    return request_cancel(query_id, user_id)

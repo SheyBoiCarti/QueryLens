@@ -30,3 +30,5 @@ apps/web/dist/
 backups/
 tmp/
 *.tmp
+*.db
+*.sqlite
