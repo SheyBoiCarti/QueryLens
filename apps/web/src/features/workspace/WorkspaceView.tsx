@@ -8,6 +8,7 @@ import { Assumptions } from './Assumptions.tsx';
 import { QueryInspector, TraceData } from './QueryInspector.tsx';
 import { SavedQuestionsModal } from './SavedQuestionsModal.tsx';
 import { SavedQuestionsManager } from './SavedQuestionsManager.tsx';
+import { FollowUpBar } from './FollowUpBar.tsx';
 
 interface WorkspaceViewProps {
   onNavigateToConnections: () => void;
@@ -39,6 +40,7 @@ export function WorkspaceView({
   const [trace, setTrace] = useState<TraceData | null>(null);
   const [inspecting, setInspecting] = useState(false);
   const [pollError, setPollError] = useState<string | null>(null);
+  const [followUpError, setFollowUpError] = useState<{ message: string; code?: string; question: string } | null>(null);
   const [retry, setRetry] = useState(0);
   const [cancelling, setCancelling] = useState(false);
   const [showSavedManager, setShowSavedManager] = useState(false);
@@ -272,6 +274,53 @@ export function WorkspaceView({
     }
   };
 
+  const handleFollowUpSubmit = async (question: string, parentQueryId: string) => {
+    setFollowUpError(null);
+    try {
+      const res = await api.post<{ query_id: string; status: string }>('/api/v1/queries', {
+        connection_id: connectionId,
+        question,
+        parent_query_id: parentQueryId,
+        max_rows: 100,
+      });
+      submitted(res.query_id);
+    } catch (err) {
+      if (err instanceof ApiError && (err.statusCode === 409 || err.code === 'FOLLOWUP_CONTEXT_STALE' || err.code === 'FOLLOWUP_CONTEXT_OVERSIZED')) {
+        setFollowUpError({
+          message: err.message,
+          code: err.code,
+          question,
+        });
+      } else {
+        setPollError(err instanceof Error ? err.message : 'Failed to submit follow-up query');
+      }
+    }
+  };
+
+  const handleAskStandalone = async (question: string) => {
+    setFollowUpError(null);
+    try {
+      const res = await api.post<{ query_id: string; status: string }>('/api/v1/queries', {
+        connection_id: connectionId,
+        question,
+        max_rows: 100,
+      });
+      submitted(res.query_id);
+    } catch (err) {
+      setPollError(err instanceof Error ? err.message : 'Failed to submit standalone query');
+    }
+  };
+
+  const handleStartNewQuestion = () => {
+    confirmDiscardIfDirty(() => {
+      setSelectedRunId(null);
+      setInFlightRunId(null);
+      setSelectedParentId(null);
+      onActiveQueryChange?.(null);
+      setFollowUpError(null);
+    });
+  };
+
   const selectedRun = selectedRunId ? loadedRuns[selectedRunId] || null : null;
   const running = Boolean(inFlightRunId || (selectedRun && !terminal.has(selectedRun.status)));
 
@@ -348,6 +397,33 @@ export function WorkspaceView({
               Dismiss view
             </button>
           )}
+        </div>
+      )}
+
+      {followUpError && (
+        <div role="alert" className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{followUpError.message}</p>
+            <button
+              type="button"
+              onClick={() => setFollowUpError(null)}
+              className="text-xs text-amber-700 hover:text-amber-900 underline"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="flex items-center space-x-3 pt-1">
+            <button
+              type="button"
+              onClick={() => handleAskStandalone(followUpError.question)}
+              className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded shadow-sm transition-colors"
+            >
+              Ask as a standalone question
+            </button>
+            <span className="text-xs text-amber-800">
+              Starts a fresh question without inheriting previous context or schema assumptions.
+            </span>
+          </div>
         </div>
       )}
 
@@ -431,6 +507,13 @@ export function WorkspaceView({
                   .catch(() => setPollError('Rerun failed'));
               }
             }}
+          />
+
+          <FollowUpBar
+            parent={selectedRun as PublicRunCompleted}
+            onSubmit={handleFollowUpSubmit}
+            onStartNewQuestion={handleStartNewQuestion}
+            disabled={running}
           />
         </div>
       )}

@@ -110,7 +110,7 @@ describe('Workspace Selection State and Manual SQL Execution (Task 10)', () => {
 
     // Open editor
     fireEvent.click(screen.getByRole('button', { name: /edit sql/i }));
-    const textarea = screen.getByRole('textbox', { name: /sql editor/i });
+    const textarea = await screen.findByRole('textbox', { name: /sql editor/i });
     fireEvent.change(textarea, { target: { value: 'SELECT id, email, created_at FROM customers LIMIT 100;' } });
 
     // Click Run Edited SQL

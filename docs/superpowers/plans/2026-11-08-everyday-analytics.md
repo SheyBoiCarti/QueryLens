@@ -310,11 +310,11 @@ Implemented on `feat/everyday-analytics-persistence`; verification and API behav
 
 **Interfaces:** FollowUpBar({parent: PublicRunCompleted,onSubmit(question,parentQueryId),onStartNewQuestion,disabled}) shows selected parent and authorized filters. Reuse selected-parent state and history/retained-answer selection, never the last-completed request implicitly.
 
-- [ ] **1. Write failing full-workspace branching tests.** Complete A, follow up B, select A, submit C, assert C uses A's ID/scope. Fail B and retain A. Start-new clears parent; connection change clears protected context after draft confirmation. Test manual/saved/expired-row parents, stale/foreign/incomplete errors, aborts, and out-of-order replies.
-- [ ] **2. Run red:** npm test --prefix apps/web -- src/__tests__/followup_workflow.test.tsx.
-- [ ] **3. Implement selected-parent workflow.** Successful parent stays independent of failed/in-flight child. Show inherited scope before submit and resolved filters afterward. Stale/oversized context offers an explicit standalone-question action; no silent fallback or clarification wizard. Use shared accepted-run polling.
-- [ ] **4. Verify through workspace/history navigation, not callback-only tests.** Include standalone requests, connection reset, and expired-row metadata eligibility. Run focused/workspace tests and typecheck.
-- [ ] **5. Commit verified branching UI.**
+- [x] **1. Write failing full-workspace branching tests.** Complete A, follow up B, select A, submit C, assert C uses A's ID/scope. Fail B and retain A. Start-new clears parent; connection change clears protected context after draft confirmation. Test manual/saved/expired-row parents, stale/foreign/incomplete errors, aborts, and out-of-order replies.
+- [x] **2. Run red:** npm test --prefix apps/web -- src/__tests__/followup_workflow.test.tsx.
+- [x] **3. Implement selected-parent workflow.** Successful parent stays independent of failed/in-flight child. Show inherited scope before submit and resolved filters afterward. Stale/oversized context offers an explicit standalone-question action; no silent fallback or clarification wizard. Use shared accepted-run polling.
+- [x] **4. Verify through workspace/history navigation, not callback-only tests.** Include standalone requests, connection reset, and expired-row metadata eligibility. Run focused/workspace tests and typecheck.
+- [x] **5. Commit verified branching UI.**
 
 ### Task 13: Contract Parity and Complete Feature Acceptance Gates
 
