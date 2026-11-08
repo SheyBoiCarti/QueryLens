@@ -1,6 +1,5 @@
 """Test deterministic fixture generation and reproducibility (Contracts C05, C10)."""
 
-import pytest
 import sqlalchemy as sa
 from datasets.generator import compute_dataset_hash, generate_dataset_records, seed_dataset
 
@@ -27,7 +26,9 @@ def test_generator_deterministic_hash():
 
 
 def test_seed_dataset_sqlite_in_memory():
-    engine = sa.create_engine("sqlite:///:memory:")
+    engine = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     ddl_statements = [
         """CREATE TABLE departments (
             id VARCHAR(36) PRIMARY KEY,
@@ -113,4 +114,3 @@ def test_seed_dataset_sqlite_in_memory():
         assert result["counts"]["employees"] == 5
         assert result["counts"]["orders"] == 4
         assert result["counts"]["line_items"] == 6
-

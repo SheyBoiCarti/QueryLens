@@ -6,18 +6,18 @@ import re
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from querylens.api.errors import NotFoundError
 from querylens.auth.dependencies import get_current_user
 from querylens.auth.ownership import verify_query_run_ownership
 from querylens.export.csv import ResultTooLargeError, generate_csv_string
 from querylens.jobs.results import get_result_cache
 from querylens.persistence.repositories.query_runs import QueryRunRepository
+from querylens.schema.catalog import CatalogService
 
 router = APIRouter(prefix="/queries", tags=["exports"])
 
 
 @router.get("/{query_id}/export")
-async def export_query_results(
+def export_query_results(
     query_id: str,
     format: str = Query("csv", description="Target export format"),
     current_user: dict[str, Any] = Depends(get_current_user),
@@ -37,7 +37,9 @@ async def export_query_results(
 
     # 3. Retrieve from volatile cache
     cache = get_result_cache()
-    cached = cache.get(query_id)
+    run = QueryRunRepository().get(query_id, user_id=user_id)
+    catalog = CatalogService().get_catalog(user_id, run["connection_id"])
+    cached = cache.get(query_id, catalog.snapshot_hash)
 
     # 4. If cache has expired / been evicted, return 410 Gone (Contract C09)
     if cached is None:

@@ -21,6 +21,7 @@ dependencies = [
     "argon2-cffi>=23.1.0",
     "sqlglot>=23.11.0",
     "httpx>=0.27.0",
+    "certifi>=2024.2.2",
     "jinja2>=3.1.3",
     "click>=8.1.7",
 ]
@@ -51,12 +52,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F"]
-ignore = ["E501", "F401", "F841", "E402"]
+ignore = ["E501", "E402"]
 
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
-check_untyped_defs = false
+check_untyped_defs = true
 disallow_untyped_defs = false
-disable_error_code = ["import-untyped", "return-value", "arg-type", "assignment", "index", "attr-defined", "call-arg", "union-attr"]
+disable_error_code = ["import-untyped"]
 

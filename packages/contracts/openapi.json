@@ -533,6 +533,17 @@
             "title": "Target Columns",
             "type": "array"
           },
+          "target_namespace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Namespace"
+          },
           "target_table": {
             "description": "Referenced target table",
             "title": "Target Table",
@@ -582,6 +593,78 @@
           "status"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "HistoryItem": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "max_rows": {
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "results_available": {
+            "title": "Results Available",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "question",
+          "status",
+          "created_at",
+          "max_rows",
+          "results_available"
+        ],
+        "title": "HistoryItem",
+        "type": "object"
+      },
+      "HistoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "HistoryResponse",
         "type": "object"
       },
       "IndexMetadata": {
@@ -712,7 +795,7 @@
             "type": "string"
           },
           "table": {
-            "pattern": "^[a-zA-Z0-9_]+$",
+            "pattern": "^[a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)?$",
             "title": "Table",
             "type": "string"
           },
@@ -826,6 +909,378 @@
           "enabled"
         ],
         "title": "MetricResponse",
+        "type": "object"
+      },
+      "PublicColumn": {
+        "properties": {
+          "db_type": {
+            "title": "Db Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "integer",
+              "decimal",
+              "float",
+              "string",
+              "boolean",
+              "date",
+              "datetime"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "db_type"
+        ],
+        "title": "PublicColumn",
+        "type": "object"
+      },
+      "PublicRunCancelled": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "query_id": {
+            "title": "Query Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "safe_message": {
+            "title": "Safe Message",
+            "type": "string"
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "status": {
+            "const": "cancelled",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_id",
+          "connection_id",
+          "state_version",
+          "question",
+          "created_at",
+          "updated_at",
+          "status",
+          "safe_message"
+        ],
+        "title": "PublicRunCancelled",
+        "type": "object"
+      },
+      "PublicRunClarification": {
+        "additionalProperties": false,
+        "properties": {
+          "clarification_question": {
+            "title": "Clarification Question",
+            "type": "string"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "query_id": {
+            "title": "Query Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "status": {
+            "const": "clarification_required",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_id",
+          "connection_id",
+          "state_version",
+          "question",
+          "created_at",
+          "updated_at",
+          "status",
+          "clarification_question"
+        ],
+        "title": "PublicRunClarification",
+        "type": "object"
+      },
+      "PublicRunCompleted": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/PublicColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "dialect": {
+            "enum": [
+              "postgresql",
+              "mysql"
+            ],
+            "title": "Dialect",
+            "type": "string"
+          },
+          "query_id": {
+            "title": "Query Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "results_available": {
+            "title": "Results Available",
+            "type": "boolean"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          },
+          "sql": {
+            "title": "Sql",
+            "type": "string"
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "status": {
+            "const": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query_id",
+          "connection_id",
+          "state_version",
+          "question",
+          "created_at",
+          "updated_at",
+          "status",
+          "dialect",
+          "sql",
+          "assumptions",
+          "warnings",
+          "columns",
+          "row_count",
+          "truncated",
+          "results_available"
+        ],
+        "title": "PublicRunCompleted",
+        "type": "object"
+      },
+      "PublicRunFailed": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "query_id": {
+            "title": "Query Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "safe_message": {
+            "title": "Safe Message",
+            "type": "string"
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "failed",
+              "rejected",
+              "interrupted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_id",
+          "connection_id",
+          "state_version",
+          "question",
+          "created_at",
+          "updated_at",
+          "status",
+          "error_code",
+          "safe_message"
+        ],
+        "title": "PublicRunFailed",
+        "type": "object"
+      },
+      "PublicRunPending": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "query_id": {
+            "title": "Query Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "contextualizing",
+              "generating",
+              "validating",
+              "executing",
+              "repairing",
+              "cancelling"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_id",
+          "connection_id",
+          "state_version",
+          "question",
+          "created_at",
+          "updated_at",
+          "status"
+        ],
+        "title": "PublicRunPending",
         "type": "object"
       },
       "QueryAttemptResponse": {
@@ -1726,6 +2181,55 @@
         ]
       }
     },
+    "/api/v1/connections/{connection_id}/schema/discover/columns": {
+      "get": {
+        "operationId": "discover_columns_api_v1_connections__connection_id__schema_discover_columns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response Discover Columns Api V1 Connections  Connection Id  Schema Discover Columns Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discover Columns",
+        "tags": [
+          "schema"
+        ]
+      }
+    },
     "/api/v1/connections/{connection_id}/schema/refresh": {
       "post": {
         "description": "Trigger reflection and atomically update the catalog snapshot.",
@@ -1970,7 +2474,134 @@
         ]
       }
     },
+    "/api/v1/queries/history": {
+      "get": {
+        "description": "Retrieve owner-filtered query history with stable keyset pagination (Contract C09).",
+        "operationId": "get_query_history_api_v1_queries_history_get",
+        "parameters": [
+          {
+            "description": "Keyset pagination cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keyset pagination cursor",
+              "title": "Cursor"
+            }
+          },
+          {
+            "description": "Items per page (max 100)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Items per page (max 100)",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Query History",
+        "tags": [
+          "history"
+        ]
+      }
+    },
     "/api/v1/queries/{query_id}": {
+      "delete": {
+        "description": "Delete a query run and cascade-evict associated attempts and cached rows (Contracts C02, C09).",
+        "operationId": "delete_query_api_v1_queries__query_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Query Api V1 Queries  Query Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Query",
+        "tags": [
+          "history"
+        ]
+      },
       "get": {
         "description": "Retrieve query status, generated SQL, bounded results, or actionable clarification (Contract C08).",
         "operationId": "get_query_api_v1_queries__query_id__get",
@@ -1990,9 +2621,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Query Api V1 Queries  Query Id  Get",
-                  "type": "object"
+                  "discriminator": {
+                    "mapping": {
+                      "cancelled": "#/components/schemas/PublicRunCancelled",
+                      "cancelling": "#/components/schemas/PublicRunPending",
+                      "clarification_required": "#/components/schemas/PublicRunClarification",
+                      "completed": "#/components/schemas/PublicRunCompleted",
+                      "contextualizing": "#/components/schemas/PublicRunPending",
+                      "executing": "#/components/schemas/PublicRunPending",
+                      "failed": "#/components/schemas/PublicRunFailed",
+                      "generating": "#/components/schemas/PublicRunPending",
+                      "interrupted": "#/components/schemas/PublicRunFailed",
+                      "queued": "#/components/schemas/PublicRunPending",
+                      "rejected": "#/components/schemas/PublicRunFailed",
+                      "repairing": "#/components/schemas/PublicRunPending",
+                      "validating": "#/components/schemas/PublicRunPending"
+                    },
+                    "propertyName": "status"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PublicRunCompleted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicRunClarification"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicRunFailed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicRunCancelled"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PublicRunPending"
+                    }
+                  ],
+                  "title": "Response Get Query Api V1 Queries  Query Id  Get"
                 }
               }
             },
@@ -2075,6 +2739,59 @@
         "summary": "Cancel Query",
         "tags": [
           "queries"
+        ]
+      }
+    },
+    "/api/v1/queries/{query_id}/export": {
+      "get": {
+        "description": "Stream bounded, sanitized CSV results from volatile memory (Contract C09).",
+        "operationId": "export_query_results_api_v1_queries__query_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target export format",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "Target export format",
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Query Results",
+        "tags": [
+          "exports"
         ]
       }
     },

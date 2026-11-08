@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 export type AppRoute = 'connections' | 'schema' | 'ask' | 'history' | 'diagnostics' | 'login';
 

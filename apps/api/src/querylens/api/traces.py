@@ -60,7 +60,7 @@ def get_trace(user_id: str, query_id: str) -> dict[str, Any]:
 
 
 @router.get("/{query_id}/trace", response_model=QueryTraceResponse)
-async def get_query_trace_endpoint(
+def get_query_trace_endpoint(
     query_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> QueryTraceResponse:

@@ -5,7 +5,6 @@ import pytest
 from querylens.domain.schema import CatalogSnapshot, ColumnMetadata, TableMetadata
 from querylens.evaluation.comparison import compare_result_sets
 from querylens.sql.functions import FunctionPolicyError
-from querylens.sql.limits import LimitPolicyError
 from querylens.sql.parse import SQLParseError, parse_query
 from querylens.sql.policy import SQLPolicyViolationError, validate_and_bound_sql
 

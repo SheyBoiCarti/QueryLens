@@ -2,27 +2,30 @@
 
 from __future__ import annotations
 
+from typing import cast
 import sqlglot
 from sqlglot import exp
+from querylens.config import get_settings
 
 MAX_SQL_BYTES = 32768
 
 
 class SQLParseError(Exception):
     """Raised when SQL parsing fails or violates AST structural constraints."""
+
     pass
 
 
 def parse_query(sql: str, dialect: str) -> exp.Expression:
     """Parse raw SQL query into a single SQLGlot AST expression.
-    
+
     Validates single-statement constraint and dialect compatibility.
     """
     if not sql or not sql.strip():
         raise SQLParseError("Query string is empty")
 
     raw_bytes = sql.encode("utf-8")
-    if len(raw_bytes) > MAX_SQL_BYTES:
+    if len(raw_bytes) > get_settings().max_sql_bytes:
         raise SQLParseError(f"SQL exceeds maximum allowed length of {MAX_SQL_BYTES} bytes")
 
     dialect_map = {
@@ -45,4 +48,4 @@ def parse_query(sql: str, dialect: str) -> exp.Expression:
     if len(valid_stmts) > 1:
         raise SQLParseError(f"Multi-statement execution is forbidden; found {len(valid_stmts)} statements")
 
-    return valid_stmts[0]
+    return cast(exp.Expression, valid_stmts[0])

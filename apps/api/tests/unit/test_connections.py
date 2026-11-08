@@ -130,11 +130,10 @@ def test_registry_pool_eviction():
 
     e1 = DummyEngine()
     e2 = DummyEngine()
-    e3 = DummyEngine()
 
     from querylens.connections.registry import PoolEntry
-    registry._pools["c1"] = PoolEntry(engine=e1, last_used=100.0)
-    registry._pools["c2"] = PoolEntry(engine=e2, last_used=200.0)
+    registry._pools["c1"] = PoolEntry(engine=e1, last_used=100.0, signature=())
+    registry._pools["c2"] = PoolEntry(engine=e2, last_used=200.0, signature=())
 
     # Add 3rd: c1 should be evicted and disposed
     assert len(registry._pools) == 2

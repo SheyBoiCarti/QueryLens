@@ -1,112 +1,81 @@
-"""Identifier resolution and authorization checks against catalog snapshot (Contract C05, C06)."""
+"""Authorize physical relations before scoped SQLGlot column resolution."""
 
 from __future__ import annotations
 
 from sqlglot import exp
+from sqlglot.errors import OptimizeError, SchemaError
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+from sqlglot.optimizer.qualify import qualify
+from sqlglot.optimizer.scope import traverse_scope
+from sqlglot.schema import MappingSchema
+
 from querylens.domain.schema import CatalogSnapshot
 
 
 class IdentifierPolicyError(Exception):
-    """Raised when an unauthorized table or column is referenced."""
-    pass
+    """An identifier cannot be resolved exclusively from the authorized catalog."""
 
 
 def resolve_identifiers(ast: exp.Expression, snapshot: CatalogSnapshot) -> list[str]:
-    """Resolve and validate all table and column identifiers in AST.
-    
-    Returns:
-        List of authorized physical identifiers referenced in query.
+    """Validate physical namespaces, then resolve aliases, CTEs and stars per scope.
+
+    Missing tables/columns are never inferred from SQL or the remote database.
+    Unqualified relations must identify exactly one authorized physical table.
     """
-    visible_tables: dict[str, set[str]] = {
-        t.name.lower(): {c.name.lower() for c in t.columns}
-        for t in snapshot.tables
-    }
+    dialect = "postgres" if snapshot.engine == "postgresql" else snapshot.engine
+    normalize_identifiers(ast, dialect=dialect)
+    visible = {(t.namespace, t.name): t for t in snapshot.tables}
+    schema = MappingSchema(dialect=dialect, normalize=False)
+    for table in snapshot.tables:
+        schema.add_table(
+            exp.Table(
+                this=exp.to_identifier(table.name, quoted=True), db=exp.to_identifier(table.namespace, quoted=True)
+            ),
+            {column.name: column.db_type for column in table.columns},
+            normalize=False,
+        )
 
-    # Track CTE names in query
-    cte_names: set[str] = set()
-    for cte in ast.find_all(exp.CTE):
-        cte_alias = cte.alias_or_name.lower()
-        cte_names.add(cte_alias)
-    for sub in ast.find_all(exp.Subquery):
-        if sub.alias:
-            cte_names.add(sub.alias.lower())
+    permitted: set[str] = set()
+    try:
+        for scope in traverse_scope(ast):
+            for _, source in scope.selected_sources.values():
+                if not isinstance(source, exp.Table):
+                    continue  # Derived/CTE scopes are validated independently.
+                if not isinstance(source.this, exp.Identifier) or source.catalog:
+                    raise IdentifierPolicyError("Catalog-qualified and dynamic table sources are prohibited")
+                candidates = [
+                    table
+                    for (namespace, name), table in visible.items()
+                    if name == source.name and (not source.db or namespace == source.db)
+                ]
+                if len(candidates) != 1:
+                    raise IdentifierPolicyError(f"Table '{source.sql()}' is not uniquely authorized")
+                table = candidates[0]
+                if not table.columns:
+                    raise IdentifierPolicyError(f"Table '{table.name}' has no authorized columns")
+                source.set("db", exp.to_identifier(table.namespace, quoted=True))
+                permitted.add(f"{table.namespace}.{table.name}")
 
-    # Track column aliases defined in query projections
-    select_aliases: set[str] = {
-        a.alias.lower() for a in ast.find_all(exp.Alias) if a.alias
-    }
-
-    referenced_identifiers: set[str] = set()
-    table_aliases: dict[str, str] = {}
-
-    # 1. Validate Table references
-    for table_node in ast.find_all(exp.Table):
-        t_name = table_node.name.lower()
-        if not t_name:
-            continue
-
-        # If it's a CTE alias, it's valid within scope
-        if t_name in cte_names:
-            continue
-
-        if t_name not in visible_tables:
-            raise IdentifierPolicyError(f"Table '{table_node.name}' is not in visible schema catalog")
-
-        referenced_identifiers.add(t_name)
-        table_aliases[t_name] = t_name
-        if table_node.alias:
-            table_aliases[table_node.alias.lower()] = t_name
-
-    # 2. Expand star projections if present
-    for select in ast.find_all(exp.Select):
-        new_expressions = []
-        for expr in select.expressions:
-            if isinstance(expr, exp.Star):
-                # Expand star to visible columns from from/join tables
-                expanded = False
-                for t_node in select.find_all(exp.Table):
-                    t_name = t_node.name.lower()
-                    if t_name in visible_tables:
-                        cols = sorted(visible_tables[t_name])
-                        for col in cols:
-                            new_expressions.append(exp.Column(this=exp.to_identifier(col), table=exp.to_identifier(t_name)))
-                        expanded = True
-                if not expanded:
-                    # If count(*), keep it
-                    new_expressions.append(expr)
-            else:
-                new_expressions.append(expr)
-        select.set("expressions", new_expressions)
-
-    # 3. Validate Column references (excluding star)
-    for col_node in ast.find_all(exp.Column):
-        c_name = col_node.name.lower()
-        t_name = col_node.table.lower() if col_node.table else None
-
-        if not c_name or c_name == "*":
-            continue
-
-        if t_name:
-            if t_name in cte_names:
-                continue
-            # Map alias to physical table name
-            phys_table = table_aliases.get(t_name, t_name)
-            if phys_table in cte_names:
-                continue
-            if phys_table not in visible_tables:
-                raise IdentifierPolicyError(f"Table '{col_node.table}' referenced in column '{col_node.sql()}' is unauthorized")
-            if c_name not in visible_tables[phys_table]:
-                raise IdentifierPolicyError(f"Column '{c_name}' on table '{phys_table}' is not in visible schema catalog")
-        else:
-            # Unqualified column: can be projection alias, CTE column, or belong to a visible table
-            if c_name in select_aliases or cte_names:
-                found = True
-            else:
-                found = any(c_name in cols for cols in visible_tables.values())
-
-            if not found:
-                raise IdentifierPolicyError(f"Unqualified column '{c_name}' not found in authorized catalog")
-
-        referenced_identifiers.add(c_name)
-
-    return sorted(list(referenced_identifiers))
+        for column in ast.find_all(exp.Column):
+            if column.catalog or (column.db and (column.db, column.table) not in visible):
+                raise IdentifierPolicyError("Column namespace is not in the authorized catalog")
+        qualify(
+            ast,
+            dialect=dialect,
+            schema=schema,
+            expand_stars=True,
+            allow_partial_qualification=False,
+            validate_qualify_columns=True,
+            quote_identifiers=True,
+        )
+        for select in ast.find_all(exp.Select):
+            if any(projection.is_star for projection in select.expressions):
+                raise IdentifierPolicyError("Projection star could not be expanded from authorized columns")
+        if ast.find(exp.TableColumn):
+            raise IdentifierPolicyError("Whole-row composite references are prohibited; select authorized columns")
+        for column in ast.find_all(exp.Column):
+            if not column.is_star:
+                permitted.add(column.sql(dialect=dialect))
+    except (OptimizeError, SchemaError) as exc:
+        raise IdentifierPolicyError(f"Identifier resolution failed: {exc}") from exc
+    return sorted(permitted)

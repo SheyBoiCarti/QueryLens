@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, status
 
 from querylens.api.schemas import StatusResponse
 from querylens.auth.dependencies import get_current_user, verify_csrf_token
@@ -23,7 +23,7 @@ def get_connection_service() -> ConnectionService:
 
 
 @router.post("", response_model=ConnectionResponse, status_code=status.HTTP_201_CREATED)
-async def create_connection(
+def create_connection(
     payload: ConnectionCreate,
     current_user: dict[str, Any] = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf_token),
@@ -34,7 +34,7 @@ async def create_connection(
 
 
 @router.get("", response_model=list[ConnectionResponse])
-async def list_connections(
+def list_connections(
     current_user: dict[str, Any] = Depends(get_current_user),
     service: ConnectionService = Depends(get_connection_service),
 ) -> list[ConnectionResponse]:
@@ -43,7 +43,7 @@ async def list_connections(
 
 
 @router.get("/{connection_id}", response_model=ConnectionResponse)
-async def get_connection(
+def get_connection(
     connection_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
     service: ConnectionService = Depends(get_connection_service),
@@ -53,7 +53,7 @@ async def get_connection(
 
 
 @router.patch("/{connection_id}", response_model=ConnectionResponse)
-async def update_connection(
+def update_connection(
     connection_id: str,
     payload: ConnectionUpdate,
     current_user: dict[str, Any] = Depends(get_current_user),
@@ -65,7 +65,7 @@ async def update_connection(
 
 
 @router.delete("/{connection_id}", response_model=StatusResponse)
-async def delete_connection(
+def delete_connection(
     connection_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf_token),
@@ -77,7 +77,7 @@ async def delete_connection(
 
 
 @router.post("/{connection_id}/test", response_model=ConnectionTestResponse)
-async def test_connection_endpoint(
+def test_connection_endpoint(
     connection_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf_token),

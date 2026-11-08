@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from querylens.evaluation.cases import EvaluationCase
 from querylens.evaluation.metrics import EvaluationMetrics, compute_metrics
@@ -40,7 +40,9 @@ def run_ablations(
             AblationConfig(name="full_pipeline", use_schema_ranking=True, use_few_shot=True, use_repair=True),
             AblationConfig(name="no_repair", use_schema_ranking=True, use_few_shot=True, use_repair=False),
             AblationConfig(name="no_few_shot", use_schema_ranking=True, use_few_shot=False, use_repair=True),
-            AblationConfig(name="no_ranking_no_fewshot", use_schema_ranking=False, use_few_shot=False, use_repair=False),
+            AblationConfig(
+                name="no_ranking_no_fewshot", use_schema_ranking=False, use_few_shot=False, use_repair=False
+            ),
         ]
 
     cases = heldout_cases or []
@@ -71,16 +73,18 @@ def run_ablations(
                     if hash(case.id) % 5 == 0:
                         correct = False
 
-            simulated_results.append({
-                "case_id": case.id,
-                "category": case.category,
-                "expected_behavior": case.expected_behavior,
-                "executed": executed,
-                "correct": correct,
-                "security_passed": (case.expected_behavior != "rejected" or True),
-                "unsafe_executed": False,
-                "latency_ms": 25.0 if cfg.use_repair else 15.0,
-            })
+            simulated_results.append(
+                {
+                    "case_id": case.id,
+                    "category": case.category,
+                    "expected_behavior": case.expected_behavior,
+                    "executed": executed,
+                    "correct": correct,
+                    "security_passed": (case.expected_behavior != "rejected" or True),
+                    "unsafe_executed": False,
+                    "latency_ms": 25.0 if cfg.use_repair else 15.0,
+                }
+            )
 
         m = compute_metrics(
             results=simulated_results,

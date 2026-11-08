@@ -31,6 +31,7 @@ PROHIBITED_NODES = (
 
 class SQLPolicyViolationError(Exception):
     """Raised when query violates security policy (read-only, locks, DDL, etc.)."""
+
     pass
 
 
@@ -69,8 +70,7 @@ def validate_and_bound_sql(
             raise SQLPolicyViolationError(f"Prohibited SQL construct detected: {node_type.__name__}")
 
     # 4. Check for recursive CTEs in AST
-    with_node = ast.find(exp.With)
-    if with_node and with_node.args.get("recursive"):
+    if any(node.args.get("recursive") for node in ast.find_all(exp.With)):
         raise SQLPolicyViolationError("Recursive CTEs are strictly prohibited")
 
     # 7. Validate functions allowlist

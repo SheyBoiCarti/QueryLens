@@ -3,11 +3,9 @@
 
 {
     admin off
-    auto_https off
 }
 
-:443 {
-    tls internal
+{$QUERYLENS_DOMAIN:localhost} {
 
     # Security Headers
     header {

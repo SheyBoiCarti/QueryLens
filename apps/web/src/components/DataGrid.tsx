@@ -9,7 +9,7 @@ export interface ColumnMeta {
 
 export interface DataGridProps {
   columns: ColumnMeta[];
-  rows: Record<string, any>[];
+  rows: Record<string, string | number | boolean | null>[];
   truncated?: boolean;
 }
 
@@ -84,7 +84,7 @@ export function DataGrid({ columns, rows, truncated = false }: DataGridProps): R
                       >
                         <span>{col.name}</span>
                         <span className="text-slate-400 text-xs">
-                          {isSorted ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+                          {isSorted ? (sortDir === 'asc' ? 'â–²' : 'â–¼') : 'â†•'}
                         </span>
                       </button>
                     </th>

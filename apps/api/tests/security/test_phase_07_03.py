@@ -16,7 +16,6 @@ import pytest
 from querylens.domain.schema import CatalogSnapshot, ColumnMetadata, TableMetadata
 from querylens.pipeline.classifier import classify_pipeline_error
 from querylens.pipeline.context import SchemaContext
-from querylens.pipeline.errors import ClassifiedError
 from querylens.pipeline.repair_context import assemble_repair_context
 from querylens.sql.policy import SQLPolicyViolationError, validate_and_bound_sql
 

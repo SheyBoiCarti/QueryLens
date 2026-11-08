@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from fastapi import APIRouter, Depends, Header, Request, Response, status
+from fastapi import APIRouter, Depends, Header, Request, Response
 
 from querylens.api.errors import (
     ForbiddenError,
@@ -17,16 +17,16 @@ from querylens.api.schemas import (
     StatusResponse,
     UserResponse,
 )
-from querylens.auth.crypto import generate_csrf_token, verify_password
+from querylens.auth.crypto import verify_password
 from querylens.auth.dependencies import (
     get_auth_service,
     get_current_user,
-    get_session_csrf,
-    register_session_csrf,
-    remove_session_csrf,
+    derive_csrf_token,
+    verify_csrf_token,
 )
 from querylens.auth.service import AuthService, check_rate_limit, record_login_attempt
 from querylens.config import Settings, get_settings
+from querylens.utils.workers import run_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -61,15 +61,18 @@ async def login(
     if not allowed:
         raise RateLimitError(retry_after=retry_after)
 
+    # Reserve this attempt before password verification yields to other requests.
+    record_login_attempt(client_ip, payload.email, True)
+
     # Fetch user
-    user = auth_service.get_user_by_email(payload.email)
+    user = await run_db(auth_service.get_user_by_email, payload.email)
     password_hash = user["password_hash"] if user else None
 
     # Verify password (dummy check if user is None for constant-time)
     is_valid = await verify_password(payload.password, password_hash)
 
     # Record rate limit attempt
-    record_login_attempt(client_ip, payload.email, is_valid)
+    record_login_attempt(client_ip, payload.email, is_valid, record_total=False)
 
     if not is_valid or not user:
         raise UnauthorizedError("Invalid email or password")
@@ -77,18 +80,18 @@ async def login(
     # Revoke old session presented in cookie if any (rotation)
     old_cookie = request.cookies.get(settings.session_cookie_name)
     if old_cookie:
-        auth_service.revoke_session(old_cookie)
+        await run_db(auth_service.revoke_session, old_cookie)
 
     # Create new session
-    session_id, raw_token = auth_service.create_session(
+    session_id, raw_token = await run_db(
+        auth_service.create_session,
         user["id"],
         absolute_expiry_sec=settings.session_absolute_expiry_sec,
         max_active=settings.max_active_sessions_per_user,
     )
 
     # Generate session-bound CSRF token
-    csrf_token = generate_csrf_token()
-    register_session_csrf(session_id, csrf_token)
+    csrf_token = derive_csrf_token(raw_token)
 
     # Set session cookie with C02 attributes
     response.set_cookie(
@@ -120,17 +123,17 @@ async def logout(
     settings: Settings = Depends(get_settings),
 ) -> StatusResponse:
     """Log out user, revoking the active session and clearing the cookie."""
+    await verify_csrf_token(request, request.headers.get("X-CSRF-Token"), current_user, settings)
     token = getattr(request.state, "session_token", None)
     if token:
-        auth_service.revoke_session(token)
-
-    session_id = current_user.get("session_id")
-    if session_id:
-        remove_session_csrf(session_id)
+        await run_db(auth_service.revoke_session, token)
 
     response.delete_cookie(
         key=settings.session_cookie_name,
         path=settings.session_cookie_path,
+        secure=settings.session_cookie_secure,
+        httponly=settings.session_cookie_httponly,
+        samesite=settings.session_cookie_samesite,
     )
     return StatusResponse(status="logged_out")
 
@@ -149,12 +152,8 @@ async def get_me(
 
 @router.get("/csrf", response_model=CsrfResponse)
 async def get_csrf(
+    request: Request,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> CsrfResponse:
     """Return session-bound CSRF token for authenticated requests."""
-    session_id = current_user.get("session_id")
-    csrf_token = get_session_csrf(session_id)
-    if not csrf_token:
-        csrf_token = generate_csrf_token()
-        register_session_csrf(session_id, csrf_token)
-    return CsrfResponse(csrf_token=csrf_token)
+    return CsrfResponse(csrf_token=derive_csrf_token(request.state.session_token))

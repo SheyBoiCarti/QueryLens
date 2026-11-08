@@ -114,7 +114,7 @@ export function MetricEditor({ connectionId, onSaved, onCancel }: MetricEditorPr
           </label>
           <select
             value={aggregation}
-            onChange={(e) => setAggregation(e.target.value as any)}
+            onChange={(e) => setAggregation(e.target.value as typeof aggregation)}
             className="w-full px-3 py-2 border rounded-md text-sm bg-white"
           >
             <option value="sum">SUM</option>

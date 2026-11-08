@@ -5,7 +5,7 @@ import json
 import logging
 import pytest
 from querylens.config import SecurityProfileError, Settings, validate_security_profile
-from querylens.observability.logging import StructuredJsonFormatter, log_event
+from querylens.observability.logging import StructuredJsonFormatter
 from querylens.observability.metrics import get_metrics_snapshot, record_security_event, record_stage_metrics
 
 
@@ -13,6 +13,8 @@ def test_production_security_profile_validation():
     # 1. Base invalid production settings
     settings = Settings(
         environment="production",
+        allowed_origins=["https://querylens.example"],
+        metadata_database_url="postgresql://localhost/querylens",
         session_cookie_secure=False,
         session_cookie_name="querylens_session",
         credential_keys_file=None,

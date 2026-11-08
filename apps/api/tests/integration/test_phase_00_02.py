@@ -7,9 +7,9 @@ import logging
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from querylens.config import Settings
+from querylens.config import SecurityProfileError, Settings
 from querylens.main import create_app
-from querylens.api.health import set_metadata_probe
+from querylens.api.health import set_metadata_probe, set_runtime_ready
 from querylens.utils.workers import run_db
 from querylens.observability.logging import log_event, get_logger, StructuredJsonFormatter
 
@@ -18,6 +18,7 @@ from querylens.observability.logging import log_event, get_logger, StructuredJso
 async def test_health_liveness_and_readiness_probes():
     """Liveness 200 and readiness 503/200 based on metadata probe."""
     app = create_app(Settings(environment="test"))
+    set_runtime_ready(True)
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -68,7 +69,7 @@ async def test_bounded_db_worker_responsiveness():
 def test_production_settings_validation():
     """Missing production secrets/insecure settings fail startup."""
     # Insecure cookie
-    with pytest.raises(ValueError, match="session_cookie_secure must be True in production"):
+    with pytest.raises(SecurityProfileError, match="session_cookie_secure"):
         Settings(
             environment="production",
             session_cookie_secure=False,
@@ -79,11 +80,13 @@ def test_production_settings_validation():
         ).validate_for_production()
 
     # Fake LLM in production
-    with pytest.raises(ValueError, match="Cannot use fake LLM provider in production"):
+    with pytest.raises(SecurityProfileError, match="forbids fake LLM provider"):
         Settings(
             environment="production",
             session_cookie_secure=True,
             session_cookie_name="__Host-querylens_session",
+            allowed_origins=["https://querylens.example"],
+            metadata_database_url="postgresql://localhost/querylens",
             llm_provider="fake",
             credential_keys_file="/path/keys.json",
             credential_active_key_id="key1",

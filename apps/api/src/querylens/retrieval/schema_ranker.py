@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Sequence
 from querylens.domain.schema import CatalogSnapshot, TableMetadata
 
 SYNONYMS: dict[str, list[str]] = {

@@ -8,7 +8,7 @@ import math
 from typing import Any, Sequence
 
 from querylens.domain.schema import CanonicalType
-from querylens.schema.normalizer import normalize_data_type
+from querylens.config import get_settings
 
 MAX_CELL_BYTES = 65536
 MAX_RESULT_BYTES = 1048576
@@ -16,15 +16,17 @@ MAX_RESULT_BYTES = 1048576
 
 class SerializationError(Exception):
     """Raised when serialization limits are exceeded or invalid types encountered."""
+
     pass
 
 
 def serialize_cell(value: Any) -> tuple[Any, CanonicalType, int]:
     """Serialize single cell value into canonical JSON-compatible form.
-    
+
     Returns:
         (serialized_value, canonical_type, byte_length)
     """
+    max_cell_bytes = get_settings().max_cell_bytes
     if value is None:
         return None, "string", 4
 
@@ -35,7 +37,7 @@ def serialize_cell(value: Any) -> tuple[Any, CanonicalType, int]:
     if isinstance(value, int):
         s_val = str(value)
         b_len = len(s_val.encode("utf-8"))
-        if b_len > MAX_CELL_BYTES:
+        if b_len > max_cell_bytes:
             raise SerializationError(f"Cell size exceeds {MAX_CELL_BYTES} bytes")
         return s_val, "integer", b_len
 
@@ -43,7 +45,7 @@ def serialize_cell(value: Any) -> tuple[Any, CanonicalType, int]:
     if isinstance(value, Decimal):
         s_val = str(value)
         b_len = len(s_val.encode("utf-8"))
-        if b_len > MAX_CELL_BYTES:
+        if b_len > max_cell_bytes:
             raise SerializationError(f"Cell size exceeds {MAX_CELL_BYTES} bytes")
         return s_val, "decimal", b_len
 
@@ -71,7 +73,7 @@ def serialize_cell(value: Any) -> tuple[Any, CanonicalType, int]:
     # Text / String fallback
     s_val = str(value)
     b_len = len(s_val.encode("utf-8"))
-    if b_len > MAX_CELL_BYTES:
+    if b_len > max_cell_bytes:
         raise SerializationError(f"Cell size {b_len} exceeds {MAX_CELL_BYTES} bytes")
     return s_val, "string", b_len
 
@@ -82,7 +84,7 @@ def serialize_result_set(
     max_rows: int,
 ) -> tuple[list[dict[str, str]], list[dict[str, Any]], bool]:
     """Serialize full database result set.
-    
+
     Returns:
         (columns_metadata, rows, truncated)
     """
@@ -98,7 +100,18 @@ def serialize_result_set(
     serialized_rows: list[dict[str, Any]] = []
 
     # Prepare column headers
-    col_names = [col[0] for col in columns_desc]
+    col_names: list[str] = []
+    reserved = {str(col[0]) for col in columns_desc}
+    used: set[str] = set()
+    for col in columns_desc:
+        original = str(col[0])
+        name = original
+        suffix = 2
+        while name in used or (name != original and name in reserved):
+            name = f"{original}_{suffix}"
+            suffix += 1
+        used.add(name)
+        col_names.append(name)
     col_types: dict[str, CanonicalType] = {}
 
     for row in exposed_rows:
@@ -111,20 +124,21 @@ def serialize_result_set(
             if col_name not in col_types and cell_val is not None:
                 col_types[col_name] = c_type
 
-        if total_bytes > MAX_RESULT_BYTES:
+        if total_bytes > get_settings().max_result_bytes:
             raise SerializationError(f"Total result set exceeds {MAX_RESULT_BYTES} bytes (RESULT_TOO_LARGE)")
 
         serialized_rows.append(row_dict)
 
     # Build final columns metadata list
     columns_meta = []
-    for col in columns_desc:
-        c_name = col[0]
+    for c_name, col in zip(col_names, columns_desc):
         c_type = col_types.get(c_name, "string")
-        columns_meta.append({
-            "name": c_name,
-            "type": c_type,
-            "db_type": str(col[1]) if len(col) > 1 else "unknown",
-        })
+        columns_meta.append(
+            {
+                "name": c_name,
+                "type": c_type,
+                "db_type": str(col[1]) if len(col) > 1 else "unknown",
+            }
+        )
 
     return columns_meta, serialized_rows, truncated

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
@@ -100,6 +101,10 @@ class QueryRunRepository:
         error_code: str | None = None,
         safe_message: str | None = None,
         clarification_question: str | None = None,
+        assumptions: list[str] | None = None,
+        warnings: list[str] | None = None,
+        canonical_sql: str | None = None,
+        truncated: bool | None = None,
     ) -> bool:
         """Atomic state transition with terminal guard (Contract C08)."""
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -107,20 +112,19 @@ class QueryRunRepository:
         def _execute(conn: Connection) -> bool:
             # Check current status
             curr = conn.execute(
-                sa.select(query_runs.c.status, query_runs.c.state_version)
-                .where(query_runs.c.id == query_id)
+                sa.select(query_runs.c.status, query_runs.c.state_version).where(query_runs.c.id == query_id)
             ).fetchone()
             if not curr:
                 return False
 
-            curr_status, curr_ver = curr[0], curr[1]
+            curr_status = curr[0]
             # Terminal states cannot be overwritten by later events (Contract C08)
             if curr_status in TERMINAL_STATES:
                 return False
 
             updates: dict[str, Any] = {
                 "status": new_status,
-                "state_version": curr_ver + 1,
+                "state_version": query_runs.c.state_version + 1,
                 "updated_at": now,
             }
             if error_code is not None:
@@ -129,6 +133,14 @@ class QueryRunRepository:
                 updates["safe_message"] = safe_message
             if clarification_question is not None:
                 updates["clarification_question"] = clarification_question
+            if assumptions is not None:
+                updates["assumptions"] = json.dumps(assumptions)
+            if warnings is not None:
+                updates["warnings"] = json.dumps(warnings)
+            if canonical_sql is not None:
+                updates["canonical_sql"] = canonical_sql
+            if truncated is not None:
+                updates["truncated"] = truncated
 
             res = conn.execute(
                 query_runs.update()
@@ -177,6 +189,18 @@ class QueryRunRepository:
         else:
             with get_db_connection() as c:
                 c.execute(stmt)
+
+    def finish_attempt(self, attempt_id: str, status: str, error_signature: str | None = None) -> None:
+        statement = (
+            query_attempts.update()
+            .where(query_attempts.c.id == attempt_id)
+            .values(status=status, error_signature=error_signature)
+        )
+        if self._conn:
+            self._conn.execute(statement)
+        else:
+            with get_db_connection() as conn:
+                conn.execute(statement)
 
     def get_attempts(self, query_run_id: str) -> list[dict[str, Any]]:
         """Get all attempts for query in ordinal order."""
