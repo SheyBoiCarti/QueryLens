@@ -124,6 +124,12 @@ if ($targetPhase -ge "10") {
     Run-Step "Phase 10 Release & Hardening Gates" {
         & .venv/bin/pytest apps/api/tests/security/test_profiles.py apps/api/tests/integration/test_load_budgets.py -v
     }
+
+    Run-Step "Everyday Analytics Contracts & Acceptance Tests" {
+        & .venv/bin/python scripts/export_schema.py --check
+        & .venv/bin/pytest apps/api/tests/unit/test_analytics_contracts.py apps/api/tests/integration/test_everyday_analytics_e2e.py -v
+        & npm run test --workspace=apps/web -- src/__tests__/analytics_contracts.test.ts
+    }
 }
 
 Write-Host "=== VERIFICATION GATE PASSED FOR PHASE $targetPhase ===" -ForegroundColor Green

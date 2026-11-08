@@ -1,0 +1,260 @@
+{
+  "requests": {
+    "nl_query": {
+      "connection_id": "conn-uuid-1",
+      "question": "Total sales by region for 2026",
+      "max_rows": 100
+    },
+    "manual_sql": {
+      "connection_id": "conn-uuid-1",
+      "sql": "SELECT region, SUM(amount) AS total FROM sales GROUP BY region LIMIT 101;",
+      "source_query_id": "query-uuid-nl-1",
+      "max_rows": 100
+    },
+    "followup_query": {
+      "connection_id": "conn-uuid-1",
+      "question": "Filter only EMEA",
+      "parent_query_id": "query-uuid-nl-1",
+      "max_rows": 100
+    },
+    "saved_question_create": {
+      "source_query_id": "query-uuid-nl-1",
+      "title": "Regional Sales Summary",
+      "description": "Key sales metrics by region",
+      "chart_preference": "bar",
+      "parameters": [
+        {
+          "slot_id": "region_name",
+          "name": "region_name",
+          "label": "Region",
+          "param_type": "category",
+          "source_type": "string",
+          "target": {
+            "scope": "root",
+            "predicate_path": "where.0",
+            "namespace": "public",
+            "table_name": "sales",
+            "column_name": "region",
+            "operator": "="
+          },
+          "default_value": "EMEA",
+          "allowed_values": ["EMEA", "APAC", "AMER"]
+        }
+      ]
+    },
+    "saved_question_run": {
+      "parameters": {
+        "region_name": "EMEA",
+        "order_date": {
+          "mode": "this_year"
+        },
+        "limit_count": 50
+      }
+    }
+  },
+  "runs": {
+    "completed": {
+      "query_id": "query-uuid-1",
+      "connection_id": "conn-uuid-1",
+      "status": "completed",
+      "state_version": 1,
+      "origin": "natural_language",
+      "question": "Total sales by region for 2026",
+      "created_at": "2026-11-08T12:00:00Z",
+      "updated_at": "2026-11-08T12:00:05Z",
+      "dialect": "postgresql",
+      "sql": "SELECT region, SUM(amount) AS total FROM sales GROUP BY region LIMIT 101;",
+      "assumptions": ["Aggregated sales amount by region."],
+      "warnings": [],
+      "columns": [
+        { "name": "region", "type": "string", "db_type": "text" },
+        { "name": "total", "type": "decimal", "db_type": "numeric" }
+      ],
+      "row_count": 2,
+      "truncated": false,
+      "results_available": true,
+      "results_expires_at": "2026-11-08T13:00:00Z",
+      "rows": [
+        { "region": "EMEA", "total": 1500.5 },
+        { "region": "APAC", "total": 2300.0 }
+      ],
+      "context": {
+        "effective_question": "Total sales by region for 2026",
+        "canonical_sql_template": "SELECT region, SUM(amount) AS total FROM sales GROUP BY region;",
+        "snapshot_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "policy_version": 1,
+        "semantic_version": 1,
+        "author_limit": null,
+        "referenced_objects": [
+          { "namespace": "public", "table_name": "sales", "column_name": "region", "canonical_type": "string", "db_type": "text" },
+          { "namespace": "public", "table_name": "sales", "column_name": "amount", "canonical_type": "decimal", "db_type": "numeric" }
+        ],
+        "applied_filters": [],
+        "metric_references": []
+      },
+      "presentation": {
+        "title": "Total Sales by Region",
+        "explanation": "2 returned rows grouped by region.",
+        "chart_type": "bar",
+        "x_column": "region",
+        "y_column": "total",
+        "value": null,
+        "units": "USD",
+        "warnings": []
+      }
+    },
+    "failed": {
+      "query_id": "query-uuid-2",
+      "connection_id": "conn-uuid-1",
+      "status": "failed",
+      "state_version": 1,
+      "question": "Invalid query",
+      "created_at": "2026-11-08T12:00:00Z",
+      "updated_at": "2026-11-08T12:00:01Z",
+      "error_code": "POLICY_VIOLATION",
+      "safe_message": "Query references disallowed table."
+    },
+    "clarification": {
+      "query_id": "query-uuid-3",
+      "connection_id": "conn-uuid-1",
+      "status": "clarification_required",
+      "state_version": 1,
+      "question": "Show revenue",
+      "created_at": "2026-11-08T12:00:00Z",
+      "updated_at": "2026-11-08T12:00:01Z",
+      "clarification_question": "Did you mean gross revenue or net recurring revenue?"
+    },
+    "cancelled": {
+      "query_id": "query-uuid-4",
+      "connection_id": "conn-uuid-1",
+      "status": "cancelled",
+      "state_version": 1,
+      "question": "Long running query",
+      "created_at": "2026-11-08T12:00:00Z",
+      "updated_at": "2026-11-08T12:00:02Z",
+      "safe_message": "Query was cancelled by the user."
+    }
+  },
+  "parameters": {
+    "category": {
+      "slot_id": "region_name",
+      "name": "region_name",
+      "label": "Region",
+      "param_type": "category",
+      "source_type": "string",
+      "target": {
+        "scope": "root",
+        "predicate_path": "where.0",
+        "namespace": "public",
+        "table_name": "sales",
+        "column_name": "region",
+        "operator": "="
+      },
+      "default_value": "EMEA",
+      "allowed_values": ["EMEA", "APAC", "AMER"]
+    },
+    "date_range": {
+      "slot_id": "order_date",
+      "name": "order_date",
+      "label": "Order Date Range",
+      "param_type": "date_range",
+      "source_type": "date",
+      "target": {
+        "scope": "root",
+        "predicate_path": "where.1",
+        "namespace": "public",
+        "table_name": "sales",
+        "column_name": "created_at",
+        "operator": "BETWEEN"
+      },
+      "default_value": {
+        "mode": "this_year"
+      }
+    },
+    "result_count": {
+      "slot_id": "limit_count",
+      "name": "result_count",
+      "label": "Max Results",
+      "param_type": "result_count",
+      "source_type": "integer",
+      "target": null,
+      "default_value": 50
+    }
+  },
+  "presentations": {
+    "single_value": {
+      "title": "Total Revenue",
+      "explanation": "Calculated total revenue for Q3.",
+      "chart_type": "single_value",
+      "value": "$1,234,567",
+      "units": "USD",
+      "warnings": []
+    },
+    "line": {
+      "title": "Monthly Active Users",
+      "explanation": "Monthly active users trend over the last 12 months.",
+      "chart_type": "line",
+      "x_column": "month",
+      "y_column": "active_users",
+      "units": "users",
+      "warnings": []
+    },
+    "bar": {
+      "title": "Total Sales by Region",
+      "explanation": "2 returned rows grouped by region.",
+      "chart_type": "bar",
+      "x_column": "region",
+      "y_column": "total",
+      "units": "USD",
+      "warnings": []
+    },
+    "table": {
+      "title": "Customer Directory",
+      "explanation": "Directory listing of active customers.",
+      "chart_type": "table",
+      "warnings": []
+    }
+  },
+  "saved_question": {
+    "id": "saved-q-1",
+    "connection_id": "conn-uuid-1",
+    "title": "Regional Sales Summary",
+    "description": "Key sales metrics by region",
+    "chart_preference": "bar",
+    "default_max_rows": 100,
+    "revision": 1,
+    "created_at": "2026-11-08T12:00:00Z",
+    "updated_at": "2026-11-08T12:00:00Z",
+    "canonical_sql_template": "SELECT region, SUM(amount) AS total FROM sales GROUP BY region;",
+    "effective_question": "Total sales by region for 2026",
+    "parameters": [
+      {
+        "slot_id": "region_name",
+        "name": "region_name",
+        "label": "Region",
+        "param_type": "category",
+        "source_type": "string",
+        "target": {
+          "scope": "root",
+          "predicate_path": "where.0",
+          "namespace": "public",
+          "table_name": "sales",
+          "column_name": "region",
+          "operator": "="
+        },
+        "default_value": "EMEA",
+        "allowed_values": ["EMEA", "APAC", "AMER"]
+      }
+    ],
+    "referenced_objects": [
+      {
+        "namespace": "public",
+        "table_name": "sales",
+        "column_name": "region",
+        "canonical_type": "string",
+        "db_type": "text"
+      }
+    ],
+    "metric_references": []
+  }
+}

@@ -461,4 +461,30 @@ Backend and frontend checks:
 - `npm test --prefix apps/web`: exit 0, 49 tests passed.
 - OpenAPI re-exported to `packages/contracts/openapi.json`.
 
+## C11 — Authorized Follow-Up Lineage and Prompt Budgeting (Tasks 8 & 12)
+
+`POST /api/v1/queries` supports an optional `parent_query_id` targeting an owner-authorized completed run on the same connection.
+- Lineage traversal walks up to 10 parent turns, retaining the latest 5 turns plus initial intent.
+- Follow-up context token budget is strictly capped at 2,000 tokens (`FollowUpContextOversized` raises HTTP 409 `FOLLOWUP_CONTEXT_OVERSIZED`).
+- Physical, policy, and semantic drift checks compare catalog snapshots and metric versions (`FollowUpContextStale` raises HTTP 409 `FOLLOWUP_CONTEXT_STALE`).
+- Frontend offers an explicit action: "Ask as a standalone question" when follow-up drift occurs, avoiding silent fallback.
+- Selecting an earlier parent branches the conversation from that exact parent, preserving prior successful answers on follow-up failure.
+
+## C12 — Answer-First Presentation, Charts, and Workspace State (Tasks 9, 10, 11)
+
+- Answer presentation prioritizes answers with KPI cards, collapsed SQL panels, and visible warnings.
+- Conservative SVG charts support bar and line charts when rows are eligible (1 to 50 rows, numeric columns within JS safe integer limits, no duplicate keys). Ineligible data falls back to accessible data tables.
+- Result caching tracks `results_expires_at`. When expired, raw rows are purged and an expired notice with a rerun option is presented. Revalidation occurs periodically (30s) and on window focus.
+- SQLPanel supports View and Edit modes with distinct textarea drafts and dirty-draft confirmation before connection switch, reset, or cancellation.
+- SavedQuestionFilters provides typed controls: category values (preserving native numbers and booleans), date range presets (`this_month`, `this_year`, `fixed` with inclusive UTC end dates), and author result count limits.
+
+## C13 — Contract Parity, Exporter Check, and Verification Gates (Task 13)
+
+- `python scripts/export_schema.py --check` deterministically validates live FastAPI OpenAPI spec against `packages/contracts/openapi.json` without writing.
+- `packages/contracts/fixtures/everyday_analytics.json` provides representative request, status, parameter, and presentation families.
+- Backend contract tests (`apps/api/tests/unit/test_analytics_contracts.py`) validate JSON fixtures against Pydantic models.
+- Frontend contract tests (`apps/web/src/__tests__/analytics_contracts.test.ts`) validate contracts with TypeScript `satisfies` and negative compile-time assertions.
+- End-to-end acceptance tests (`apps/api/tests/integration/test_everyday_analytics_e2e.py`) verify complete journeys: natural language generation, manual SQL editing with zero LLM calls, saved question rerun with zero LLM calls, follow-up lineage branching, and snapshot drift rejection.
+
+
 
