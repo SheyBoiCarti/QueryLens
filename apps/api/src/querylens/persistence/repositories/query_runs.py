@@ -9,6 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
 from querylens.api.errors import NotFoundError
+from querylens.domain.analytics import RunContext, RunOrigin
 from querylens.persistence.session import get_db_connection
 from querylens.persistence.tables import query_attempts, query_runs
 
@@ -45,6 +46,13 @@ class QueryRunRepository:
         connection_id: str,
         question: str,
         max_rows: int = 100,
+        origin: RunOrigin = "natural_language",
+        parent_query_id: str | None = None,
+        source_query_id: str | None = None,
+        saved_question_id: str | None = None,
+        saved_question_version: int | None = None,
+        submitted_sql: str | None = None,
+        saved_definition_json: str | None = None,
     ) -> dict[str, Any]:
         """Create initial queued query run record."""
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -56,6 +64,13 @@ class QueryRunRepository:
             state_version=1,
             question=question,
             max_rows=max_rows,
+            origin=origin,
+            parent_query_id=parent_query_id,
+            source_query_id=source_query_id,
+            saved_question_id=saved_question_id,
+            saved_question_version=saved_question_version,
+            submitted_sql=submitted_sql,
+            saved_definition_json=saved_definition_json,
             created_at=now,
             updated_at=now,
         )
@@ -73,6 +88,13 @@ class QueryRunRepository:
             "state_version": 1,
             "question": question,
             "max_rows": max_rows,
+            "origin": origin,
+            "parent_query_id": parent_query_id,
+            "source_query_id": source_query_id,
+            "saved_question_id": saved_question_id,
+            "saved_question_version": saved_question_version,
+            "submitted_sql": submitted_sql,
+            "saved_definition_json": saved_definition_json,
             "created_at": now,
             "updated_at": now,
         }
@@ -157,6 +179,44 @@ class QueryRunRepository:
         else:
             with get_db_connection() as c:
                 return _execute(c)
+
+    def complete(
+        self,
+        query_id: str,
+        context: RunContext,
+        canonical_sql: str,
+        assumptions: list[str],
+        warnings: list[str],
+        truncated: bool,
+    ) -> bool:
+        """Publish durable metadata and completion in one guarded SQL update.
+
+        A cancellation or other terminal event wins without any metadata changes.
+        Legacy update_state callers remain supported, without invented context.
+        """
+        # Revalidate against current configured budgets, including prebuilt models.
+        context = RunContext.model_validate_json(context.model_dump_json())
+        statement = (
+            query_runs.update()
+            .where(query_runs.c.id == query_id, query_runs.c.status.notin_(TERMINAL_STATES))
+            .values(
+                status="completed",
+                state_version=query_runs.c.state_version + 1,
+                updated_at=datetime.datetime.now(datetime.timezone.utc),
+                run_context_json=context.model_dump_json(),
+                snapshot_hash=context.snapshot_hash,
+                policy_version=context.policy_version,
+                semantic_version=context.semantic_version,
+                canonical_sql=canonical_sql,
+                assumptions=json.dumps(assumptions, ensure_ascii=False),
+                warnings=json.dumps(warnings, ensure_ascii=False),
+                truncated=truncated,
+            )
+        )
+        if self._conn is not None:
+            return self._conn.execute(statement).rowcount > 0
+        with get_db_connection() as conn:
+            return conn.execute(statement).rowcount > 0
 
     def record_attempt(
         self,

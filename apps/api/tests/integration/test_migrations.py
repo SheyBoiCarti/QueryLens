@@ -23,7 +23,7 @@ def sqlite_engine():
 
 
 def test_metadata_tables_creation_and_constraints(sqlite_engine):
-    """All 10 required tables are created with proper schemas and constraints."""
+    """All declared tables are created with proper schemas and constraints."""
     inspector = sa.inspect(sqlite_engine)
     table_names = set(inspector.get_table_names())
 
@@ -38,6 +38,8 @@ def test_metadata_tables_creation_and_constraints(sqlite_engine):
         "query_attempts",
         "evaluation_cases",
         "evaluation_runs",
+        "catalog_labels",
+        "saved_questions",
     }
 
     assert expected_tables.issubset(table_names), f"Missing tables: {expected_tables - table_names}"
@@ -51,7 +53,8 @@ def test_metadata_roundtrip_upgrade_downgrade(sqlite_engine):
 
     create_metadata_tables(sqlite_engine)
     inspector2 = sa.inspect(sqlite_engine)
-    assert len(inspector2.get_table_names()) == 10
+    from querylens.persistence.tables import metadata
+    assert set(inspector2.get_table_names()) == set(metadata.tables)
 
 
 def test_retention_cleanup(sqlite_engine):

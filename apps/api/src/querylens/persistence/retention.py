@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection
 
 from querylens.persistence.session import get_db_connection
 from querylens.persistence.tables import query_runs, sessions
+from querylens.jobs.results import get_result_cache
 
 
 def run_retention_cleanup(
@@ -31,13 +32,18 @@ def run_retention_cleanup(
         )
         sess_res = c.execute(sess_stmt)
 
-        # 2. Clean query runs older than 7 days (attempts cascade via FK or explicit delete)
-        runs_stmt = query_runs.delete().where(query_runs.c.created_at < cutoff)
-        runs_res = c.execute(runs_stmt)
+        # Run-local context/definition snapshots are deleted with the run. Saved
+        # definitions and their defaults remain independent. Lineage FKs SET NULL
+        # while each surviving child retains its self-contained context.
+        runs_stmt = query_runs.delete().where(query_runs.c.created_at < cutoff).returning(query_runs.c.id)
+        deleted_ids = list(c.execute(runs_stmt).scalars())
+        cache = get_result_cache()
+        for query_id in deleted_ids:
+            cache.evict(query_id)
 
         return {
             "deleted_sessions": sess_res.rowcount,
-            "deleted_query_runs": runs_res.rowcount,
+            "deleted_query_runs": len(deleted_ids),
         }
 
     if conn:
