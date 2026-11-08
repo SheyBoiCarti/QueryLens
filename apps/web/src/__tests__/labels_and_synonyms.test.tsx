@@ -238,3 +238,46 @@ describe('schema and metric integration', () => {
     expect(screen.getByRole('heading', { name: 'orders' })).toBeInTheDocument();
   });
 });
+
+describe('metric DSL boundary validation', () => {
+  it('offers only physical measure columns and rejects a legacy wildcard measure', async () => {
+    const view = render(<MetricEditor connectionId="one" catalog={catalog} metric={metric} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    const measure = screen.getByLabelText('Measure column') as HTMLSelectElement;
+    expect(Array.from(measure.options, (option) => option.value)).toEqual(['', 'amount', 'region', 'active']);
+    view.unmount();
+    render(<MetricEditor connectionId="one" catalog={catalog} metric={{ ...metric, dsl: { ...metric.dsl, measure_column: '*', aggregation: 'count' } }} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save metric' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/visible table and columns/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['eq', '9007199254740993'],
+    ['eq', '1.0000000000000001'],
+    ['eq', '0.100000000000000005'],
+    ['eq', '1e-400'],
+    ['in', '[9007199254740993]'],
+    ['not_in', '["unchanged",1.0000000000000001,true]'],
+  ] as const)('retains precision-unsafe %s input %s without HTTP', async (operator, value) => {
+    render(<MetricEditor connectionId="one" catalog={catalog} metric={{ ...metric, dsl: { ...metric.dsl, filters: [{ column: 'amount', operator, value: operator === 'eq' ? 1 : [1] }] } }} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    change('Filter 1 value', value);
+    fireEvent.click(screen.getByRole('button', { name: 'Save metric' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/precision/);
+    expect(screen.getByLabelText('Filter 1 value')).toHaveValue(value);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['eq', '1.2300e2', 123],
+    ['eq', '0.100', 0.1],
+    ['in', '[1.2300e2,0.100,"9007199254740993"]', [123, 0.1, '9007199254740993']],
+  ] as const)('preserves exact %s decimal values and explicitly typed strings', async (operator, value, expected) => {
+    const onSaved = vi.fn();
+    fetchMock.mockResolvedValue(response(metric));
+    render(<MetricEditor connectionId="one" catalog={catalog} metric={{ ...metric, dsl: { ...metric.dsl, filters: [{ column: 'amount', operator, value: operator === 'eq' ? 1 : [1] }] } }} onSaved={onSaved} onCancel={vi.fn()} />);
+    change('Filter 1 value', value);
+    fireEvent.click(screen.getByRole('button', { name: 'Save metric' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).dsl.filters[0].value).toEqual(expected);
+  });
+});

@@ -16,6 +16,27 @@ const operators: FilterOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in'
 const isList = (operator: FilterOperator) => operator === 'in' || operator === 'not_in';
 const isNull = (operator: FilterOperator) => operator === 'is_null' || operator === 'is_not_null';
 const scalar = (value: unknown): boolean => value === null || typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value));
+// Compare exact decimal values, allowing harmless trailing zeros and exponent notation.
+// Number()/JSON.parse() alone can round an authored filter before it reaches HTTP.
+function normalizedDecimal(lexeme: string): string {
+  const [coefficient, exponent = '0'] = lexeme.toLowerCase().split('e');
+  const [whole, fraction = ''] = coefficient.replace(/^-/, '').split('.');
+  const digits = `${whole}${fraction}`.replace(/^0+/, '');
+  if (!digits) return '0';
+  const significant = digits.replace(/0+$/, '');
+  const power = BigInt(exponent) - BigInt(fraction.length) + BigInt(digits.length - significant.length);
+  return `${coefficient.startsWith('-') ? '-' : ''}${significant}e${power}`;
+}
+function exactNumber(lexeme: string): number {
+  const value = Number(lexeme);
+  if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(lexeme) || !Number.isFinite(value)) {
+    throw new Error('Enter a finite numeric filter value using decimal notation.');
+  }
+  if (normalizedDecimal(lexeme) !== normalizedDecimal(value.toString())) {
+    throw new Error('Filter number would lose decimal precision. Enter an exactly representable decimal value.');
+  }
+  return value;
+}
 const fromFilter = (filter: MetricFilter): FilterDraft => ({ column: filter.column, operator: filter.operator,
   value: typeof filter.value === 'string' && !isList(filter.operator) ? filter.value : JSON.stringify(filter.value ?? null),
   valueType: filter.value === null || filter.value === undefined ? 'null' : typeof filter.value === 'number' ? 'number' : typeof filter.value === 'boolean' ? 'boolean' : 'string' });
@@ -25,9 +46,12 @@ function toFilter(filter: FilterDraft): MetricFilter {
   if (isList(filter.operator)) {
     try { value = JSON.parse(filter.value); } catch { throw new Error('Filter lists must be JSON arrays of scalar values.'); }
     if (!Array.isArray(value) || !value.every(scalar)) throw new Error('Filter lists must contain only scalar values.');
+    // Match whole JSON strings first so numeric-looking strings stay explicitly strings.
+    for (const token of filter.value.matchAll(/"(?:[^"\\]|\\.)*"|(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/g)) {
+      if (token[1] !== undefined) exactNumber(token[1]);
+    }
   } else if (filter.valueType === 'number') {
-    if (!filter.value.trim() || !Number.isFinite(Number(filter.value))) throw new Error('Enter a finite numeric filter value.');
-    value = Number(filter.value);
+    value = exactNumber(filter.value.trim());
   } else if (filter.valueType === 'boolean') {
     if (!['true', 'false'].includes(filter.value)) throw new Error('Select a boolean filter value.');
     value = filter.value === 'true';
@@ -66,7 +90,7 @@ function MetricForm({ connectionId, catalog, metric, onSaved, onCancel }: Metric
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault(); setError(null);
     try {
-      if (!selectedTable || (measureColumn !== '*' && !validColumn(measureColumn)) || filters.some((filter) => !validColumn(filter.column)) || grain.some((column) => !validColumn(column))) {
+      if (!selectedTable || !columns.some((column) => column.name === measureColumn) || filters.some((filter) => !validColumn(filter.column)) || grain.some((column) => !validColumn(column))) {
         throw new Error('Select a visible table and columns from the current catalog.');
       }
       const dsl: MetricDSL = { key: key.trim(), name: name.trim(), description: description.trim() || null,
@@ -100,7 +124,7 @@ function MetricForm({ connectionId, catalog, metric, onSaved, onCancel }: Metric
           {tables.map((item) => <option key={`${item.namespace}.${item.name}`} value={`${item.namespace}.${item.name}`}>{item.namespace}.{item.name}</option>)}
         </select></label>
         <label className="block">Measure column<select aria-label="Measure column" required value={measureColumn} className={inputClass} onChange={(event) => setMeasureColumn(event.target.value)}>
-          <option value="">Choose a physical column</option><option value="*">* (all rows)</option>{measureColumn !== '*' && columnOptions(measureColumn)}{measureColumn === '*' && columnOptions('')}
+          <option value="">Choose a physical column</option>{columnOptions(measureColumn)}
         </select></label>
         <label className="block">Aggregation<select aria-label="Aggregation" value={aggregation} onChange={(event) => setAggregation(event.target.value as MetricAggregation)} className={inputClass}>
           {(['sum', 'count', 'count_distinct', 'avg', 'min', 'max'] as const).map((value) => <option key={value} value={value}>{value.toUpperCase()}</option>)}
