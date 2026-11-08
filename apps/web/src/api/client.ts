@@ -9,7 +9,6 @@ import {
   LoginResponse,
   StatusResponse,
   UserResponse,
-  ErrorEnvelope,
 } from './generated/schema.ts';
 
 let _csrfToken: string | null = null;
@@ -66,10 +65,17 @@ async function request<T>(
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
 
     try {
-      const errorJson = (await response.json()) as ErrorEnvelope;
+      const errorJson = (await response.json()) as any;
       if (errorJson?.error) {
         errorCode = errorJson.error.code;
         errorMessage = errorJson.error.message;
+      } else if (errorJson?.detail) {
+        if (typeof errorJson.detail === 'object') {
+          errorCode = errorJson.detail.error_code || errorCode;
+          errorMessage = errorJson.detail.message || JSON.stringify(errorJson.detail);
+        } else {
+          errorMessage = String(errorJson.detail);
+        }
       }
     } catch {
       // Non-JSON response

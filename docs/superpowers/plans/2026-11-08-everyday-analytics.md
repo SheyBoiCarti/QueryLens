@@ -294,11 +294,11 @@ Implemented on `feat/everyday-analytics-persistence`; verification and API behav
 
 **Interfaces:** Save modal consumes sourceQueryId and server-discovered definitions/template_fingerprint, not authoritative client SQL. Manager receives connectionId and shared onRunAccepted(query_id). Filters use typed values and expected_revision; date presets are this_month/this_year and resolved exact dates come from the completed response.
 
-- [ ] **1. Write failing HTTP-backed UI journeys.** Discover/select slots, configure labels/defaults/category options, save/reload, search/page/detail, edit/duplicate/delete, run changed values, and display polled result. Assert actual typed payloads, revision, and resolved dates. Test no-filter saves, invalid values, conflicts, and review-required errors.
-- [ ] **2. Run red:** npm test --prefix apps/web -- src/__tests__/saved_questions_view.test.tsx.
-- [ ] **3. Implement typed controls.** Display readable and inspectable physical references, inclusive date-end/UTC explanation, author count cap, and configured maximum. Do not stringify numeric/bool category values. Client validation aids entry; server is authoritative.
-- [ ] **4. Add explicit review/update and variation flows.** Review produces a new successful run; replacing a definition requires explicit revision action. Ask a variation never mutates stored SQL. Connection changes clear/abort old definition state. Test origin-appropriate expired reruns, errors, pending states, focus/keyboard behavior, and isolation. Run focused tests/typecheck.
-- [ ] **5. Commit verified saved-question UI.**
+- [x] **1. Write failing HTTP-backed UI journeys.** Discover/select slots, configure labels/defaults/category options, save/reload, search/page/detail, edit/duplicate/delete, run changed values, and display polled result. Assert actual typed payloads, revision, and resolved dates. Test no-filter saves, invalid values, conflicts, and review-required errors.
+- [x] **2. Run red:** npm test --prefix apps/web -- src/__tests__/saved_questions_view.test.tsx.
+- [x] **3. Implement typed controls.** Display readable and inspectable physical references, inclusive date-end/UTC explanation, author count cap, and configured maximum. Do not stringify numeric/bool category values. Client validation aids entry; server is authoritative.
+- [x] **4. Add explicit review/update and variation flows.** Review produces a new successful run; replacing a definition requires explicit revision action. Ask a variation never mutates stored SQL. Connection changes clear/abort old definition state. Test origin-appropriate expired reruns, errors, pending states, focus/keyboard behavior, and isolation. Run focused tests/typecheck.
+- [x] **5. Commit verified saved-question UI.**
 
 ### Task 12: Follow-Up Selection, Branching, and Failure Recovery
 

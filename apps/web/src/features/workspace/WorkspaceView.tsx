@@ -6,6 +6,8 @@ import { QueryStatus } from './QueryStatus.tsx';
 import { AnswerPresentation } from './AnswerPresentation.tsx';
 import { Assumptions } from './Assumptions.tsx';
 import { QueryInspector, TraceData } from './QueryInspector.tsx';
+import { SavedQuestionsModal } from './SavedQuestionsModal.tsx';
+import { SavedQuestionsManager } from './SavedQuestionsManager.tsx';
 
 interface WorkspaceViewProps {
   onNavigateToConnections: () => void;
@@ -39,6 +41,8 @@ export function WorkspaceView({
   const [pollError, setPollError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [cancelling, setCancelling] = useState(false);
+  const [showSavedManager, setShowSavedManager] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   // Track draft state for confirmation checks
   const draftsRef = useRef(drafts);
@@ -278,20 +282,43 @@ export function WorkspaceView({
       ) : connectionsError ? (
         <p role="alert" className="text-red-700">{connectionsError}</p>
       ) : connections.length ? (
-        <QuestionForm
-          connections={connections}
-          selectedConnectionId={connectionId}
-          onSelectConnection={(newId) =>
-            confirmDiscardIfDirty(() => {
-              setConnectionId(newId);
-              setSelectedRunId(null);
-              setInFlightRunId(null);
-              onActiveQueryChange?.(null);
-            })
-          }
-          onQuerySubmitted={submitted}
-          disabled={running}
-        />
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowSavedManager((v) => !v)}
+              className="px-3 py-1.5 border border-slate-300 rounded text-xs bg-white hover:bg-slate-50 font-medium text-slate-700 shadow-sm"
+            >
+              {showSavedManager ? 'Hide Saved Questions' : 'Browse Saved Questions'}
+            </button>
+          </div>
+
+          {showSavedManager && (
+            <SavedQuestionsManager
+              connectionId={connectionId}
+              onRunAccepted={(id) => {
+                submitted(id);
+                setShowSavedManager(false);
+              }}
+              onClose={() => setShowSavedManager(false)}
+            />
+          )}
+
+          <QuestionForm
+            connections={connections}
+            selectedConnectionId={connectionId}
+            onSelectConnection={(newId) =>
+              confirmDiscardIfDirty(() => {
+                setConnectionId(newId);
+                setSelectedRunId(null);
+                setInFlightRunId(null);
+                onActiveQueryChange?.(null);
+              })
+            }
+            onQuerySubmitted={submitted}
+            disabled={running}
+          />
+        </div>
       ) : (
         <div className="rounded-lg border bg-white p-6">
           <p>Connect a database and select its allowed tables to start asking questions.</p>
@@ -360,33 +387,52 @@ export function WorkspaceView({
       )}
 
       {selectedRun?.status === 'completed' && (
-        <AnswerPresentation
-          run={selectedRun as PublicRunCompleted}
-          onRunSql={handleRunSql}
-          onDraftChange={(draft) => {
-            setDrafts((prev) => ({ ...prev, [selectedRun.query_id]: draft }));
-          }}
-          disabled={running}
-          onRerun={() => {
-            if (selectedRun.origin === 'manual_sql' && selectedRun.sql) {
-              api.post<{ query_id: string }>('/api/v1/queries/sql', {
-                connection_id: selectedRun.connection_id,
-                sql: selectedRun.sql,
-                source_query_id: selectedRun.query_id,
-                max_rows: 100,
-              })
-                .then((res) => submitted(res.query_id))
-                .catch(() => setPollError('Rerun failed'));
-            } else {
-              api.post<{ query_id: string }>('/api/v1/queries', {
-                connection_id: selectedRun.connection_id,
-                question: selectedRun.question,
-              })
-                .then((res) => submitted(res.query_id))
-                .catch(() => setPollError('Rerun failed'));
-            }
-          }}
-        />
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowSaveModal(true)}
+              className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-medium shadow-sm transition-colors"
+            >
+              Save as Question
+            </button>
+          </div>
+
+          {showSaveModal && (
+            <SavedQuestionsModal
+              sourceQueryId={selectedRun.query_id}
+              onClose={() => setShowSaveModal(false)}
+            />
+          )}
+
+          <AnswerPresentation
+            run={selectedRun as PublicRunCompleted}
+            onRunSql={handleRunSql}
+            onDraftChange={(draft) => {
+              setDrafts((prev) => ({ ...prev, [selectedRun.query_id]: draft }));
+            }}
+            disabled={running}
+            onRerun={() => {
+              if (selectedRun.origin === 'manual_sql' && selectedRun.sql) {
+                api.post<{ query_id: string }>('/api/v1/queries/sql', {
+                  connection_id: selectedRun.connection_id,
+                  sql: selectedRun.sql,
+                  source_query_id: selectedRun.query_id,
+                  max_rows: 100,
+                })
+                  .then((res) => submitted(res.query_id))
+                  .catch(() => setPollError('Rerun failed'));
+              } else {
+                api.post<{ query_id: string }>('/api/v1/queries', {
+                  connection_id: selectedRun.connection_id,
+                  question: selectedRun.question,
+                })
+                  .then((res) => submitted(res.query_id))
+                  .catch(() => setPollError('Rerun failed'));
+              }
+            }}
+          />
+        </div>
       )}
 
       {trace && (
