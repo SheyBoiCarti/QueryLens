@@ -1,0 +1,351 @@
+"""API endpoints for saved questions, revisions, and direct reruns (Contract C09)."""
+
+from __future__ import annotations
+
+import asyncio
+import datetime as dt
+import json
+import uuid
+from typing import Any
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from querylens.api.queries import CreateQueryResponse
+from querylens.api.query_schemas import (
+    SavedQuestionCreateRequest,
+    SavedQuestionDetail,
+    SavedQuestionDuplicateRequest,
+    SavedQuestionListResponse,
+    SavedQuestionRunRequest,
+    SavedQuestionSummary,
+    SavedQuestionUpdateRequest,
+)
+from querylens.auth.dependencies import get_current_user, verify_csrf_token
+from querylens.auth.ownership import verify_connection_ownership
+from querylens.jobs.admission import get_admission_controller
+from querylens.persistence.repositories.query_runs import QueryRunRepository
+from querylens.persistence.repositories.saved_questions import SavedQuestionRepository
+from querylens.pipeline.direct import run_saved_question_pipeline
+from querylens.pipeline.orchestrator import register_active_task
+from querylens.schema.catalog import CatalogService
+from querylens.semantics.saved_questions import (
+    SavedQuestionReviewRequired,
+    validate_saved_dependencies,
+)
+from querylens.semantics.versions import load_semantic_context
+from querylens.sql.parameters import ParameterDefinition
+
+router = APIRouter(prefix="/saved-questions", tags=["saved_questions"])
+
+
+def _format_detail(saved: dict[str, Any]) -> SavedQuestionDetail:
+    raw_defs = json.loads(saved.get("parameter_definitions_json") or "[]")
+    parameters = [ParameterDefinition.model_validate(d) for d in raw_defs]
+
+    ref_objects = json.loads(saved.get("referenced_objects_json") or "[]")
+    ref_metrics = json.loads(saved.get("metric_references_json") or "[]")
+
+    c_at = saved["created_at"]
+    u_at = saved["updated_at"]
+
+    return SavedQuestionDetail(
+        id=saved["id"],
+        connection_id=saved["connection_id"],
+        title=saved["title"],
+        description=saved.get("description"),
+        chart_preference=saved.get("chart_preference"),
+        default_max_rows=saved.get("default_max_rows", 100),
+        revision=saved.get("revision", 1),
+        created_at=c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at),
+        updated_at=u_at.isoformat() if hasattr(u_at, "isoformat") else str(u_at),
+        canonical_sql_template=saved["canonical_sql_template"],
+        effective_question=saved["effective_question"],
+        parameters=parameters,
+        referenced_objects=ref_objects,
+        metric_references=ref_metrics,
+    )
+
+
+@router.post("", response_model=SavedQuestionDetail, status_code=status.HTTP_201_CREATED)
+def create_saved_question(
+    payload: SavedQuestionCreateRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf_token),
+) -> SavedQuestionDetail:
+    """Create a saved question from an authorized completed source query run."""
+    user_id = current_user["user_id"]
+    query_repo = QueryRunRepository()
+    run = query_repo.get(payload.source_query_id, user_id=user_id)
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source query not found")
+    if run["status"] != "completed":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Source query must be completed")
+
+    verify_connection_ownership(run["connection_id"], user_id)
+
+    ctx: dict[str, Any] = {}
+    if run.get("run_context_json"):
+        try:
+            ctx = json.loads(run["run_context_json"])
+        except Exception:
+            pass
+
+    template_sql = ctx.get("canonical_sql_template") or run.get("canonical_sql") or ""
+    effective_question = ctx.get("effective_question") or run.get("question") or ""
+    ref_objects = ctx.get("referenced_objects") or []
+    ref_metrics = ctx.get("metric_references") or []
+    ref_labels = ctx.get("label_references") or []
+    snapshot_hash = ctx.get("snapshot_hash") or run.get("snapshot_hash") or ""
+    policy_version = ctx.get("policy_version") or run.get("policy_version") or 1
+    semantic_version = ctx.get("semantic_version") or 1
+    author_limit = ctx.get("author_limit")
+
+    param_defs_json = json.dumps([p.model_dump() for p in payload.parameters])
+    param_defaults_json = json.dumps({p.name: p.default_value for p in payload.parameters if p.default_value is not None})
+
+    record_id = str(uuid.uuid4())
+    now = dt.datetime.now(dt.timezone.utc)
+    record = {
+        "id": record_id,
+        "connection_id": run["connection_id"],
+        "user_id": user_id,
+        "title": payload.title,
+        "description": payload.description,
+        "canonical_sql_template": template_sql,
+        "effective_question": effective_question,
+        "parameter_definitions_json": param_defs_json,
+        "parameter_defaults_json": param_defaults_json,
+        "default_max_rows": run.get("max_rows", 100),
+        "chart_preference": payload.chart_preference,
+        "referenced_objects_json": json.dumps(ref_objects),
+        "metric_references_json": json.dumps(ref_metrics),
+        "label_references_json": json.dumps(ref_labels),
+        "snapshot_hash": snapshot_hash,
+        "policy_version": policy_version,
+        "semantic_version": semantic_version,
+        "author_limit": author_limit,
+        "revision": 1,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    saved = SavedQuestionRepository().create(record)
+    return _format_detail(saved)
+
+
+@router.get("", response_model=SavedQuestionListResponse)
+def list_saved_questions(
+    connection_id: str,
+    search: str | None = None,
+    cursor: str | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> SavedQuestionListResponse:
+    """List saved questions for a connection with optional search and cursor pagination."""
+    user_id = current_user["user_id"]
+    verify_connection_ownership(connection_id, user_id)
+
+    items, next_cursor = SavedQuestionRepository().list_for_connection(
+        connection_id=connection_id,
+        user_id=user_id,
+        search=search,
+        cursor=cursor,
+        limit=limit,
+    )
+
+    summaries = []
+    for item in items:
+        c_at = item["created_at"]
+        u_at = item["updated_at"]
+        summaries.append(
+            SavedQuestionSummary(
+                id=item["id"],
+                connection_id=item["connection_id"],
+                title=item["title"],
+                description=item.get("description"),
+                chart_preference=item.get("chart_preference"),
+                default_max_rows=item.get("default_max_rows", 100),
+                revision=item.get("revision", 1),
+                created_at=c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at),
+                updated_at=u_at.isoformat() if hasattr(u_at, "isoformat") else str(u_at),
+            )
+        )
+
+    return SavedQuestionListResponse(items=summaries, next_cursor=next_cursor)
+
+
+@router.get("/{saved_question_id}", response_model=SavedQuestionDetail)
+def get_saved_question(
+    saved_question_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> SavedQuestionDetail:
+    """Get full details of a saved question."""
+    user_id = current_user["user_id"]
+    saved = SavedQuestionRepository().get(saved_question_id, user_id)
+    if saved is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Saved question not found")
+    return _format_detail(saved)
+
+
+@router.patch("/{saved_question_id}", response_model=SavedQuestionDetail)
+def update_saved_question(
+    saved_question_id: str,
+    payload: SavedQuestionUpdateRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf_token),
+) -> SavedQuestionDetail:
+    """Optimistically update saved question metadata or replace with a new successful run."""
+    user_id = current_user["user_id"]
+    repo = SavedQuestionRepository()
+    existing = repo.get(saved_question_id, user_id)
+    if existing is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Saved question not found")
+
+    changes: dict[str, Any] = {}
+    if payload.title is not None:
+        changes["title"] = payload.title
+    if payload.description is not None:
+        changes["description"] = payload.description
+    if payload.chart_preference is not None:
+        changes["chart_preference"] = payload.chart_preference
+    if payload.parameters is not None:
+        changes["parameter_definitions_json"] = json.dumps([p.model_dump() for p in payload.parameters])
+        changes["parameter_defaults_json"] = json.dumps(
+            {p.name: p.default_value for p in payload.parameters if p.default_value is not None}
+        )
+
+    if payload.replacement_query_id is not None:
+        query_repo = QueryRunRepository()
+        run = query_repo.get(payload.replacement_query_id, user_id=user_id)
+        if run is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Replacement query not found")
+        if run["status"] != "completed" or run["connection_id"] != existing["connection_id"]:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Replacement must be a completed run on same connection")
+
+        ctx: dict[str, Any] = {}
+        if run.get("run_context_json"):
+            try:
+                ctx = json.loads(run["run_context_json"])
+            except Exception:
+                pass
+
+        changes["canonical_sql_template"] = ctx.get("canonical_sql_template") or run.get("canonical_sql") or ""
+        changes["effective_question"] = ctx.get("effective_question") or run.get("question") or ""
+        changes["referenced_objects_json"] = json.dumps(ctx.get("referenced_objects") or [])
+        changes["metric_references_json"] = json.dumps(ctx.get("metric_references") or [])
+        changes["label_references_json"] = json.dumps(ctx.get("label_references") or [])
+        changes["snapshot_hash"] = ctx.get("snapshot_hash") or run.get("snapshot_hash") or ""
+        changes["policy_version"] = ctx.get("policy_version") or run.get("policy_version") or 1
+        changes["semantic_version"] = ctx.get("semantic_version") or 1
+        changes["author_limit"] = ctx.get("author_limit")
+        changes["default_max_rows"] = run.get("max_rows", 100)
+
+    updated = repo.update(saved_question_id, user_id, payload.expected_revision, changes)
+    if updated is None:
+        latest = repo.get(saved_question_id, user_id)
+        if latest is not None and latest["revision"] != payload.expected_revision:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Saved question revision conflict; reload and retry")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Saved question not found")
+
+    return _format_detail(updated)
+
+
+@router.post("/{saved_question_id}/duplicate", response_model=SavedQuestionDetail, status_code=status.HTTP_201_CREATED)
+def duplicate_saved_question(
+    saved_question_id: str,
+    payload: SavedQuestionDuplicateRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf_token),
+) -> SavedQuestionDetail:
+    """Duplicate an existing saved question as an independent revision-1 definition."""
+    user_id = current_user["user_id"]
+    repo = SavedQuestionRepository()
+    source = repo.get(saved_question_id, user_id)
+    if source is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source saved question not found")
+
+    new_record = dict(source)
+    new_record["id"] = str(uuid.uuid4())
+    new_record["title"] = payload.title
+    new_record["revision"] = 1
+    now = dt.datetime.now(dt.timezone.utc)
+    new_record["created_at"] = now
+    new_record["updated_at"] = now
+
+    created = repo.create(new_record)
+    return _format_detail(created)
+
+
+@router.delete("/{saved_question_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_saved_question(
+    saved_question_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf_token),
+) -> None:
+    """Delete a saved question definition."""
+    user_id = current_user["user_id"]
+    deleted = SavedQuestionRepository().delete(saved_question_id, user_id)
+    if not deleted:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Saved question not found")
+
+
+@router.post("/{saved_question_id}/run", response_model=CreateQueryResponse, status_code=status.HTTP_202_ACCEPTED)
+async def run_saved_question(
+    saved_question_id: str,
+    payload: SavedQuestionRunRequest,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf_token),
+) -> CreateQueryResponse:
+    """Execute a saved question directly with supplied or default parameter values."""
+    user_id = current_user["user_id"]
+    saved = SavedQuestionRepository().get(saved_question_id, user_id)
+    if saved is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Saved question not found")
+
+    if payload.expected_revision is not None and payload.expected_revision != saved["revision"]:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Saved question revision conflict; reload and retry")
+
+    verify_connection_ownership(saved["connection_id"], user_id)
+    snapshot = CatalogService().get_catalog(user_id, saved["connection_id"])
+    semantics = load_semantic_context(user_id, snapshot)
+
+    try:
+        validate_saved_dependencies(saved, snapshot, semantics)
+    except SavedQuestionReviewRequired as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"error_code": "SAVED_QUESTION_REVIEW_REQUIRED", "message": exc.message},
+        )
+
+    query_id = str(uuid.uuid4())
+    admission = get_admission_controller()
+    reservation = admission.reserve(user_id, saved["connection_id"])
+
+    try:
+        QueryRunRepository().create(
+            query_id=query_id,
+            user_id=user_id,
+            connection_id=saved["connection_id"],
+            question=saved["effective_question"],
+            max_rows=saved.get("default_max_rows", 100),
+            origin="saved_question",
+            saved_question_id=saved["id"],
+            saved_question_version=saved["revision"],
+            saved_definition_json=json.dumps(saved, default=str),
+        )
+    except Exception:
+        reservation.release()
+        raise
+
+    task = asyncio.create_task(
+        run_saved_question_pipeline(
+            query_id=query_id,
+            user_id=user_id,
+            connection_id=saved["connection_id"],
+            saved_definition=saved,
+            supplied_values=payload.parameters,
+            reservation=reservation,
+        )
+    )
+    register_active_task(query_id, task)
+
+    return CreateQueryResponse(query_id=query_id, status="queued")

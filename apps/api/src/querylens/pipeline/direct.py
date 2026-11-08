@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import json
 import uuid
+from typing import Any
 from fastapi import HTTPException
 
 from querylens.auth.ownership import verify_connection_ownership
@@ -77,6 +80,106 @@ async def run_manual_sql_pipeline(
             error = classify_pipeline_error(exc, engine=snapshot.engine, snapshot=snapshot)
             await run_db(repo.finish_attempt, attempt_id, "failed", error.error_signature)
             # Manual SQL never repairs: validation errors are rejected directly.
+            rejected = error.category in {"policy", "syntax", "unknown_identifier"}
+            await run_db(
+                repo.update_state,
+                query_id,
+                "rejected" if rejected else "failed",
+                error_code=error.code,
+                safe_message=error.safe_message,
+            )
+
+    await run_with_lifecycle(query_id, user_id, connection_id, reservation, process)
+
+
+async def run_saved_question_pipeline(
+    query_id: str,
+    user_id: str,
+    connection_id: str,
+    saved_definition: dict[str, Any],
+    supplied_values: dict[str, Any],
+    reservation: JobReservation | None = None,
+) -> None:
+    async def process(services: RunServices) -> None:
+        repo = services.repo
+        await run_db(verify_connection_ownership, connection_id, user_id)
+        await run_db(repo.update_state, query_id, "contextualizing")
+        snapshot = await run_db(CatalogService().get_catalog, user_id, connection_id)
+        semantics = await run_db(load_semantic_context, user_id, snapshot)
+        attempt_id = str(uuid.uuid4())
+        await run_db(
+            repo.record_attempt,
+            attempt_id=attempt_id,
+            query_run_id=query_id,
+            attempt_number=1,
+            status="submitted",
+            generated_sql=saved_definition["canonical_sql_template"],
+        )
+        try:
+            from querylens.semantics.saved_questions import (
+                SavedQuestionReviewRequired,
+                validate_saved_dependencies,
+            )
+
+            await run_db(validate_saved_dependencies, saved_definition, snapshot, semantics)
+
+            raw_defs = json.loads(saved_definition.get("parameter_definitions_json") or "[]")
+            from querylens.sql.parameters import ParameterDefinition, compile_parameterized_query
+
+            defs = tuple(ParameterDefinition.model_validate(d) for d in raw_defs)
+            now = dt.datetime.now(dt.timezone.utc)
+            max_rows = int(saved_definition.get("default_max_rows") or 100)
+            author_limit = saved_definition.get("author_limit")
+
+            await run_db(repo.update_state, query_id, "validating")
+            artifact = await run_db(
+                compile_parameterized_query,
+                saved_definition["canonical_sql_template"],
+                defs,
+                supplied_values,
+                snapshot,
+                connection_id,
+                snapshot.engine,
+                max_rows,
+                author_limit,
+                now,
+            )
+            context = await run_db(
+                build_run_context,
+                artifact.template_sql,
+                artifact.author_limit,
+                saved_definition["effective_question"],
+                "saved_question",
+                snapshot,
+                semantics,
+                artifact.resolved_parameters,
+            )
+            from querylens.pipeline.orchestrator import _semantic_warnings
+
+            warnings = await run_db(_semantic_warnings, artifact.token, snapshot)
+            await run_db(repo.update_state, query_id, "executing")
+            result = await services.execute(artifact.token)
+            published = await services.publish(artifact, result, context, [], warnings)
+            await run_db(repo.finish_attempt, attempt_id, "completed" if published else "cancelled")
+        except BaseException as exc:
+            if not isinstance(exc, Exception):
+                await run_db(repo.finish_attempt, attempt_id, "cancelled")
+                raise
+            from querylens.semantics.saved_questions import SavedQuestionReviewRequired
+
+            if isinstance(exc, SavedQuestionReviewRequired):
+                await run_db(repo.finish_attempt, attempt_id, "failed", "saved_question_review_required")
+                await run_db(
+                    repo.update_state,
+                    query_id,
+                    "failed",
+                    error_code="SAVED_QUESTION_REVIEW_REQUIRED",
+                    safe_message=exc.message,
+                )
+                return
+
+            error = classify_pipeline_error(exc, engine=snapshot.engine, snapshot=snapshot)
+            await run_db(repo.finish_attempt, attempt_id, "failed", error.error_signature)
             rejected = error.category in {"policy", "syntax", "unknown_identifier"}
             await run_db(
                 repo.update_state,

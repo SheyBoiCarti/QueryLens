@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 from typing import Any
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from querylens.api.query_schemas import PublicRun
+from querylens.api.query_schemas import ParameterDiscoveryResponse, PublicRun
 from querylens.domain.analytics import RunContext
 from querylens.pipeline.explanation import derive_presentation
+from querylens.schema.catalog import CatalogService
 from querylens.semantics.versions import label_is_visible, load_semantic_context
+from querylens.sql.parameters import extract_eligible_parameters
 from querylens.auth.dependencies import get_current_user, verify_csrf_token
 from querylens.auth.ownership import verify_connection_ownership
 from querylens.jobs.results import get_result_cache
@@ -268,6 +271,48 @@ def get_query_trace(
         query_id=query_id,
         status=run["status"],
         attempts=attempts,
+    )
+
+
+@router.get("/{query_id}/parameters", response_model=ParameterDiscoveryResponse)
+def get_query_parameters(
+    query_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+) -> ParameterDiscoveryResponse:
+    """Discover eligible filter parameters from a completed query run."""
+    user_id = current_user["user_id"]
+    repo = QueryRunRepository()
+    run = repo.get(query_id, user_id=user_id)
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Query not found")
+    if run["status"] != "completed":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Query must be completed to extract parameters")
+
+    verify_connection_ownership(run["connection_id"], user_id)
+    snapshot = CatalogService().get_catalog(user_id, run["connection_id"])
+
+    template_sql = run.get("canonical_sql") or ""
+    author_limit = None
+    if run.get("run_context_json"):
+        try:
+            ctx = json.loads(run["run_context_json"])
+            template_sql = ctx.get("canonical_sql_template") or template_sql
+            author_limit = ctx.get("author_limit")
+        except Exception:
+            pass
+
+    definitions = extract_eligible_parameters(
+        template_sql,
+        snapshot,
+        snapshot.engine,
+        author_limit,
+        default_max_rows=run.get("max_rows", 100),
+    )
+    template_fingerprint = hashlib.sha256(template_sql.strip().encode("utf-8")).hexdigest()
+
+    return ParameterDiscoveryResponse(
+        template_fingerprint=template_fingerprint,
+        definitions=definitions,
     )
 
 

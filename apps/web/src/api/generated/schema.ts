@@ -299,3 +299,89 @@ export interface HistoryResponse {
   items: HistoryItem[];
   next_cursor?: string | null;
 }
+
+export type CanonicalType = 'integer' | 'decimal' | 'float' | 'string' | 'boolean' | 'date' | 'datetime';
+export type ParamType = 'date_range' | 'category' | 'result_count';
+
+export interface ParameterTarget {
+  scope: string;
+  predicate_path: string;
+  namespace: string;
+  table_name: string;
+  column_name: string;
+  operator: string;
+  secondary_predicate_path?: string | null;
+  secondary_operator?: string | null;
+}
+
+export type DateRangeInput =
+  | { mode: 'fixed'; start_date: string; end_date_inclusive: string }
+  | { mode: 'this_month' }
+  | { mode: 'this_year' };
+
+export interface ParameterDefinition {
+  slot_id: string;
+  name: string;
+  label: string;
+  param_type: ParamType;
+  source_type: CanonicalType;
+  target?: ParameterTarget | null;
+  allowed_values?: (string | number | boolean)[] | null;
+  default_value?: unknown;
+}
+
+export interface ParameterDiscoveryResponse {
+  template_fingerprint: string;
+  definitions: ParameterDefinition[];
+}
+
+export interface SavedQuestionSummary {
+  id: string;
+  connection_id: string;
+  title: string;
+  description?: string | null;
+  chart_preference?: string | null;
+  default_max_rows: number;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedQuestionDetail extends SavedQuestionSummary {
+  canonical_sql_template: string;
+  effective_question: string;
+  parameters: ParameterDefinition[];
+  referenced_objects: ObjectReference[];
+  metric_references: MetricReference[];
+}
+
+export interface SavedQuestionListResponse {
+  items: SavedQuestionSummary[];
+  next_cursor?: string | null;
+}
+
+export interface SavedQuestionCreateRequest {
+  source_query_id: string;
+  title: string;
+  description?: string | null;
+  parameters?: ParameterDefinition[];
+  chart_preference?: string | null;
+}
+
+export interface SavedQuestionUpdateRequest {
+  expected_revision: number;
+  title?: string | null;
+  description?: string | null;
+  parameters?: ParameterDefinition[] | null;
+  chart_preference?: string | null;
+  replacement_query_id?: string | null;
+}
+
+export interface SavedQuestionDuplicateRequest {
+  title: string;
+}
+
+export interface SavedQuestionRunRequest {
+  parameters?: Record<string, unknown>;
+  expected_revision?: number | null;
+}

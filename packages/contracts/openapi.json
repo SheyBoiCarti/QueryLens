@@ -1332,6 +1332,207 @@
         "title": "ObjectReference",
         "type": "object"
       },
+      "ParameterDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Values"
+          },
+          "default_value": {
+            "title": "Default Value"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,99}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "param_type": {
+            "enum": [
+              "date_range",
+              "category",
+              "result_count"
+            ],
+            "title": "Param Type",
+            "type": "string"
+          },
+          "slot_id": {
+            "pattern": "^[A-Za-z0-9_]{1,100}$",
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "integer",
+              "decimal",
+              "float",
+              "string",
+              "boolean",
+              "date",
+              "datetime"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParameterTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slot_id",
+          "name",
+          "label",
+          "param_type",
+          "source_type"
+        ],
+        "title": "ParameterDefinition",
+        "type": "object"
+      },
+      "ParameterDiscoveryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "definitions": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterDefinition"
+            },
+            "title": "Definitions",
+            "type": "array"
+          },
+          "template_fingerprint": {
+            "title": "Template Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_fingerprint",
+          "definitions"
+        ],
+        "title": "ParameterDiscoveryResponse",
+        "type": "object"
+      },
+      "ParameterTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "column_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Column Name",
+            "type": "string"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "=",
+              "!=",
+              "<>",
+              "<",
+              "<=",
+              ">",
+              ">=",
+              "IN",
+              "BETWEEN",
+              "date_range"
+            ],
+            "title": "Operator",
+            "type": "string"
+          },
+          "predicate_path": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Predicate Path",
+            "type": "string"
+          },
+          "scope": {
+            "default": "root",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          },
+          "secondary_operator": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Operator"
+          },
+          "secondary_predicate_path": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Predicate Path"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate_path",
+          "namespace",
+          "table_name",
+          "column_name",
+          "operator"
+        ],
+        "title": "ParameterTarget",
+        "type": "object"
+      },
       "PresentationMetadata": {
         "additionalProperties": false,
         "properties": {
@@ -2311,6 +2512,371 @@
           "semantic_version"
         ],
         "title": "RunContext",
+        "type": "object"
+      },
+      "SavedQuestionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_preference": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "parameters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ParameterDefinition"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "source_query_id": {
+            "title": "Source Query Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_query_id",
+          "title"
+        ],
+        "title": "SavedQuestionCreateRequest",
+        "type": "object"
+      },
+      "SavedQuestionDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_sql_template": {
+            "title": "Canonical Sql Template",
+            "type": "string"
+          },
+          "chart_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_max_rows": {
+            "title": "Default Max Rows",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "effective_question": {
+            "title": "Effective Question",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metric_references": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Metric References",
+            "type": "array"
+          },
+          "parameters": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterDefinition"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "referenced_objects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Referenced Objects",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "title",
+          "default_max_rows",
+          "revision",
+          "created_at",
+          "updated_at",
+          "canonical_sql_template",
+          "effective_question",
+          "parameters",
+          "referenced_objects",
+          "metric_references"
+        ],
+        "title": "SavedQuestionDetail",
+        "type": "object"
+      },
+      "SavedQuestionDuplicateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "SavedQuestionDuplicateRequest",
+        "type": "object"
+      },
+      "SavedQuestionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedQuestionSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SavedQuestionListResponse",
+        "type": "object"
+      },
+      "SavedQuestionRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "title": "SavedQuestionRunRequest",
+        "type": "object"
+      },
+      "SavedQuestionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_max_rows": {
+            "title": "Default Max Rows",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "title",
+          "default_max_rows",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavedQuestionSummary",
+        "type": "object"
+      },
+      "SavedQuestionUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_preference": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ParameterDefinition"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters"
+          },
+          "replacement_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacement Query Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SavedQuestionUpdateRequest",
         "type": "object"
       },
       "StatusResponse": {
@@ -4069,6 +4635,49 @@
         ]
       }
     },
+    "/api/v1/queries/{query_id}/parameters": {
+      "get": {
+        "description": "Discover eligible filter parameters from a completed query run.",
+        "operationId": "get_query_parameters_api_v1_queries__query_id__parameters_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterDiscoveryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Query Parameters",
+        "tags": [
+          "queries"
+        ]
+      }
+    },
     "/api/v1/queries/{query_id}/trace": {
       "get": {
         "description": "Retrieve execution attempt trace.",
@@ -4109,6 +4718,449 @@
         "summary": "Get Query Trace",
         "tags": [
           "queries"
+        ]
+      }
+    },
+    "/api/v1/saved-questions": {
+      "get": {
+        "description": "List saved questions for a connection with optional search and cursor pagination.",
+        "operationId": "list_saved_questions_api_v1_saved_questions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Saved Questions",
+        "tags": [
+          "saved_questions"
+        ]
+      },
+      "post": {
+        "description": "Create a saved question from an authorized completed source query run.",
+        "operationId": "create_saved_question_api_v1_saved_questions_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      }
+    },
+    "/api/v1/saved-questions/{saved_question_id}": {
+      "delete": {
+        "description": "Delete a saved question definition.",
+        "operationId": "delete_saved_question_api_v1_saved_questions__saved_question_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      },
+      "get": {
+        "description": "Get full details of a saved question.",
+        "operationId": "get_saved_question_api_v1_saved_questions__saved_question_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      },
+      "patch": {
+        "description": "Optimistically update saved question metadata or replace with a new successful run.",
+        "operationId": "update_saved_question_api_v1_saved_questions__saved_question_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      }
+    },
+    "/api/v1/saved-questions/{saved_question_id}/duplicate": {
+      "post": {
+        "description": "Duplicate an existing saved question as an independent revision-1 definition.",
+        "operationId": "duplicate_saved_question_api_v1_saved_questions__saved_question_id__duplicate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionDuplicateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Duplicate Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      }
+    },
+    "/api/v1/saved-questions/{saved_question_id}/run": {
+      "post": {
+        "description": "Execute a saved question directly with supplied or default parameter values.",
+        "operationId": "run_saved_question_api_v1_saved_questions__saved_question_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Saved Question",
+        "tags": [
+          "saved_questions"
         ]
       }
     },

@@ -420,3 +420,36 @@ Backend tests ran from `apps/api`:
 - `ruff check apps/api`: exit 0.
 - `mypy --config-file apps/api/mypy.ini apps/api/src`: exit 0, 96 source files.
 
+## C09 — Saved Questions, Parameter Discovery, and Direct Reruns (Task 7)
+
+`GET /api/v1/queries/{query_id}/parameters` discovers parameter slots from a completed
+owner run. It returns `template_fingerprint` and discovered `definitions`. The server
+fills the `result_count` default from the source run's actual `max_rows`, never from the
+injected fetch limit sentinel.
+
+`POST /api/v1/saved-questions` creates revision 1 from an owner-authorized completed run.
+It captures the canonical SQL template, effective question, verified object/metric/label
+references, versions, author limit, and parameter definitions.
+
+CRUD endpoints `GET /api/v1/saved-questions`, `GET /{id}`, `PATCH /{id}`,
+`POST /{id}/duplicate`, and `DELETE /{id}` provide owner-isolated management with
+optimistic concurrency via `expected_revision`. Stale revisions return HTTP 409.
+Deleting a definition leaves historical query run records intact with audit fields.
+
+`POST /api/v1/saved-questions/{saved_question_id}/run` executes directly without an
+LLM provider or query repair. Before admission and execution, it checks dependency
+drift using `validate_saved_dependencies`: removed or modified tables/columns, or
+changed/disabled/removed metrics raise HTTP 409 with `SAVED_QUESTION_REVIEW_REQUIRED`.
+
+## Task 7 verification — 2026-11-08
+
+Backend and frontend checks:
+- `python -m pytest tests/integration/test_saved_questions_api.py -q`: 4 passed.
+- `python -m pytest tests/unit tests/integration tests/security -q -ra`: 269 passed, 3 skipped.
+- `ruff check apps/api`: exit 0.
+- `mypy --config-file apps/api/mypy.ini apps/api/src`: exit 0, 99 source files.
+- `npm run typecheck --prefix apps/web`: exit 0.
+- `npm test --prefix apps/web`: exit 0, 49 tests passed.
+- OpenAPI re-exported to `packages/contracts/openapi.json`.
+
+

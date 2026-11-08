@@ -7,7 +7,7 @@ import math
 from collections.abc import Mapping
 from decimal import Decimal
 from typing import Annotated, Any, Literal, Self
-from pydantic import Field, TypeAdapter, ValidationError, model_validator
+from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
 from sqlglot import exp
 
 from querylens.config import get_settings
@@ -80,6 +80,13 @@ class ParameterDefinition(FrozenMetadata):
     target: ParameterTarget | None = None
     allowed_values: tuple[Scalar, ...] | None = None
     default_value: Any = None
+
+    @field_validator("allowed_values", mode="before")
+    @classmethod
+    def convert_allowed_values(cls, v: Any) -> Any:
+        if isinstance(v, list):
+            return tuple(v)
+        return v
 
     @model_validator(mode="after")
     def validate_definition(self) -> Self:
