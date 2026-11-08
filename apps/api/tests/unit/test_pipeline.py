@@ -1,16 +1,13 @@
 """Unit tests for Phase 05 LLM protocol, fake provider, state repository, and result cache."""
 
-import time
 import pytest
 from pydantic import ValidationError
 
-from querylens.domain.schema import CatalogSnapshot
 from querylens.jobs.results import ResultCache
 from querylens.llm.fake import FakeLLMProvider
-from querylens.llm.protocol import GeneratedCandidate, LLMUsage
+from querylens.llm.protocol import GeneratedCandidate
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
-from querylens.persistence.tables import metadata
 import sqlalchemy as sa
 
 
@@ -74,7 +71,9 @@ def test_result_cache_ttl_and_snapshot_drift():
 
 def test_query_run_terminal_state_protection():
     """Terminal states cannot be overwritten by later events (Contract C08)."""
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
 
@@ -96,7 +95,9 @@ def test_query_run_terminal_state_protection():
 
 def test_startup_reconciliation_marks_interrupted():
     """Nonterminal runs are marked interrupted on startup (Contract C08)."""
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
 

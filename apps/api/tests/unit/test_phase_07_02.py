@@ -11,10 +11,9 @@ Assertions:
 from __future__ import annotations
 
 import time
-import pytest
 
 from querylens.pipeline.errors import ClassifiedError
-from querylens.pipeline.repair import RepairDecision, RepairPolicy, RunAttemptBudget
+from querylens.pipeline.repair import RepairPolicy, RunAttemptBudget
 
 
 def test_permanently_repairable_error_at_most_two_repairs() -> None:

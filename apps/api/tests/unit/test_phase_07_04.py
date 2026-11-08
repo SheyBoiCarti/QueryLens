@@ -11,8 +11,6 @@ Assertions:
 
 from __future__ import annotations
 
-import time
-import pytest
 
 from querylens.pipeline.errors import ClassifiedError
 from querylens.pipeline.loop_detection import LoopDetector, candidate_fingerprint

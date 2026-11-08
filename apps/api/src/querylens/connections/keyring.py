@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
-from typing import Mapping
 
 # Development fallback key (exactly 32 bytes)
 DEV_DEFAULT_KEY = b"querylens_dev_32_bytes_key_00001"
@@ -19,6 +17,8 @@ def load_keyring(keys_file: str | None = None, active_key_id: str | None = None)
     """Load keys from JSON file or fall back to development key."""
     global _keyring, _active_key_id
 
+    if keys_file and not os.path.isfile(keys_file):
+        raise ValueError("Configured credential keyring file does not exist")
     if keys_file and os.path.exists(keys_file):
         with open(keys_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -33,7 +33,7 @@ def load_keyring(keys_file: str | None = None, active_key_id: str | None = None)
             if len(b) != 32:
                 raise ValueError(f"Key {k_id} must be exactly 32 bytes, got {len(b)}")
             loaded[k_id] = b
-        
+
         if not loaded:
             raise ValueError(f"Keyring file {keys_file} contains no valid keys")
         _keyring = loaded

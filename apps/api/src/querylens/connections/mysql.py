@@ -3,13 +3,35 @@
 from __future__ import annotations
 
 import re
+import socket
 import ssl
-from typing import Any
 import pymysql
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine, URL
+from sqlalchemy.engine import Engine
 
 from querylens.connections.network import validate_destination_address
+from querylens.connections.tls import mysql_tls_context
+from querylens.config import get_settings
+
+
+class VerifiedMySQLConnection(pymysql.Connection):
+    """Fail before sending credentials if the server refuses required TLS."""
+
+    pinned_ip: str
+
+    def _read_bytes(self, num_bytes):
+        if num_bytes > get_settings().max_result_bytes + 65536:
+            self._force_close()
+            raise pymysql.OperationalError(2013, "Source packet exceeds byte budget")
+        return super()._read_bytes(num_bytes)
+
+    def _request_authentication(self):
+        from pymysql.constants import CLIENT
+
+        if self.ssl and not self.server_capabilities & CLIENT.SSL:
+            raise pymysql.OperationalError(2026, "Source server does not offer required TLS")
+        return super()._request_authentication()
+
 
 SUPPORTED_MYSQL_VERSIONS = {"8.0", "8.4"}
 
@@ -30,37 +52,12 @@ class MySQLAdapter:
     ) -> tuple[bool, str, str]:
         """Test direct connection, verify server identity (reject MariaDB), and version capability."""
         try:
-            # 1. SSRF and DNS address validation (C03)
-            pinned_ip = validate_destination_address(host, port)
-
-            ssl_config = None
-            if tls_enabled:
-                ssl_ctx = ssl.create_default_context()
-                if ca_cert:
-                    ssl_ctx.load_verify_locations(cadata=ca_cert)
-                else:
-                    # In cloud environments with standard public CAs
-                    ssl_ctx.check_hostname = False
-                    ssl_ctx.verify_mode = ssl.CERT_REQUIRED
-                ssl_config = {"ssl": ssl_ctx}
-
-            conn = pymysql.connect(
-                host=pinned_ip,
-                port=port,
-                user=username,
-                password=password,
-                database=database,
-                connect_timeout=int(timeout_sec),
-                ssl=ssl_config,
-                client_flag=0,  # Disable multi-statement
-                local_infile=False,  # Disable local infile (C03)
-            )
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT version();")
-                raw_version = cur.fetchone()[0]
-
-            conn.close()
+            with MySQLAdapter.connect(
+                host, port, database, username, password, tls_enabled, ca_cert, timeout_sec
+            ) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT version();")
+                    raw_version = cur.fetchone()[0]
 
             # Contract C01: Reject MariaDB unconditionally by server identity
             if "mariadb" in raw_version.lower():
@@ -69,7 +66,11 @@ class MySQLAdapter:
             # Check supported MySQL versions: 8.0, 8.4
             match = re.search(r"^(8\.[04])\b", raw_version)
             if not match:
-                return False, raw_version, f"Unsupported MySQL version: {raw_version}. Supported: {sorted(SUPPORTED_MYSQL_VERSIONS)}"
+                return (
+                    False,
+                    raw_version,
+                    f"Unsupported MySQL version: {raw_version}. Supported: {sorted(SUPPORTED_MYSQL_VERSIONS)}",
+                )
 
             matched_branch = match.group(1)
             return True, f"MySQL {matched_branch}", "Connection verified successfully"
@@ -81,6 +82,52 @@ class MySQLAdapter:
             return False, "", f"MySQL connection test failed: {msg}"
 
     @staticmethod
+    def connect(
+        host: str,
+        port: int,
+        database: str,
+        username: str,
+        password: str,
+        tls_enabled: bool = True,
+        ca_cert: str | None = None,
+        timeout_sec: float | None = None,
+        *,
+        pinned_ip: str | None = None,
+        tls_context: ssl.SSLContext | None = None,
+        io_timeout: float | None = None,
+    ):
+        settings = get_settings()
+        if settings.environment == "production" and not tls_enabled:
+            raise ValueError("Production source connections require TLS")
+        pinned_ip = validate_destination_address(pinned_ip or host, port)
+        timeout = timeout_sec or settings.connect_timeout_sec
+        # Retain the DNS hostname for TLS SNI/identity, but supply an already
+        # validated socket so the driver cannot resolve a different destination.
+        conn = VerifiedMySQLConnection(
+            host=host,
+            port=port,
+            user=username,
+            password=password,
+            database=database,
+            connect_timeout=max(1, int(timeout)),
+            read_timeout=io_timeout or settings.statement_timeout_sec + settings.cleanup_timeout_sec,
+            write_timeout=io_timeout or settings.statement_timeout_sec + settings.cleanup_timeout_sec,
+            ssl=(tls_context or mysql_tls_context(ca_cert)) if tls_enabled else None,
+            ssl_disabled=not tls_enabled,
+            defer_connect=True,
+            local_infile=False,
+            client_flag=0,
+        )
+        conn.pinned_ip = pinned_ip
+        sock = socket.create_connection((pinned_ip, port), timeout=timeout)
+        try:
+            conn.connect(sock=sock)
+        except BaseException:
+            sock.close()
+            raise
+        return conn
+
+    @staticmethod
     def create_pool(
         host: str,
         port: int,
@@ -88,36 +135,14 @@ class MySQLAdapter:
         username: str,
         password: str,
         tls_enabled: bool = True,
+        ca_cert: str | None = None,
     ) -> Engine:
-        """Create bounded SQLAlchemy engine for MySQL."""
-        pinned_ip = validate_destination_address(host, port)
-
-        url = URL.create(
-            "mysql+pymysql",
-            username=username,
-            password=password,
-            host=pinned_ip,
-            port=port,
-            database=database,
-        )
-
-        connect_args: dict[str, Any] = {
-            "connect_timeout": 5,
-            "local_infile": False,
-            "client_flag": 0,
-        }
-
-        if tls_enabled:
-            ssl_ctx = ssl.create_default_context()
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_REQUIRED
-            connect_args["ssl"] = {"ssl": ssl_ctx}
-
+        settings = get_settings()
         return create_engine(
-            url,
-            connect_args=connect_args,
-            pool_size=1,
+            "mysql+pymysql://",
+            creator=lambda: MySQLAdapter.connect(host, port, database, username, password, tls_enabled, ca_cert),
+            pool_size=settings.per_source_active_jobs,
             max_overflow=0,
-            pool_timeout=2.0,
+            pool_timeout=settings.pool_acquire_timeout_sec,
             pool_pre_ping=True,
         )

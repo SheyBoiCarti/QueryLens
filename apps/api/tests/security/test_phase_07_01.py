@@ -10,10 +10,8 @@ Assertions:
 
 from __future__ import annotations
 
-import pytest
 
 from querylens.pipeline.classifier import classify_pipeline_error
-from querylens.pipeline.errors import ClassifiedError
 from querylens.sql.policy import SQLPolicyViolationError
 
 

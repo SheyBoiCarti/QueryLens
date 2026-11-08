@@ -6,7 +6,7 @@ import datetime
 import json
 import uuid
 from typing import Any
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 import sqlalchemy as sa
 
@@ -34,7 +34,7 @@ class MetricResponse(BaseModel):
 
 
 @router.post("", response_model=MetricResponse, status_code=status.HTTP_201_CREATED)
-async def create_metric(
+def create_metric(
     connection_id: str,
     payload: MetricDSL,
     current_user: dict[str, Any] = Depends(get_current_user),
@@ -46,7 +46,10 @@ async def create_metric(
 
     # Validate against visible catalog snapshot
     catalog = CatalogService().get_catalog(user_id, connection_id)
-    payload.validate_against_snapshot(catalog)
+    try:
+        payload.validate_against_snapshot(catalog)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
     metric_id = str(uuid.uuid4())
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -64,8 +67,11 @@ async def create_metric(
         created_at=now,
         updated_at=now,
     )
-    with get_db_connection() as conn:
-        conn.execute(stmt)
+    try:
+        with get_db_connection() as conn:
+            conn.execute(stmt)
+    except sa.exc.IntegrityError as exc:
+        raise HTTPException(409, "Metric key already exists for this connection") from exc
 
     return MetricResponse(
         id=metric_id,
@@ -80,7 +86,7 @@ async def create_metric(
 
 
 @router.get("", response_model=list[MetricResponse])
-async def list_metrics(
+def list_metrics(
     connection_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> list[MetricResponse]:
@@ -112,7 +118,7 @@ async def list_metrics(
 
 
 @router.delete("/{metric_id}", response_model=StatusResponse)
-async def delete_metric(
+def delete_metric(
     connection_id: str,
     metric_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),

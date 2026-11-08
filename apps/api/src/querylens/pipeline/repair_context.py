@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from querylens.pipeline.context import SchemaContext, estimate_tokens
 from querylens.pipeline.errors import ClassifiedError
@@ -34,11 +33,7 @@ def assemble_repair_context(
     max_tokens: int = 4000,
 ) -> RepairContext:
     """Build sanitized repair context without leaking raw parameters, secrets or unapproved tables."""
-    schema_str = (
-        schema_context.formatted_schema
-        if isinstance(schema_context, SchemaContext)
-        else str(schema_context)
-    )
+    schema_str = schema_context.formatted_schema if isinstance(schema_context, SchemaContext) else str(schema_context)
 
     hints_section = ""
     if classified_error.identifier_hints:
@@ -61,7 +56,7 @@ def assemble_repair_context(
     tokens = estimate_tokens(prompt)
     if tokens > max_tokens:
         # Truncate prompt deterministically if over budget
-        prompt = prompt[: max_tokens * 4]
+        prompt = prompt.encode("utf-8")[:max_tokens].decode("utf-8", errors="ignore")
 
     return RepairContext(
         question=question,

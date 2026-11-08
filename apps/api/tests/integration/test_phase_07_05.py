@@ -19,13 +19,15 @@ from querylens.api.errors import NotFoundError
 from querylens.api.traces import get_trace
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_attempts, query_runs, users
+from querylens.persistence.tables import connections, query_runs, users
 import sqlalchemy as sa
 
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:", poolclass=sa.pool.StaticPool)
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng

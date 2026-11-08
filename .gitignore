@@ -31,6 +31,7 @@ apps/web/dist/
 docs/
 
 # Backups and temp
+.superpowers/
 backups/
 tmp/
 *.tmp

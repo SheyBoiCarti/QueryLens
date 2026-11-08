@@ -19,16 +19,21 @@ import sqlalchemy as sa
 from querylens.auth.crypto import hash_password
 from querylens.auth.service import AuthService
 from querylens.config import Settings
+from querylens.connections.crypto import encrypt_credential
+from querylens.domain.schema import CatalogSnapshot
 from querylens.jobs.results import get_result_cache
 from querylens.main import create_app
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
 from querylens.persistence.tables import connections
+from querylens.schema.snapshots import save_snapshot
 
 
 @pytest.fixture
 def app_with_test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:", poolclass=sa.pool.StaticPool)
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
 
@@ -46,7 +51,7 @@ async def test_export_security_and_expiry_workflow(app_with_test_db) -> None:
         # 1. Create owner and foreign user
         auth = AuthService()
         owner = auth.create_user("owner_csv@example.com", hash_password("Pass123!"))
-        foreign_user = auth.create_user("foreign_csv@example.com", hash_password("Pass123!"))
+        auth.create_user("foreign_csv@example.com", hash_password("Pass123!"))
 
         # Login as owner
         login_res = await client.post(
@@ -72,7 +77,7 @@ async def test_export_security_and_expiry_workflow(app_with_test_db) -> None:
                     port=5432,
                     database="db",
                     username="user",
-                    encrypted_password="enc",
+                    encrypted_password=encrypt_credential("test-password", conn_id),
                     tls_enabled=True,
                 )
             )
@@ -81,6 +86,7 @@ async def test_export_security_and_expiry_workflow(app_with_test_db) -> None:
         run_id = str(uuid.uuid4())
         repo.create(run_id, owner["id"], conn_id, "Show numbers")
         repo.update_state(run_id, "completed")
+        save_snapshot(CatalogSnapshot(connection_id=conn_id, engine="postgresql", snapshot_hash="snap-01"))
 
         # 2. Cache is initially empty -> Owner receives 410 Gone
         res_expired = await client.get(f"/api/v1/queries/{run_id}/export?format=csv")

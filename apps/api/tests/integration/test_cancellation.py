@@ -11,7 +11,6 @@ import pytest
 from querylens.api.errors import NotFoundError
 from querylens.execution.cancellation import (
     ExecutionHandle,
-    cancel_active_source_query,
     get_active_execution,
     register_execution,
     unregister_execution,
@@ -20,13 +19,15 @@ from querylens.jobs.cancel import request_cancel
 from querylens.jobs.state import reconcile_interrupted_runs
 from querylens.persistence.repositories.query_runs import NONTERMINAL_STATES, QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_runs, users
+from querylens.persistence.tables import connections, users
 import sqlalchemy as sa
 
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:", poolclass=sa.pool.StaticPool)
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng
@@ -93,7 +94,7 @@ def test_cancel_active_execution_handle_registry() -> None:
     assert get_active_execution(query_id) is None
 
 
-def test_cancel_nonterminal_queries(setup_cancel_env: dict[str, str]) -> None:
+async def test_cancel_nonterminal_queries(setup_cancel_env: dict[str, str]) -> None:
     repo = QueryRunRepository()
     user_id = setup_cancel_env["user_id"]
     conn_id = setup_cancel_env["conn_id"]
@@ -103,14 +104,14 @@ def test_cancel_nonterminal_queries(setup_cancel_env: dict[str, str]) -> None:
         repo.create(qid, user_id, conn_id, f"Query in {state}")
         repo.update_state(qid, state)
 
-        res = request_cancel(qid, user_id)
+        res = await request_cancel(qid, user_id)
         assert res["status"] == "cancelled"
 
         run = repo.get(qid, user_id=user_id)
         assert run["status"] == "cancelled"
 
 
-def test_cancel_foreign_query_fails_404(setup_cancel_env: dict[str, str]) -> None:
+async def test_cancel_foreign_query_fails_404(setup_cancel_env: dict[str, str]) -> None:
     repo = QueryRunRepository()
     user_id = setup_cancel_env["user_id"]
     other_user = setup_cancel_env["other_user_id"]
@@ -120,7 +121,7 @@ def test_cancel_foreign_query_fails_404(setup_cancel_env: dict[str, str]) -> Non
     repo.create(qid, user_id, conn_id, "Owner query")
 
     with pytest.raises(NotFoundError):
-        request_cancel(qid, other_user)
+        await request_cancel(qid, other_user)
 
 
 def test_startup_reconciliation_marks_all_nonterminal_interrupted(

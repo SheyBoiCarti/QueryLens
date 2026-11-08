@@ -10,12 +10,14 @@ from querylens.auth.service import AuthService
 from querylens.config import Settings
 from querylens.main import create_app
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
-from querylens.persistence.tables import connections, metadata
+from querylens.persistence.tables import connections
 
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng
@@ -28,7 +30,7 @@ async def test_auth_endpoints_workflow(test_db):
     """Full login -> me -> csrf -> logout flow with cookie and CSRF handling."""
     # Seed user
     service = AuthService()
-    user = service.create_user("analyst@example.com", hash_password("SecretPass123!"))
+    service.create_user("analyst@example.com", hash_password("SecretPass123!"))
 
     app = create_app(Settings(environment="test"))
     transport = ASGITransport(app=app)
@@ -67,7 +69,7 @@ async def test_auth_endpoints_workflow(test_db):
         assert csrf_res.json()["csrf_token"] == csrf_token
 
         # 5. Logout
-        logout_res = await client.post("/api/v1/auth/logout")
+        logout_res = await client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
         assert logout_res.status_code == 200
         assert logout_res.json()["status"] == "logged_out"
 
@@ -106,5 +108,6 @@ async def test_two_user_ownership_isolation(test_db):
 
     # User B accesses connection -> 404 (NOT 403, does not disclose existence)
     from querylens.api.errors import NotFoundError
+
     with pytest.raises(NotFoundError):
         verify_connection_ownership("conn-user-a", user_b["id"])

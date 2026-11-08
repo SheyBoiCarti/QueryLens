@@ -1,6 +1,5 @@
 """Unit tests for Phase 01 authentication, Argon2id hashing, and session management (Contract C02)."""
 
-import datetime
 import time
 import pytest
 import sqlalchemy as sa
@@ -10,17 +9,18 @@ from querylens.auth.crypto import (
     hash_password,
     hash_token,
     verify_password,
-    verify_password_sync,
 )
 from querylens.auth.service import AuthService, check_rate_limit, record_login_attempt
-from querylens.persistence.session import create_metadata_tables, get_engine, set_engine
-from querylens.persistence.tables import metadata, sessions, users
+from querylens.persistence.session import set_engine
+from querylens.persistence.tables import metadata
 
 
 @pytest.fixture(autouse=True)
 def sqlite_engine():
     """Create in-memory SQLite database for fast isolated unit tests."""
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     metadata.create_all(bind=test_eng)
     yield test_eng

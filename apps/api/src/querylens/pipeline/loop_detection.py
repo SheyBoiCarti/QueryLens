@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import re
 import sqlglot
-from sqlglot.errors import ParseError
 
 
 def candidate_fingerprint(sql: str) -> str:

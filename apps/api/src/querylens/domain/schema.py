@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Literal
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -44,6 +44,7 @@ class ForeignKeyConstraint(StrictBaseModel):
     name: str | None = None
     source_columns: list[str] = Field(..., description="Ordered source column names")
     target_table: str = Field(..., description="Referenced target table")
+    target_namespace: str | None = None
     target_columns: list[str] = Field(..., description="Ordered target column names")
     cardinality: Cardinality = "many_to_one"
     confidence: float = 1.0
@@ -93,6 +94,7 @@ class CatalogSnapshot(StrictBaseModel):
                 {
                     "source": fk.source_columns,
                     "target_table": fk.target_table,
+                    "target_namespace": fk.target_namespace,
                     "target_columns": fk.target_columns,
                     "cardinality": fk.cardinality,
                 }

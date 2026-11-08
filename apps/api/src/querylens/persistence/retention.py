@@ -7,7 +7,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
 from querylens.persistence.session import get_db_connection
-from querylens.persistence.tables import query_attempts, query_runs, sessions
+from querylens.persistence.tables import query_runs, sessions
 
 
 def run_retention_cleanup(

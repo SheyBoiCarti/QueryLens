@@ -14,7 +14,9 @@ from querylens.persistence.session import create_metadata_tables, drop_metadata_
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng
@@ -55,6 +57,7 @@ def test_connection_crud_and_password_preservation(test_db):
     # Verify decrypted password is still original
     from querylens.connections.crypto import decrypt_credential
     from querylens.persistence.tables import connections
+
     with test_db.connect() as conn:
         row = conn.execute(sa.select(connections).where(connections.c.id == created.id)).fetchone()
         assert row is not None
@@ -62,23 +65,38 @@ def test_connection_crud_and_password_preservation(test_db):
         assert decrypted == "my_original_password"
 
 
-def test_mysql_adapter_rejects_mariadb():
+def test_mysql_adapter_rejects_mariadb(monkeypatch):
     """MySQL adapter explicitly rejects MariaDB by server identity (Contract C01)."""
+
     # Mock pymysql connect returning MariaDB version
     class FakeCursor:
-        def __enter__(self): return self
-        def __exit__(self, exc_type, exc_val, exc_tb): pass
-        def execute(self, q): pass
-        def fetchone(self): return ("10.5.12-MariaDB-1:10.5.12+maria~focal",)
-    class FakeConn:
-        def cursor(self): return FakeCursor()
-        def close(self): pass
+        def __enter__(self):
+            return self
 
-    import pymysql
-    orig_connect = pymysql.connect
-    try:
-        pymysql.connect = lambda *args, **kwargs: FakeConn()
-        success, version, msg = MySQLAdapter.test_connection(
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def execute(self, q):
+            pass
+
+        def fetchone(self):
+            return ("10.5.12-MariaDB-1:10.5.12+maria~focal",)
+
+    class FakeConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def cursor(self):
+            return FakeCursor()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(MySQLAdapter, "connect", lambda *args, **kwargs: FakeConn())
+    success, version, msg = MySQLAdapter.test_connection(
             host="127.0.0.1",
             port=3306,
             database="test",
@@ -86,10 +104,8 @@ def test_mysql_adapter_rejects_mariadb():
             password="pwd",
             tls_enabled=False,
         )
-        assert success is False
-        assert "MariaDB is explicitly rejected" in msg
-    finally:
-        pymysql.connect = orig_connect
+    assert success is False
+    assert "MariaDB is explicitly rejected" in msg
 
 
 def test_live_aiven_database_connections():

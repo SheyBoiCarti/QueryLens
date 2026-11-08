@@ -20,7 +20,7 @@ from querylens.connections.models import (
 )
 from querylens.connections.registry import get_registry
 from querylens.persistence.session import get_db_connection
-from querylens.persistence.tables import connections
+from querylens.persistence.tables import connections, schema_snapshots
 
 
 class ConnectionService:
@@ -33,6 +33,11 @@ class ConnectionService:
         """Create a new database connection with encrypted credentials."""
         conn_id = str(uuid.uuid4())
         now = datetime.datetime.now(datetime.timezone.utc)
+
+        from querylens.config import get_settings
+
+        if get_settings().environment == "production" and not data.tls_enabled:
+            raise ValueError("Production source connections require TLS")
 
         # Encrypt password with AES-256-GCM bound to connection ID
         encrypted_pw = encrypt_credential(
@@ -82,11 +87,7 @@ class ConnectionService:
 
     def list_all(self, user_id: str) -> list[ConnectionResponse]:
         """List all connections owned by user."""
-        stmt = (
-            sa.select(connections)
-            .where(connections.c.user_id == user_id)
-            .order_by(connections.c.created_at.desc())
-        )
+        stmt = sa.select(connections).where(connections.c.user_id == user_id).order_by(connections.c.created_at.desc())
         if self._conn:
             rows = self._conn.execute(stmt).fetchall()
         else:
@@ -157,8 +158,12 @@ class ConnectionService:
     ) -> ConnectionResponse:
         """Update connection settings, preserving omitted password and invalidating pool."""
         # 1. Verify ownership
-        existing = self.get(user_id, connection_id)
+        self.get(user_id, connection_id)
 
+        from querylens.config import get_settings
+
+        if get_settings().environment == "production" and data.tls_enabled is False:
+            raise ValueError("Production source connections require TLS")
         now = datetime.datetime.now(datetime.timezone.utc)
         updates: dict[str, Any] = {"updated_at": now}
 
@@ -179,6 +184,10 @@ class ConnectionService:
         if data.allowed_tables is not None:
             updates["allowed_tables"] = json.dumps(data.allowed_tables)
 
+        policy_changed = any(key != "name" for key in data.model_fields_set)
+        if policy_changed:
+            updates["policy_version"] = connections.c.policy_version + 1
+
         # Omitted password on PATCH preserves it; new password is re-encrypted
         if data.password is not None:
             encrypted_pw = encrypt_credential(
@@ -198,16 +207,26 @@ class ConnectionService:
 
         if self._conn:
             self._conn.execute(stmt)
+            if policy_changed:
+                self._conn.execute(schema_snapshots.delete().where(schema_snapshots.c.connection_id == connection_id))
         else:
             with get_db_connection() as c:
                 c.execute(stmt)
+                if policy_changed:
+                    c.execute(schema_snapshots.delete().where(schema_snapshots.c.connection_id == connection_id))
+        if policy_changed:
+            from querylens.jobs.results import get_result_cache
 
+            get_result_cache().evict_connection(connection_id)
         return self.get(user_id, connection_id)
 
     def delete(self, user_id: str, connection_id: str) -> None:
         """Delete connection, disposing pool."""
         # Verify ownership
         self.get(user_id, connection_id)
+        from querylens.jobs.results import get_result_cache
+
+        get_result_cache().evict_connection(connection_id)
 
         # Dispose pool
         get_registry().dispose(connection_id)

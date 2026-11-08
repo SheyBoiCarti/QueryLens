@@ -32,23 +32,35 @@ LOOPBACK_NETWORKS = [
 
 class NetworkSecurityError(Exception):
     """Raised when destination address violates network policy."""
+
     pass
 
 
 def validate_destination_address(
     host: str,
     port: int,
-    allow_loopback: bool = True,
+    allow_loopback: bool | None = None,
     permitted_cidrs: Sequence[str] | None = None,
 ) -> str:
     """Resolve host using AF_UNSPEC and validate all IP addresses.
-    
+
     Returns:
         The first validated numeric IP string to bind the socket directly.
     """
     if not (1 <= port <= 65535):
         raise NetworkSecurityError(f"Invalid port: {port}")
 
+    from querylens.config import get_settings
+
+    settings = get_settings()
+    if allow_loopback is None:
+        allow_loopback = (
+            settings.network_allow_loopback
+            if settings.network_allow_loopback is not None
+            else settings.environment != "production"
+        )
+    if permitted_cidrs is None:
+        permitted_cidrs = settings.source_permitted_cidrs
     permitted_nets = [ipaddress.ip_network(cidr) for cidr in permitted_cidrs] if permitted_cidrs else None
 
     try:
@@ -66,7 +78,9 @@ def validate_destination_address(
         ip_str = sockaddr[0]
         try:
             ip_obj = ipaddress.ip_address(ip_str)
-            resolved_ips.append(ip_obj)
+            resolved_ips.append(
+                ip_obj.ipv4_mapped if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped else ip_obj
+            )
         except ValueError:
             raise NetworkSecurityError(f"Invalid IP address returned: {ip_str}")
 
@@ -88,6 +102,13 @@ def validate_destination_address(
             if not any(ip_obj in net for net in permitted_nets):
                 raise NetworkSecurityError(f"Destination {ip_obj} not within permitted CIDR ranges")
 
+        private_allowed = (
+            settings.network_allow_private
+            if settings.network_allow_private is not None
+            else settings.environment != "production"
+        )
+        if not ip_obj.is_global and not is_loopback and not private_allowed and permitted_nets is None:
+            raise NetworkSecurityError("Private/reserved sources require an explicit permitted CIDR")
         validated_ips.append(str(ip_obj))
 
     # All answers must be valid (no mixed permitted/prohibited answers)

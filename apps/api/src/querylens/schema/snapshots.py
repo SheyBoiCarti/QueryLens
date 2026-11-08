@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import uuid
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from querylens.domain.schema import CatalogSnapshot, TableMetadata
+from querylens.domain.schema import CatalogSnapshot
 from querylens.persistence.session import get_db_connection
 from querylens.persistence.tables import schema_snapshots
 
@@ -22,12 +23,14 @@ def save_snapshot(snapshot: CatalogSnapshot, conn: Connection | None = None) -> 
         snapshot_hash=snapshot.snapshot_hash,
         policy_version=snapshot.policy_version,
         catalog_json=catalog_json,
+        created_at=datetime.datetime.now(datetime.timezone.utc),
     )
     if conn:
         conn.execute(stmt)
     else:
         with get_db_connection() as c:
             c.execute(stmt)
+            c.commit()
 
 
 def get_latest_snapshot(connection_id: str, conn: Connection | None = None) -> CatalogSnapshot | None:

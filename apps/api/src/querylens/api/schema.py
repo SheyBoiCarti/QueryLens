@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import Any
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 
 from querylens.auth.dependencies import get_current_user, verify_csrf_token
 from querylens.domain.schema import CatalogSnapshot
 from querylens.schema.catalog import CatalogService
+from querylens.utils.workers import run_db
 
 router = APIRouter(prefix="/connections/{connection_id}/schema", tags=["schema"])
 
@@ -23,7 +24,16 @@ async def discover_tables(
     service: CatalogService = Depends(get_catalog_service),
 ) -> list[str]:
     """Discover candidate table names in approved namespaces without sampling rows."""
-    return service.discover_tables(current_user["user_id"], connection_id)
+    return await run_db(service.discover_tables, current_user["user_id"], connection_id)
+
+
+@router.get("/discover/columns", response_model=dict[str, list[str]])
+async def discover_columns(
+    connection_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    service: CatalogService = Depends(get_catalog_service),
+) -> dict[str, list[str]]:
+    return await run_db(service.discover_columns, current_user["user_id"], connection_id)
 
 
 @router.get("", response_model=CatalogSnapshot)
@@ -33,7 +43,7 @@ async def get_catalog(
     service: CatalogService = Depends(get_catalog_service),
 ) -> CatalogSnapshot:
     """Get the current reflected schema snapshot for authorized visible objects."""
-    return service.get_catalog(current_user["user_id"], connection_id)
+    return await run_db(service.get_catalog, current_user["user_id"], connection_id)
 
 
 @router.post("/refresh", response_model=CatalogSnapshot)
@@ -44,4 +54,4 @@ async def refresh_catalog(
     service: CatalogService = Depends(get_catalog_service),
 ) -> CatalogSnapshot:
     """Trigger reflection and atomically update the catalog snapshot."""
-    return service.refresh_catalog(current_user["user_id"], connection_id)
+    return await run_db(service.refresh_catalog, current_user["user_id"], connection_id)

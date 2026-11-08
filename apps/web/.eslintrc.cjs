@@ -13,9 +13,10 @@ module.exports = {
     sourceType: 'module',
     ecmaFeatures: { jsx: true },
   },
+  overrides: [{ files: ['**/*.test.ts', '**/*.test.tsx'], rules: { '@typescript-eslint/no-explicit-any': 'off' } }],
   rules: {
-    '@typescript-eslint/no-unused-vars': 'off',
-    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-explicit-any': 'error',
     'no-unused-vars': 'off',
     'no-undef': 'off',
   },

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 import psycopg
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine, URL
+from sqlalchemy.engine import Engine
 
 from querylens.connections.network import validate_destination_address
+from querylens.connections.tls import postgres_ca_file
+from querylens.config import get_settings
 
 SUPPORTED_PG_VERSIONS = {16, 17, 18}
 
@@ -29,23 +30,9 @@ class PostgresAdapter:
     ) -> tuple[bool, str, str]:
         """Test direct connection, server identity, and version capability check."""
         try:
-            # 1. SSRF and DNS address validation (C03)
-            pinned_ip = validate_destination_address(host, port)
-
-            # 2. Connection parameters
-            sslmode = "require" if tls_enabled else "disable"
-            conn_kwargs: dict[str, Any] = {
-                "host": host,
-                "hostaddr": pinned_ip,
-                "port": port,
-                "dbname": database,
-                "user": username,
-                "password": password,
-                "sslmode": sslmode,
-                "connect_timeout": int(timeout_sec),
-            }
-
-            with psycopg.connect(**conn_kwargs) as conn:
+            with PostgresAdapter.connect(
+                host, port, database, username, password, tls_enabled, ca_cert, timeout_sec
+            ) as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT version();")
                     raw_version = cur.fetchone()[0]
@@ -57,7 +44,11 @@ class PostgresAdapter:
 
             major = int(match.group(1))
             if major not in SUPPORTED_PG_VERSIONS:
-                return False, raw_version, f"Unsupported PostgreSQL version {major}. Supported: {sorted(SUPPORTED_PG_VERSIONS)}"
+                return (
+                    False,
+                    raw_version,
+                    f"Unsupported PostgreSQL version {major}. Supported: {sorted(SUPPORTED_PG_VERSIONS)}",
+                )
 
             return True, f"PostgreSQL {major}", "Connection verified successfully"
 
@@ -69,6 +60,34 @@ class PostgresAdapter:
             return False, "", f"PostgreSQL connection test failed: {msg}"
 
     @staticmethod
+    def connect(
+        host: str,
+        port: int,
+        database: str,
+        username: str,
+        password: str,
+        tls_enabled: bool = True,
+        ca_cert: str | None = None,
+        timeout_sec: float | None = None,
+    ):
+        settings = get_settings()
+        if settings.environment == "production" and not tls_enabled:
+            raise ValueError("Production source connections require TLS")
+        pinned_ip = validate_destination_address(host, port)
+        with postgres_ca_file(ca_cert) as ca_path:
+            return psycopg.connect(
+                host=host,
+                hostaddr=pinned_ip,
+                port=port,
+                dbname=database,
+                user=username,
+                password=password,
+                sslmode="verify-full" if tls_enabled else "disable",
+                sslrootcert=ca_path,
+                connect_timeout=max(1, int(timeout_sec or settings.connect_timeout_sec)),
+            )
+
+    @staticmethod
     def create_pool(
         host: str,
         port: int,
@@ -76,29 +95,14 @@ class PostgresAdapter:
         username: str,
         password: str,
         tls_enabled: bool = True,
+        ca_cert: str | None = None,
     ) -> Engine:
-        """Create bounded SQLAlchemy engine for PostgreSQL."""
-        pinned_ip = validate_destination_address(host, port)
-        sslmode = "require" if tls_enabled else "disable"
-
-        url = URL.create(
-            "postgresql+psycopg",
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=database,
-        )
-
+        settings = get_settings()
         return create_engine(
-            url,
-            connect_args={
-                "hostaddr": pinned_ip,
-                "sslmode": sslmode,
-                "connect_timeout": 5,
-            },
-            pool_size=5,
-            max_overflow=5,
-            pool_timeout=5.0,
+            "postgresql+psycopg://",
+            creator=lambda: PostgresAdapter.connect(host, port, database, username, password, tls_enabled, ca_cert),
+            pool_size=settings.per_source_active_jobs,
+            max_overflow=0,
+            pool_timeout=settings.pool_acquire_timeout_sec,
             pool_pre_ping=True,
         )

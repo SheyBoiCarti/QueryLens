@@ -2,16 +2,13 @@
 
 import datetime
 from pathlib import Path
-import pytest
 
 from querylens.evaluation.ablations import run_ablations
 from querylens.evaluation.cases import EvaluationCase, load_cases
-from querylens.evaluation.comparison import compare_result_sets
 from querylens.evaluation.metrics import CategoryMetric, EvaluationMetrics
 from querylens.evaluation.report import (
     EvaluationReport,
     check_release_metrics,
-    generate_markdown_report,
 )
 from querylens.evaluation.runner import evaluate
 

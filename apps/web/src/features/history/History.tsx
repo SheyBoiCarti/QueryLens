@@ -29,10 +29,10 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
         ? `/api/v1/queries/history?limit=20&cursor=${encodeURIComponent(cursor)}`
         : '/api/v1/queries/history?limit=20';
       const data = await api.get<{ items: HistoryItem[]; next_cursor: string | null }>(url);
-      setItems(data.items);
+      setItems((previous) => cursor ? [...previous, ...data.items] : data.items);
       setNextCursor(data.next_cursor);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load query history');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load query history');
     } finally {
       setLoading(false);
     }
@@ -49,8 +49,8 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
     try {
       await api.delete(`/api/v1/queries/${queryId}`);
       setItems((prev) => prev.filter((item) => item.id !== queryId));
-    } catch (err: any) {
-      alert(`Delete failed: ${err?.message || 'Unknown error'}`);
+    } catch (err: unknown) {
+      alert(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -157,7 +157,7 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
                 disabled={loading}
                 className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-100"
               >
-                Load Next Page →
+                Load Next Page â†’
               </button>
             </div>
           )}

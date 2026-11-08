@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections import deque
+from collections import Counter, deque
 from typing import NamedTuple
-from querylens.domain.schema import CatalogSnapshot, ForeignKeyConstraint
+from querylens.domain.schema import CatalogSnapshot
 
 
 class GraphEdge(NamedTuple):
@@ -21,18 +21,28 @@ class SchemaGraph:
     def __init__(self, catalog: CatalogSnapshot) -> None:
         self.catalog = catalog
         self.adj: dict[str, list[GraphEdge]] = {}
+        counts = Counter(table.name for table in catalog.tables)
+        self.node_names = {
+            (table.namespace, table.name): table.name if counts[table.name] == 1 else f"{table.namespace}.{table.name}"
+            for table in catalog.tables
+        }
+        self.aliases = {f"{namespace}.{name}": node for (namespace, name), node in self.node_names.items()}
+        self.aliases.update({name: name for name, count in counts.items() if count == 1})
         self._build_graph()
 
     def _build_graph(self) -> None:
         for table in self.catalog.tables:
-            t_name = table.name
+            t_name = self.node_names[(table.namespace, table.name)]
             self.adj.setdefault(t_name, [])
 
             for fk in table.foreign_keys:
+                target = self.node_names.get((fk.target_namespace or table.namespace, fk.target_table))
+                if target is None:
+                    continue
                 # Forward edge (table -> target)
                 forward = GraphEdge(
                     source_table=t_name,
-                    target_table=fk.target_table,
+                    target_table=target,
                     source_columns=fk.source_columns,
                     target_columns=fk.target_columns,
                     is_reverse=False,
@@ -41,16 +51,18 @@ class SchemaGraph:
 
                 # Reverse edge (target -> table)
                 reverse = GraphEdge(
-                    source_table=fk.target_table,
+                    source_table=target,
                     target_table=t_name,
                     source_columns=fk.target_columns,
                     target_columns=fk.source_columns,
                     is_reverse=True,
                 )
-                self.adj.setdefault(fk.target_table, []).append(reverse)
+                self.adj.setdefault(target, []).append(reverse)
 
     def find_paths(self, start_table: str, target_table: str, max_depth: int = 5) -> list[list[GraphEdge]]:
         """Find all simple paths between start and target tables up to max_depth."""
+        start_table = self.aliases.get(start_table, start_table)
+        target_table = self.aliases.get(target_table, target_table)
         if start_table == target_table:
             return []
 
@@ -79,7 +91,7 @@ class SchemaGraph:
 
     def resolve_join_path(self, table_a: str, table_b: str) -> tuple[str, list[GraphEdge] | None]:
         """Resolve join path between two tables.
-        
+
         Returns:
             ("unique", path) if exactly one shortest path exists.
             ("ambiguous", paths) if multiple paths of equal shortest length exist.

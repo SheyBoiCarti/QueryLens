@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class StrictBaseModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
 
 class LLMUsage(StrictBaseModel):
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
     latency_ms: int = 0
 
 
 class GeneratedCandidate(StrictBaseModel):
     """Strictly bounded model candidate response (Contract C08)."""
+
     sql: str | None = Field(default=None, max_length=32768)
     assumptions: list[str] = Field(default_factory=list, max_length=10)
     requires_clarification: bool = False
@@ -28,7 +28,9 @@ class GeneratedCandidate(StrictBaseModel):
     def validate_clarification_or_sql(self) -> GeneratedCandidate:
         if self.requires_clarification:
             if not self.clarification_question or not self.clarification_question.strip():
-                raise ValueError("clarification_question is required and must be non-empty when requires_clarification is True")
+                raise ValueError(
+                    "clarification_question is required and must be non-empty when requires_clarification is True"
+                )
         else:
             if not self.sql or not self.sql.strip():
                 raise ValueError("sql is required and must be non-empty when requires_clarification is False")

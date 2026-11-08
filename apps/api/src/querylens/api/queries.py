@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from typing import Any
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from querylens.api.errors import NotFoundError
+from querylens.api.query_schemas import PublicRun
 from querylens.auth.dependencies import get_current_user, verify_csrf_token
-from querylens.auth.ownership import verify_connection_ownership, verify_query_run_ownership
+from querylens.auth.ownership import verify_connection_ownership
 from querylens.jobs.results import get_result_cache
+from querylens.jobs.admission import get_admission_controller
+from querylens.utils.workers import run_db
+from querylens.config import get_settings
+from fastapi import HTTPException
 from querylens.persistence.repositories.query_runs import QueryRunRepository
-from querylens.pipeline.orchestrator import cancel_active_task, register_active_task, run_query_pipeline
+from querylens.pipeline.orchestrator import register_active_task, run_query_pipeline
 from querylens.schema.catalog import CatalogService
 
 router = APIRouter(prefix="/queries", tags=["queries"])
@@ -59,35 +64,44 @@ async def create_query(
     """Submit a natural-language analytics question for asynchronous processing."""
     user_id = current_user["user_id"]
     # Authorize connection ownership before queueing (Contract C02)
-    verify_connection_ownership(payload.connection_id, user_id)
+    await run_db(verify_connection_ownership, payload.connection_id, user_id)
+    settings = get_settings()
+    if len(payload.question) > settings.max_question_chars or payload.max_rows > settings.max_max_rows:
+        raise HTTPException(422, "Question or row limit exceeds configured budget")
+    reservation = get_admission_controller().reserve(user_id, payload.connection_id)
 
     query_id = str(uuid.uuid4())
     repo = QueryRunRepository()
-    repo.create(
-        query_id=query_id,
-        user_id=user_id,
-        connection_id=payload.connection_id,
-        question=payload.question,
-        max_rows=payload.max_rows,
-    )
-
-    # Spawn async pipeline task
-    task = asyncio.create_task(
-        run_query_pipeline(
+    try:
+        await run_db(
+            repo.create,
             query_id=query_id,
             user_id=user_id,
             connection_id=payload.connection_id,
             question=payload.question,
             max_rows=payload.max_rows,
         )
-    )
-    register_active_task(query_id, task)
+        task = asyncio.create_task(
+            run_query_pipeline(
+                query_id=query_id,
+                user_id=user_id,
+                connection_id=payload.connection_id,
+                question=payload.question,
+                max_rows=payload.max_rows,
+                reservation=reservation,
+            )
+        )
+        task.add_done_callback(lambda _: reservation.release())
+        register_active_task(query_id, task)
+    except BaseException:
+        reservation.release()
+        raise
 
     return CreateQueryResponse(query_id=query_id, status="queued")
 
 
-@router.get("/{query_id}")
-async def get_query(
+@router.get("/{query_id}", response_model=PublicRun, response_model_exclude_none=True)
+def get_query(
     query_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -103,14 +117,18 @@ async def get_query(
         "status": status_val,
         "state_version": run["state_version"],
         "question": run["question"],
-        "created_at": run["created_at"].isoformat() if hasattr(run["created_at"], "isoformat") else str(run["created_at"]),
-        "updated_at": run["updated_at"].isoformat() if hasattr(run["updated_at"], "isoformat") else str(run["updated_at"]),
+        "created_at": run["created_at"].isoformat()
+        if hasattr(run["created_at"], "isoformat")
+        else str(run["created_at"]),
+        "updated_at": run["updated_at"].isoformat()
+        if hasattr(run["updated_at"], "isoformat")
+        else str(run["updated_at"]),
     }
 
     if status_val == "completed":
         # Get attempts for generated SQL
         attempts = repo.get_attempts(query_id)
-        last_sql = attempts[-1]["generated_sql"] if attempts else ""
+        last_sql = run.get("canonical_sql") or (attempts[-1]["generated_sql"] if attempts else "")
 
         # Fetch cached rows
         catalog = CatalogService().get_catalog(user_id, run["connection_id"])
@@ -119,37 +137,43 @@ async def get_query(
 
         if cached is not None:
             cols, rows = cached
-            base_response.update({
-                "dialect": catalog.engine,
-                "sql": last_sql,
-                "assumptions": [],
-                "warnings": [],
-                "columns": cols,
-                "row_count": len(rows),
-                "truncated": len(rows) >= run["max_rows"],
-                "results_available": True,
-                "rows": rows,
-            })
+            base_response.update(
+                {
+                    "dialect": catalog.engine,
+                    "sql": last_sql,
+                    "assumptions": json.loads(run.get("assumptions") or "[]"),
+                    "warnings": json.loads(run.get("warnings") or "[]"),
+                    "columns": cols,
+                    "row_count": len(rows),
+                    "truncated": bool(run.get("truncated")),
+                    "results_available": True,
+                    "rows": rows,
+                }
+            )
         else:
-            base_response.update({
-                "dialect": catalog.engine,
-                "sql": last_sql,
-                "assumptions": [],
-                "warnings": [],
-                "columns": [],
-                "row_count": 0,
-                "truncated": False,
-                "results_available": False,
-            })
+            base_response.update(
+                {
+                    "dialect": catalog.engine,
+                    "sql": last_sql,
+                    "assumptions": json.loads(run.get("assumptions") or "[]"),
+                    "warnings": json.loads(run.get("warnings") or "[]"),
+                    "columns": [],
+                    "row_count": 0,
+                    "truncated": False,
+                    "results_available": False,
+                }
+            )
 
     elif status_val == "clarification_required":
         base_response["clarification_question"] = run.get("clarification_question") or "Clarification required"
 
     elif status_val in ("failed", "rejected", "interrupted"):
-        base_response.update({
-            "error_code": run.get("error_code") or "ERROR",
-            "safe_message": run.get("safe_message") or "An error occurred",
-        })
+        base_response.update(
+            {
+                "error_code": run.get("error_code") or "ERROR",
+                "safe_message": run.get("safe_message") or "An error occurred",
+            }
+        )
 
     elif status_val == "cancelled":
         base_response["safe_message"] = run.get("safe_message") or "Query cancelled by user"
@@ -158,7 +182,7 @@ async def get_query(
 
 
 @router.get("/{query_id}/trace", response_model=QueryTraceResponse)
-async def get_query_trace(
+def get_query_trace(
     query_id: str,
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> QueryTraceResponse:
@@ -198,4 +222,4 @@ async def cancel_query(
     from querylens.jobs.cancel import request_cancel
 
     user_id = current_user["user_id"]
-    return request_cancel(query_id, user_id)
+    return await request_cancel(query_id, user_id)

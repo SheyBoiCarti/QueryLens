@@ -1,6 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React from 'react';
 import ConnectionManager from '../features/connections/ConnectionManager.tsx';
 import ConnectionForm from '../features/connections/ConnectionForm.tsx';
 import { api } from '../api/client.ts';
