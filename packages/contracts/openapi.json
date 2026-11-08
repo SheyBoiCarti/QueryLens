@@ -569,6 +569,17 @@
             "title": "Max Rows",
             "type": "integer"
           },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "question": {
             "maxLength": 4000,
             "minLength": 1,

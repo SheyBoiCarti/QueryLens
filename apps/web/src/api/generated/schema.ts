@@ -88,6 +88,13 @@ export interface ColumnMeta {
   db_type: string;
 }
 
+export interface CreateQueryRequest {
+  connection_id: string;
+  question: string;
+  max_rows?: number;
+  parent_query_id?: string | null;
+}
+
 export interface PublicRunBase {
   query_id: string;
   connection_id: string;

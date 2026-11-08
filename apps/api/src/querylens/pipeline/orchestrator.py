@@ -94,6 +94,7 @@ async def run_query_pipeline(
     max_rows: int = 100,
     provider: LLMProvider | None = None,
     reservation: JobReservation | None = None,
+    parent_query_id: str | None = None,
 ) -> None:
     async def process(services: RunServices) -> None:
         settings = get_settings()
@@ -103,7 +104,16 @@ async def run_query_pipeline(
             else get_fake_llm_provider()
         )
         await _process(
-            services.repo, query_id, user_id, connection_id, question, max_rows, llm, services.reservation, services
+            services.repo,
+            query_id,
+            user_id,
+            connection_id,
+            question,
+            max_rows,
+            llm,
+            services.reservation,
+            services,
+            parent_query_id=parent_query_id,
         )
 
     await run_with_lifecycle(query_id, user_id, connection_id, reservation, process)
@@ -119,6 +129,7 @@ async def _process(
     llm: LLMProvider,
     lease: JobReservation,
     services: RunServices,
+    parent_query_id: str | None = None,
 ) -> None:
     settings = get_settings()
     budget = RunAttemptBudget(
@@ -133,7 +144,29 @@ async def _process(
     connection = await run_db(verify_connection_ownership, connection_id, user_id)
     snapshot = await run_db(CatalogService().get_catalog, user_id, connection_id)
     semantic = await run_db(load_semantic_context, user_id, snapshot)
-    context = await run_db(build_query_context, snapshot, question, settings.max_input_tokens, semantic)
+
+    followup_context = None
+    if parent_query_id:
+        from querylens.pipeline.followup import resolve_followup_context
+
+        followup_context = await run_db(
+            resolve_followup_context,
+            parent_query_id,
+            user_id,
+            connection_id,
+            snapshot,
+            semantic,
+            question,
+        )
+
+    context = await run_db(
+        build_query_context,
+        snapshot,
+        question,
+        settings.max_input_tokens,
+        semantic,
+        followup_context=followup_context,
+    )
     prior_sql: str | None = None
     last_error: ClassifiedError | None = None
 
@@ -243,12 +276,17 @@ async def _process(
                 validate_query_artifact, candidate.sql, connection_id, connection["engine"], snapshot, max_rows
             )
             token = artifact.token
+            effective_question = question
+            origin = "natural_language"
+            if followup_context is not None:
+                origin = "follow_up"
+                effective_question = f"{followup_context.latest_context.effective_question} -> {question}"
             run_context = await run_db(
                 build_run_context,
                 artifact.template_sql,
                 artifact.author_limit,
-                question,
-                "natural_language",
+                effective_question,
+                origin,
                 snapshot,
                 semantic,
             )

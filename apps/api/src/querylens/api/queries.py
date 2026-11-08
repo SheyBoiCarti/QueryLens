@@ -39,6 +39,7 @@ class CreateQueryRequest(StrictBaseModel):
     connection_id: str
     question: str = Field(..., min_length=1, max_length=4000)
     max_rows: int = Field(default=100, ge=1, le=1000)
+    parent_query_id: str | None = None
 
 
 class CreateQueryResponse(StrictBaseModel):
@@ -75,6 +76,52 @@ async def create_query(
     settings = get_settings()
     if len(payload.question) > settings.max_question_chars or payload.max_rows > settings.max_max_rows:
         raise HTTPException(422, "Question or row limit exceeds configured budget")
+
+    origin: str = "natural_language"
+    if payload.parent_query_id:
+        parent = await run_db(QueryRunRepository().get, payload.parent_query_id, user_id=user_id)
+        if parent is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Parent query not found")
+        if parent.get("user_id") != user_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Parent query not found")
+        if parent.get("connection_id") != payload.connection_id:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Parent query belongs to a different connection")
+        if parent.get("status") != "completed":
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"Parent query must be completed, but is '{parent.get('status')}'",
+            )
+
+        from querylens.pipeline.followup import (
+            FollowUpContextOversized,
+            FollowUpContextStale,
+            resolve_followup_context,
+        )
+
+        snapshot = await run_db(CatalogService().get_catalog, user_id, payload.connection_id)
+        semantics = await run_db(load_semantic_context, user_id, snapshot)
+        try:
+            await run_db(
+                resolve_followup_context,
+                payload.parent_query_id,
+                user_id,
+                payload.connection_id,
+                snapshot,
+                semantics,
+                payload.question,
+            )
+        except FollowUpContextStale as exc:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={"error_code": "FOLLOWUP_CONTEXT_STALE", "message": str(exc)},
+            )
+        except FollowUpContextOversized as exc:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={"error_code": "FOLLOWUP_CONTEXT_OVERSIZED", "message": str(exc)},
+            )
+        origin = "follow_up"
+
     reservation = get_admission_controller().reserve(user_id, payload.connection_id)
 
     query_id = str(uuid.uuid4())
@@ -87,6 +134,8 @@ async def create_query(
             connection_id=payload.connection_id,
             question=payload.question,
             max_rows=payload.max_rows,
+            origin=origin,
+            parent_query_id=payload.parent_query_id,
         )
         task = asyncio.create_task(
             run_query_pipeline(
@@ -96,6 +145,7 @@ async def create_query(
                 question=payload.question,
                 max_rows=payload.max_rows,
                 reservation=reservation,
+                parent_query_id=payload.parent_query_id,
             )
         )
         task.add_done_callback(lambda _: reservation.release())

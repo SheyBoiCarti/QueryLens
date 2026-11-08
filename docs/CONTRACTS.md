@@ -81,6 +81,15 @@ limit, original template, metric use, or semantic provenance. Legacy runs withou
 context/versions are ineligible as follow-up parents until rerun; eligibility is
 enforced when follow-up execution is introduced.
 
+### Follow-Up Lineage and Budgeting (Task 8)
+
+Follow-up query resolution (`resolve_followup_context`) validates:
+1. Ownership and status: Every ancestor in the `parent_query_id` chain must be owned by the calling user, on the same connection, and in terminal `status="completed"`. Foreign parents return HTTP 404; incomplete, cyclic, or cross-connection parents return HTTP 422.
+2. Drift prevention: The immediate parent's `snapshot_hash`, `policy_version`, and `semantic_version` must exactly match the current catalog and semantic version. Any drift raises `FollowUpContextStale` (HTTP 409).
+3. Bounded history: Ancestry traversal is capped at 10 hops, retaining the latest `<= 5` chronological turns plus the latest self-contained context.
+4. Token budget: Conversation history is formatted as structured turn text and bounded by `max_tokens` (default 2,000). Exceeding this budget raises `FollowUpContextOversized` (HTTP 409).
+5. Schema preservation: Tables referenced by the parent run are inherited into the schema ranker's initial selected tables, ensuring low-information follow-up questions retain necessary schema context. No source rows are ever passed to LLM providers in initial or repair prompts.
+
 ## C09 — History, retention, and deletion
 
 History repository listings remain owner-scoped with stable keyset pagination.
