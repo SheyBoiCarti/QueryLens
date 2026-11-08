@@ -13,8 +13,7 @@ from querylens.auth.ownership import verify_connection_ownership
 from querylens.config import get_settings
 from querylens.execution.cancellation import cancel_source, forget_execution, prepare_execution, terminate_source
 from querylens.execution.executor import SafeExecutor
-from querylens.jobs.admission import JobReservation, get_admission_controller
-from querylens.jobs.results import get_result_cache
+from querylens.jobs.admission import JobReservation
 from querylens.llm.fake import get_fake_llm_provider
 from querylens.llm.live import get_live_llm_provider
 from querylens.llm.provider import LLMProvider
@@ -30,7 +29,9 @@ from querylens.pipeline.repair_context import assemble_repair_context
 from querylens.schema.catalog import CatalogService
 from querylens.semantics.fanout import analyze_ast_semantics
 from querylens.sql.parse import parse_query
-from querylens.sql.policy import validate_and_bound_sql
+from querylens.sql.policy import validate_query_artifact
+from querylens.pipeline.intent import build_run_context
+from querylens.pipeline.lifecycle import RunServices, run_with_lifecycle
 from querylens.utils.workers import get_db_executor, run_db
 
 _active_tasks: dict[str, asyncio.Task[None]] = {}
@@ -94,41 +95,18 @@ async def run_query_pipeline(
     provider: LLMProvider | None = None,
     reservation: JobReservation | None = None,
 ) -> None:
-    repo = QueryRunRepository()
-    settings = get_settings()
-    lease = reservation
-    try:
-        async with asyncio.timeout(settings.total_run_timeout_sec):
-            lease = lease or get_admission_controller().reserve(user_id, connection_id)
-            await lease.activate(settings.total_run_timeout_sec - settings.cleanup_timeout_sec)
-            llm = provider or (
-                get_live_llm_provider(settings)
-                if settings.environment != "test" and settings.llm_provider != "fake"
-                else get_fake_llm_provider()
-            )
-            await _process(repo, query_id, user_id, connection_id, question, max_rows, llm, lease)
-    except asyncio.CancelledError:
-        await run_db(repo.update_state, query_id, "cancelled", safe_message="Query was cancelled")
-        log_event("pipeline_cancelled", run_id=query_id)
-        raise
-    except TimeoutError:
-        await run_db(
-            repo.update_state,
-            query_id,
-            "failed",
-            error_code="DEADLINE_EXCEEDED",
-            safe_message="Query run deadline exceeded",
+    async def process(services: RunServices) -> None:
+        settings = get_settings()
+        llm = provider or (
+            get_live_llm_provider(settings)
+            if settings.environment != "test" and settings.llm_provider != "fake"
+            else get_fake_llm_provider()
         )
-    except Exception as exc:
-        error = classify_pipeline_error(exc)
-        await run_db(repo.update_state, query_id, "failed", error_code=error.code, safe_message=error.safe_message)
-        log_event("pipeline_failed", run_id=query_id, error_code=error.code)
-    finally:
-        if lease:
-            lease.release()
-            if lease.work is None or lease.work.done():
-                forget_execution(query_id)
-        _active_tasks.pop(query_id, None)
+        await _process(
+            services.repo, query_id, user_id, connection_id, question, max_rows, llm, services.reservation, services
+        )
+
+    await run_with_lifecycle(query_id, user_id, connection_id, reservation, process)
 
 
 async def _process(
@@ -140,6 +118,7 @@ async def _process(
     max_rows: int,
     llm: LLMProvider,
     lease: JobReservation,
+    services: RunServices,
 ) -> None:
     settings = get_settings()
     budget = RunAttemptBudget(
@@ -260,15 +239,25 @@ async def _process(
         prior_sql = candidate.sql
         try:
             await run_db(repo.update_state, query_id, "validating")
-            token = await run_db(
-                validate_and_bound_sql, candidate.sql, connection_id, connection["engine"], snapshot, max_rows
+            artifact = await run_db(
+                validate_query_artifact, candidate.sql, connection_id, connection["engine"], snapshot, max_rows
+            )
+            token = artifact.token
+            run_context = await run_db(
+                build_run_context,
+                artifact.template_sql,
+                artifact.author_limit,
+                question,
+                "natural_language",
+                snapshot,
+                semantic,
             )
             warnings = await run_db(_semantic_warnings, token, snapshot)
             await run_db(repo.update_state, query_id, "executing")
             remaining = budget.time_remaining() - budget.cleanup_reserve_sec
             if remaining <= 0:
                 raise TimeoutError("Execution deadline exhausted")
-            result = await _execute_source(token, query_id, min(settings.statement_timeout_sec, remaining), lease)
+            result = await services.execute(token)
         except Exception as exc:
             error = classify_pipeline_error(exc, engine=connection["engine"], snapshot=snapshot)
             await run_db(repo.finish_attempt, attempt_id, "failed", error.error_signature)
@@ -293,28 +282,8 @@ async def _process(
                 safe_message=error.safe_message,
             )
             return
-        # Refresh/revocation during generation or execution invalidates delivery too.
-        latest = await run_db(CatalogService().get_catalog, user_id, connection_id)
-        if latest.snapshot_hash != snapshot.snapshot_hash:
-            raise PermissionError("Connection policy changed")
-        get_result_cache().put(
-            query_id, snapshot.snapshot_hash, result.columns, result.rows, connection_id=connection_id
-        )
-        await run_db(repo.finish_attempt, attempt_id, "completed")
-        completed = await run_db(
-            repo.update_state,
-            query_id,
-            "completed",
-            canonical_sql=token.canonical_sql,
-            assumptions=candidate.assumptions,
-            warnings=warnings,
-            truncated=result.truncated,
-        )
-        if not completed:
-            get_result_cache().evict(query_id)
-        log_event(
-            "pipeline_completed", run_id=query_id, row_count=result.row_count, duration_ms=result.execution_time_ms
-        )
+        completed = await services.publish(artifact, result, run_context, candidate.assumptions, warnings)
+        await run_db(repo.finish_attempt, attempt_id, "completed" if completed else "cancelled")
         return
 
 

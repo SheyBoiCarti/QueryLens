@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from querylens.domain.schema import CanonicalType
+from querylens.domain.analytics import RunContext, RunOrigin
+from querylens.domain.presentation import PresentationMetadata
 
 
 class PublicRunBase(BaseModel):
@@ -14,6 +16,11 @@ class PublicRunBase(BaseModel):
     question: str
     created_at: str
     updated_at: str
+    origin: RunOrigin = "natural_language"
+    parent_query_id: str | None = None
+    source_query_id: str | None = None
+    saved_question_id: str | None = None
+    saved_question_version: int | None = None
 
 
 class PublicColumn(BaseModel):
@@ -33,6 +40,9 @@ class PublicRunCompleted(PublicRunBase):
     truncated: bool
     results_available: bool
     rows: list[dict[str, str | float | bool | None]] | None = None
+    context: RunContext | None = None
+    presentation: PresentationMetadata | None = None
+    results_expires_at: str | None = None
 
 
 class PublicRunClarification(PublicRunBase):

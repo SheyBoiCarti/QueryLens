@@ -69,7 +69,6 @@ def repair_test_env() -> dict[str, str]:
         connection_id=conn_id,
         engine="postgres",
         policy_version=1,
-        snapshot_hash="repair-snap-01",
         tables=[
             TableMetadata(
                 name="customers",
@@ -81,6 +80,7 @@ def repair_test_env() -> dict[str, str]:
             )
         ],
     )
+    test_snapshot.snapshot_hash = test_snapshot.compute_hash()
     save_snapshot(test_snapshot)
 
     return {"user_id": user_id, "conn_id": conn_id}

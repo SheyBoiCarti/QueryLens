@@ -67,3 +67,28 @@ def test_qualified_user_function_is_not_a_builtin(restricted_catalog):
 
     with pytest.raises(FunctionPolicyError):
         validate_and_bound_sql("SELECT private.lower(name) FROM users", "review", "postgresql", restricted_catalog)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT u.id FROM public.users AS u (id, name)",
+        "SELECT u.name FROM public.users AS u (name)",
+        "SELECT * FROM public.users AS u (id, name)",
+    ],
+)
+def test_physical_table_column_alias_lists_are_rejected(restricted_catalog, sql):
+    # Visible catalogs omit hidden columns and physical ordinals.
+    with pytest.raises(IdentifierPolicyError, match="column alias lists"):
+        validate_and_bound_sql(sql, "review", "postgresql", restricted_catalog)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT d.visible_id FROM (SELECT id FROM public.users) AS d (visible_id)",
+        "WITH visible (visible_id) AS (SELECT id FROM public.users) SELECT visible_id FROM visible",
+    ],
+)
+def test_column_alias_lists_for_derived_and_cte_scopes_remain_supported(restricted_catalog, sql):
+    assert validate_and_bound_sql(sql, "review", "postgresql", restricted_catalog).canonical_sql

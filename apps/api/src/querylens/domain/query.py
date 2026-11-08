@@ -6,14 +6,17 @@ import dataclasses
 import hashlib
 from typing import Any
 
+from querylens.domain.analytics import ResolvedParameters
+
 
 @dataclasses.dataclass(frozen=True)
 class ValidatedQuery:
     """Immutable internal capability token minted only by the AST validator (Contract C06).
-    
+
     Contains canonical bounded SQL, fingerprint, connection binding, and current policy snapshot.
     Never deserialized from API inputs.
     """
+
     connection_id: str
     engine: str
     policy_version: int
@@ -56,3 +59,13 @@ class QueryResult:
     row_count: int
     truncated: bool
     execution_time_ms: int
+
+
+@dataclasses.dataclass(frozen=True)
+class ValidatedArtifact:
+    """Authorized SQL provenance, before server fetch-limit injection."""
+
+    token: ValidatedQuery
+    template_sql: str
+    author_limit: int | None
+    resolved_parameters: ResolvedParameters = dataclasses.field(default_factory=ResolvedParameters)
