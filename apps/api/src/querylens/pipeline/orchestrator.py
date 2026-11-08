@@ -22,6 +22,7 @@ from querylens.observability.logging import log_event
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.pipeline.classifier import classify_pipeline_error
 from querylens.pipeline.context import build_query_context, estimate_tokens
+from querylens.semantics.versions import load_semantic_context
 from querylens.pipeline.errors import ClassifiedError
 from querylens.pipeline.loop_detection import LoopDetector
 from querylens.pipeline.repair import RepairPolicy, RunAttemptBudget
@@ -152,7 +153,8 @@ async def _process(
     await run_db(repo.update_state, query_id, "contextualizing")
     connection = await run_db(verify_connection_ownership, connection_id, user_id)
     snapshot = await run_db(CatalogService().get_catalog, user_id, connection_id)
-    context = await run_db(build_query_context, snapshot, question, settings.max_input_tokens)
+    semantic = await run_db(load_semantic_context, user_id, snapshot)
+    context = await run_db(build_query_context, snapshot, question, settings.max_input_tokens, semantic)
     prior_sql: str | None = None
     last_error: ClassifiedError | None = None
 

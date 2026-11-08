@@ -1,6 +1,61 @@
 {
   "components": {
     "schemas": {
+      "CatalogLabelInput": {
+        "additionalProperties": false,
+        "properties": {
+          "column_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "table_name",
+          "display_name"
+        ],
+        "title": "CatalogLabelInput",
+        "type": "object"
+      },
       "CatalogSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -694,6 +749,88 @@
         "title": "IndexMetadata",
         "type": "object"
       },
+      "LabelReference": {
+        "additionalProperties": false,
+        "properties": {
+          "column_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "namespace",
+          "table_name",
+          "display_name",
+          "version"
+        ],
+        "title": "LabelReference",
+        "type": "object"
+      },
+      "LabelsResponse": {
+        "properties": {
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/LabelReference"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "semantic_version": {
+            "title": "Semantic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "semantic_version",
+          "labels"
+        ],
+        "title": "LabelsResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "properties": {
@@ -794,6 +931,16 @@
             "title": "Name",
             "type": "string"
           },
+          "synonyms": {
+            "items": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Synonyms",
+            "type": "array"
+          },
           "table": {
             "pattern": "^[a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)?$",
             "title": "Table",
@@ -858,6 +1005,7 @@
         "type": "object"
       },
       "MetricResponse": {
+        "additionalProperties": false,
         "properties": {
           "connection_id": {
             "title": "Connection Id",
@@ -1366,6 +1514,30 @@
         "title": "QueryTraceResponse",
         "type": "object"
       },
+      "ReplaceLabelsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_semantic_version": {
+            "minimum": 1.0,
+            "title": "Expected Semantic Version",
+            "type": "integer"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogLabelInput"
+            },
+            "maxItems": 200,
+            "title": "Labels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "expected_semantic_version",
+          "labels"
+        ],
+        "title": "ReplaceLabelsRequest",
+        "type": "object"
+      },
       "StatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1438,6 +1610,42 @@
           "name"
         ],
         "title": "TableMetadata",
+        "type": "object"
+      },
+      "UpdateMetricRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dsl": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricDSL"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version"
+        ],
+        "title": "UpdateMetricRequest",
         "type": "object"
       },
       "UserResponse": {
@@ -1909,9 +2117,116 @@
         ]
       }
     },
+    "/api/v1/connections/{connection_id}/labels": {
+      "get": {
+        "operationId": "get_labels_api_v1_connections__connection_id__labels_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Labels",
+        "tags": [
+          "labels"
+        ]
+      },
+      "put": {
+        "operationId": "put_labels_api_v1_connections__connection_id__labels_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceLabelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Labels",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
     "/api/v1/connections/{connection_id}/metrics": {
       "get": {
-        "description": "List business metrics defined for connection.",
         "operationId": "list_metrics_api_v1_connections__connection_id__metrics_get",
         "parameters": [
           {
@@ -1956,7 +2271,6 @@
         ]
       },
       "post": {
-        "description": "Create a structured business metric validated against the connection catalog.",
         "operationId": "create_metric_api_v1_connections__connection_id__metrics_post",
         "parameters": [
           {
@@ -2025,7 +2339,6 @@
     },
     "/api/v1/connections/{connection_id}/metrics/{metric_id}": {
       "delete": {
-        "description": "Delete business metric.",
         "operationId": "delete_metric_api_v1_connections__connection_id__metrics__metric_id__delete",
         "parameters": [
           {
@@ -2086,6 +2399,81 @@
           }
         },
         "summary": "Delete Metric",
+        "tags": [
+          "metrics"
+        ]
+      },
+      "patch": {
+        "operationId": "update_metric_api_v1_connections__connection_id__metrics__metric_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "metric_id",
+            "required": true,
+            "schema": {
+              "title": "Metric Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetricRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Metric",
         "tags": [
           "metrics"
         ]

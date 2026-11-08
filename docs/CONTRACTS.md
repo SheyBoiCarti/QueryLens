@@ -1,8 +1,8 @@
-# Persistence contracts
+# Analytics contracts
 
-This document records the persistence additions delivered by Everyday Analytics
-Task 1. API delivery, semantic editing, parameter compilation, and execution
-integration are owned by the subsequent tasks in the implementation plan.
+This document records persistence and semantic metadata delivered by Everyday
+Analytics Tasks 1 and 2. Answer presentation, parameter compilation, and new
+execution origins are owned by subsequent tasks in the implementation plan.
 
 ## C04 — Metadata schema and migrations
 
@@ -13,7 +13,7 @@ matching columns, defaults, constraints, foreign keys, and indexes. SQLite
 repository tests enable foreign keys when verifying deletion semantics.
 
 Connections have separate `policy_version` and `semantic_version` integers,
-initially 1. Semantic changes will advance the latter; neither historical query
+initially 1. Semantic mutations advance the latter; neither historical query
 context nor physical snapshot hashes are rewritten by that change.
 
 `catalog_labels` records a physical namespace, table, optional column, display
@@ -119,3 +119,105 @@ server defaults, inspected named constraints and partial indexes, downgraded to
 origin-constraint tests ran against both PostgreSQL and FK-enabled SQLite.
 This verifies metadata persistence; it does not claim new source-driver behavior
 or PostgreSQL 17/18 or MySQL source compatibility.
+
+
+## C05 — Authorized catalog labels and semantic snapshots
+
+Physical `CatalogSnapshot.snapshot_hash` and `policy_version` retain their existing
+meaning. Labels and metric edits do not change physical identifiers, types, hashes,
+or policy versions. The connection's monotonic `semantic_version` advances in the
+same transaction as a successful label replacement or changed metric definition,
+enabled state, or deletion. Metric PATCH requests that make no change retain both
+versions. Label replacements advance the semantic version even when their visible
+contents are unchanged; individual unchanged label versions remain stable.
+
+`GET /api/v1/connections/{connection_id}/labels` returns
+`{semantic_version, labels}`. Each label contains the exact physical `namespace`,
+`table_name`, optional `column_name`, `display_name`, optional `description`, and
+`version`. `PUT` accepts `{expected_semantic_version, labels}` and replaces only
+currently visible labels. Inputs omit server-owned versions. Names are nonempty
+and at most 200 characters, descriptions at most 2,000, identifiers at most 255,
+and replacements at most 200 entries, subject to the existing request byte limit.
+MySQL labels use their actual database namespace, without a `public` fallback.
+
+Table display names are unique within a namespace. Column display names are
+unique within their physical table, in a separate scope from table display names.
+Alias comparisons use Unicode NFKC, collapsed whitespace, and casefold; physical
+identifiers keep their engine-sensitive spelling. Duplicate targets or normalized
+display names return 409. Targets outside the current visible catalog return 422.
+Hidden label records survive visible replacements, cannot be republished by a
+client, and never appear in GET responses or generation context. Hidden records
+also reserve their display names in their scope, with generic conflict messages.
+
+Semantic writes lock the owner-scoped connection row, check the latest physical
+snapshot and policy, validate definitions and expected versions, and commit all
+metadata/version changes atomically. Stale versions or a catalog changed between
+loading and locking return 409 without partial writes. Unknown and foreign
+connection IDs return the same 404. Mutations retain session-bound CSRF and
+approved-origin verification. Semantic reads use a shared connection lock for a
+consistent metadata/version view.
+
+`load_semantic_context(user_id, snapshot)` returns `SemanticContext` containing
+that version, visible label copies, and enabled metrics validated against the
+current catalog. Generation loads this owner-authorized context explicitly.
+Ranker/context functions accept an optional semantic context compatibly; labels,
+metric names/keys/descriptions, and configured synonyms contribute to retrieval.
+Selected metric tables are included ahead of other ranked tables. Prompts contain
+complete structured metric DSL (including filters, grain, units, description, and
+synonyms) and labeled physical targets. Complete selected metric definitions and
+their table schemas must fit the existing byte-based context budget; otherwise
+context construction fails rather than silently dropping metric semantics.
+Optional examples remain bounded and SQL-validated.
+
+## C10 — Versioned metric editing and alias conflicts
+
+`MetricDSL.synonyms` defaults to `[]` for legacy stored DSL. It accepts at most 20
+non-whitespace strings, each at most 100 characters. Metric names remain at most
+200 characters and descriptions at most 1,000. Canonical hashes include synonyms
+and are deterministic across JSON reloads. Table/measure/filter/grain references
+must resolve to visible physical objects; qualified column references must belong
+to the metric's own table. Alias normalization never rewrites these identifiers.
+
+Existing metric POST/GET/DELETE routes remain. POST checks normalized keys,
+names, and synonyms against every enabled definition, including hidden records,
+without identifying conflicting definitions in errors. A conflict returns 409.
+Disabling a metric removes its aliases from this conflict set; re-enabling checks
+again. Exact metric keys retain their existing connection-wide database uniqueness
+constraint, including disabled definitions. GET filters invalid or hidden targets
+while retaining visible disabled metrics for editing. DELETE is owner-scoped,
+including definitions whose targets are no longer visible, and advances the
+semantic version only after an actual deletion.
+
+`PATCH /api/v1/connections/{connection_id}/metrics/{metric_id}` accepts
+`{expected_version, dsl?, enabled?}` with at least one non-null change. `dsl` is the
+complete replacement structured definition. A changed DSL or enabled state
+increments the metric version once and advances the connection semantic version
+once. A stale metric version returns 409; missing, foreign, and hidden PATCH
+targets return 404. The returned metric includes its complete DSL and new version.
+
+## Task 2 verification — 2026-11-08
+
+The initial semantic tests failed on missing semantic interfaces (exit 2). Focused
+coverage now verifies synonym-only retrieval, complete DSL and labels in the
+actual provider prompt, normalized conflicts, disabled aliases, exact physical
+references, hidden/revoked metadata, legacy loading, payload bounds, CSRF/ownership,
+optimistic versions, and MySQL database namespaces. Disposable PostgreSQL tests
+synchronize competing writers and verify that exactly one label replacement or
+conflicting metric creation commits, with a single semantic version increment.
+
+Validation uses the installed `.venv` environment, with backend commands run from
+`apps/api` as specified by the plan. Final verification:
+
+- `python -m pytest tests/unit tests/integration tests/security -q -ra`: 186 passed, 3 skipped.
+- `ruff check apps/api`: passed.
+- `mypy --config-file apps/api/mypy.ini apps/api/src`: passed (89 source files).
+- `npm run typecheck --prefix apps/web`: passed.
+- Exported OpenAPI equals the runtime schema, including both label methods and metric PATCH.
+
+The existing three live-source execution/vertical-slice tests skip without source
+credentials. Disposable PostgreSQL concurrency and migration gates do not skip.
+A separate repository-root run loaded the local `.env` and failed live-source TLS
+certificate checks plus the existing vertical-slice admission setup; it is not
+source-engine compatibility evidence. No source-driver behavior is changed here.
+OpenAPI is re-exported, corresponding semantic TypeScript contracts are updated,
+and Ruff, Mypy, and frontend TypeScript checks pass.

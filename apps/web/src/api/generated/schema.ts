@@ -138,3 +138,65 @@ export type PublicRun =
   | PublicRunFailed
   | PublicRunCancelled
   | PublicRunPending;
+
+// Everyday Analytics semantic metadata (OpenAPI Task 2).
+export type MetricAggregation = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'not_in' | 'is_null' | 'is_not_null';
+
+export interface MetricFilter {
+  column: string;
+  operator: FilterOperator;
+  value?: unknown;
+}
+
+export interface MetricDSL {
+  key: string;
+  name: string;
+  description?: string | null;
+  table: string;
+  measure_column: string;
+  aggregation: MetricAggregation;
+  filters?: MetricFilter[];
+  grain?: string[];
+  units?: string | null;
+  synonyms?: string[];
+}
+
+export interface MetricResponse {
+  id: string;
+  connection_id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  dsl: MetricDSL;
+  version: number;
+  enabled: boolean;
+}
+
+export interface UpdateMetricRequest {
+  expected_version: number;
+  dsl?: MetricDSL;
+  enabled?: boolean;
+}
+
+export interface CatalogLabelInput {
+  namespace: string;
+  table_name: string;
+  column_name?: string | null;
+  display_name: string;
+  description?: string | null;
+}
+
+export interface LabelReference extends CatalogLabelInput {
+  version: number;
+}
+
+export interface LabelsResponse {
+  semantic_version: number;
+  labels: LabelReference[];
+}
+
+export interface ReplaceLabelsRequest {
+  expected_semantic_version: number;
+  labels: CatalogLabelInput[];
+}
