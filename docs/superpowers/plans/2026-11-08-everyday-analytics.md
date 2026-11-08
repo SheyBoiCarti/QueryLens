@@ -278,11 +278,11 @@ Implemented on `feat/everyday-analytics-persistence`; verification and API behav
 
 **Interfaces:** SQLPanel({sql,dialect,origin,runId,onRunSql,disabled}); onRunSql(draft: string) -> Promise<void>. Separate selectedRunId, inFlightRunId, selectedParentId, lastSuccessfulRunId, loaded run metadata, and draft keyed by run. All origins share accepted-run handling/polling through current navigation callbacks.
 
-- [ ] **1. Write failing workspace tests.** Edit/run asserts exact connection/source/max_rows and polls the accepted run, then shows actual bounded SQL. Reset/close/navigation/connection changes require dirty-draft confirmation; cancellation preserves draft. Mock confirmation explicitly. Failed manual execution leaves prior successful answer selectable.
-- [ ] **2. Run red:** npm test --prefix apps/web -- src/__tests__/editable_sql_panel.test.tsx src/__tests__/workspace_execution.test.tsx.
-- [ ] **3. Wire editor through the real endpoint.** Keep executed SQL immutable and textarea draft separate. Origin-aware "Edited SQL" labels, dialect, pending state, safe errors, and api.post manual submission. Abort stale reads; earlier completions cannot change current selection/connection. Protect drafts across all discard actions, not just reset.
-- [ ] **4. Verify integration and existing workspace tests.** Selected-run reset, rejection, cancellation, retry, history navigation, connection switch, out-of-order responses, diagnostics, and old terminal variants. Run focused tests, existing phase_08 workspace tests, and frontend typecheck.
-- [ ] **5. Commit verified workspace/editor changes.**
+- [x] **1. Write failing workspace tests.** Edit/run asserts exact connection/source/max_rows and polls the accepted run, then shows actual bounded SQL. Reset/close/navigation/connection changes require dirty-draft confirmation; cancellation preserves draft. Mock confirmation explicitly. Failed manual execution leaves prior successful answer selectable.
+- [x] **2. Run red:** npm test --prefix apps/web -- src/__tests__/editable_sql_panel.test.tsx src/__tests__/workspace_execution.test.tsx.
+- [x] **3. Wire editor through the real endpoint.** Keep executed SQL immutable and textarea draft separate. Origin-aware "Edited SQL" labels, dialect, pending state, safe errors, and api.post manual submission. Abort stale reads; earlier completions cannot change current selection/connection. Protect drafts across all discard actions, not just reset.
+- [x] **4. Verify integration and existing workspace tests.** Selected-run reset, rejection, cancellation, retry, history navigation, connection switch, out-of-order responses, diagnostics, and old terminal variants. Run focused tests, existing phase_08 workspace tests, and frontend typecheck.
+- [x] **5. Commit verified workspace/editor changes.**
 
 ### Task 11: Saved Questions and Typed Filter Controls
 

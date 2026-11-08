@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { api, ApiError } from '../../api/client.ts';
-import { ConnectionResponse, PublicRun } from '../../api/generated/schema.ts';
+import { ConnectionResponse, PublicRun, PublicRunCompleted } from '../../api/generated/schema.ts';
 import { QuestionForm } from './QuestionForm.tsx';
 import { QueryStatus } from './QueryStatus.tsx';
 import { AnswerPresentation } from './AnswerPresentation.tsx';
@@ -15,30 +15,88 @@ interface WorkspaceViewProps {
 
 const terminal = new Set(['completed', 'failed', 'rejected', 'clarification_required', 'cancelled', 'interrupted']);
 
-export function WorkspaceView({ onNavigateToConnections, initialQueryId, onActiveQueryChange }: WorkspaceViewProps): React.JSX.Element {
+export function WorkspaceView({
+  onNavigateToConnections,
+  initialQueryId,
+  onActiveQueryChange,
+}: WorkspaceViewProps): React.JSX.Element {
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
   const [connectionId, setConnectionId] = useState('');
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
   const [loadingConnections, setLoadingConnections] = useState(true);
-  const [activeQueryId, setActiveQueryId] = useState<string | null>(initialQueryId || null);
-  const [query, setQuery] = useState<PublicRun | null>(null);
+
+  // Separated selection and execution state (Task 10)
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(initialQueryId || null);
+  const [inFlightRunId, setInFlightRunId] = useState<string | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  void selectedParentId;
+  const [lastSuccessfulRunId, setLastSuccessfulRunId] = useState<string | null>(null);
+  const [loadedRuns, setLoadedRuns] = useState<Record<string, PublicRun>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
   const [trace, setTrace] = useState<TraceData | null>(null);
   const [inspecting, setInspecting] = useState(false);
   const [pollError, setPollError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [cancelling, setCancelling] = useState(false);
 
+  // Track draft state for confirmation checks
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+  const loadedRunsRef = useRef(loadedRuns);
+  loadedRunsRef.current = loadedRuns;
+
+  const isDraftDirty = (runId: string | null): boolean => {
+    if (!runId) return false;
+    const draft = draftsRef.current[runId];
+    const run = loadedRunsRef.current[runId];
+    if (draft !== undefined && run && run.status === 'completed' && 'sql' in run) {
+      return draft !== run.sql;
+    }
+    return false;
+  };
+
+  const confirmDiscardIfDirty = (callback: () => void) => {
+    if (isDraftDirty(selectedRunId)) {
+      if (!window.confirm('You have unsaved SQL edits. Discard changes?')) {
+        return;
+      }
+    }
+    callback();
+  };
+
   useEffect(() => {
     const abort = new AbortController();
     api.get<ConnectionResponse[]>('/api/v1/connections', { signal: abort.signal })
-      .then((items) => { setConnections(items); setConnectionId(items[0]?.id || ''); })
-      .catch((err: unknown) => { if (!abort.signal.aborted) setConnectionsError(err instanceof Error ? err.message : 'Could not load connections'); })
-      .finally(() => { if (!abort.signal.aborted) setLoadingConnections(false); });
+      .then((items) => {
+        setConnections(items);
+        setConnectionId((prev) => prev || items[0]?.id || '');
+      })
+      .catch((err: unknown) => {
+        if (!abort.signal.aborted) {
+          setConnectionsError(err instanceof Error ? err.message : 'Could not load connections');
+        }
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoadingConnections(false);
+      });
     return () => abort.abort();
   }, []);
 
+  // Update selectedRunId if initialQueryId changes from parent
   useEffect(() => {
-    if (!activeQueryId) return;
+    if (initialQueryId && initialQueryId !== selectedRunId) {
+      confirmDiscardIfDirty(() => {
+        setSelectedRunId(initialQueryId);
+      });
+    }
+  }, [initialQueryId]);
+
+  // Polling effect for active target (inFlightRunId or selectedRunId)
+  const targetId = inFlightRunId || selectedRunId;
+
+  useEffect(() => {
+    if (!targetId) return;
     const abort = new AbortController();
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -46,44 +104,77 @@ export function WorkspaceView({ onNavigateToConnections, initialQueryId, onActiv
 
     const poll = async () => {
       try {
-        const run = await api.get<PublicRun>(`/api/v1/queries/${activeQueryId}`, { signal: abort.signal });
+        const run = await api.get<PublicRun>(`/api/v1/queries/${targetId}`, { signal: abort.signal });
         if (abort.signal.aborted) return;
+
         setConnectionId(run.connection_id);
-        setQuery((previous) => {
-          if (!previous) return run;
-          // Availability changes must not be discarded by state_version-only comparison!
-          if (previous.state_version > run.state_version) {
-            if ('results_available' in run && 'results_available' in previous && run.results_available !== previous.results_available) {
-              return run;
+        setLoadedRuns((previous) => {
+          const prev = previous[targetId];
+          if (!prev) return { ...previous, [targetId]: run };
+          // Availability changes must NOT be discarded by state_version comparison
+          if (prev.state_version > run.state_version) {
+            if ('results_available' in run && 'results_available' in prev && run.results_available !== prev.results_available) {
+              return { ...previous, [targetId]: run };
             }
             return previous;
           }
-          return run;
+          return { ...previous, [targetId]: run };
         });
+
+        if (run.status === 'completed') {
+          if (run.results_available) {
+            setLastSuccessfulRunId(run.query_id);
+          }
+          if (run.parent_query_id) {
+            setSelectedParentId(run.parent_query_id);
+          }
+          if (inFlightRunId === targetId) {
+            setSelectedRunId(targetId);
+            setInFlightRunId(null);
+          }
+        } else if (terminal.has(run.status)) {
+          if (inFlightRunId === targetId) {
+            setSelectedRunId(targetId);
+            setInFlightRunId(null);
+          }
+        }
+
         setPollError(null);
         failures = 0;
 
         if (terminal.has(run.status)) {
           setCancelling(false);
           try {
-            const data = await api.get<TraceData>(`/api/v1/queries/${activeQueryId}/trace`, { signal: abort.signal });
+            const data = await api.get<TraceData>(`/api/v1/queries/${targetId}/trace`, { signal: abort.signal });
             if (!abort.signal.aborted) setTrace(data);
-          } catch { /* Results remain usable when diagnostics are unavailable. */ }
+          } catch {
+            /* Results remain usable when diagnostics are unavailable */
+          }
 
-          // If completed with valid rows and results_expires_at, set an expiry timer
+          // If completed with valid rows and results_expires_at, set expiry timer
           if (run.status === 'completed' && run.results_available && run.results_expires_at) {
             const remainingMs = new Date(run.results_expires_at).getTime() - Date.now();
             if (remainingMs > 0) {
               if (expiryTimer) clearTimeout(expiryTimer);
               expiryTimer = setTimeout(() => {
                 if (abort.signal.aborted) return;
-                // Clear volatile rows and mark unavailable
-                setQuery((prev) => prev && prev.status === 'completed' ? { ...prev, results_available: false, rows: undefined } : prev);
-                // Re-fetch availability
+                setLoadedRuns((prev) => {
+                  const current = prev[targetId];
+                  if (current && current.status === 'completed') {
+                    return { ...prev, [targetId]: { ...current, results_available: false, rows: undefined } };
+                  }
+                  return prev;
+                });
                 void poll();
               }, remainingMs);
             } else {
-              setQuery((prev) => prev && prev.status === 'completed' ? { ...prev, results_available: false, rows: undefined } : prev);
+              setLoadedRuns((prev) => {
+                const current = prev[targetId];
+                if (current && current.status === 'completed') {
+                  return { ...prev, [targetId]: { ...current, results_available: false, rows: undefined } };
+                }
+                return prev;
+              });
             }
           }
           return;
@@ -94,16 +185,24 @@ export function WorkspaceView({ onNavigateToConnections, initialQueryId, onActiv
         setPollError(err instanceof Error ? err.message : 'Could not refresh query status');
         if (err instanceof ApiError && [401, 403, 404].includes(err.statusCode)) {
           // Clear protected data on authorization failure / revocation
-          setQuery((prev) => prev ? ({ ...prev, results_available: false, rows: undefined, presentation: undefined }) : null);
+          setLoadedRuns((prev) => {
+            const updated = { ...prev };
+            if (updated[targetId]) {
+              delete updated[targetId];
+            }
+            return updated;
+          });
           return;
         }
       }
-      if (!abort.signal.aborted) pollTimer = setTimeout(() => void poll(), Math.min(30000, 1000 * 2 ** failures));
+      if (!abort.signal.aborted) {
+        pollTimer = setTimeout(() => void poll(), Math.min(30000, 1000 * 2 ** failures));
+      }
     };
 
     void poll();
 
-    // Revalidate completed runs on focus and periodic refresh no more than once per 30 seconds
+    // Revalidate completed runs on focus and periodic refresh (every 30s)
     let lastRevalidate = Date.now();
     const handleFocus = () => {
       const now = Date.now();
@@ -128,74 +227,181 @@ export function WorkspaceView({ onNavigateToConnections, initialQueryId, onActiv
       clearInterval(revalidateInterval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [activeQueryId, retry]);
+  }, [targetId, retry]);
 
   const submitted = (id: string) => {
-    setActiveQueryId(id);
+    setInFlightRunId(id);
+    setSelectedRunId(id);
     onActiveQueryChange?.(id);
-    setQuery(null);
     setTrace(null);
     setInspecting(false);
     setPollError(null);
   };
 
+  const handleRunSql = async (draft: string) => {
+    if (!selectedRunId) return;
+    const currentRun = loadedRuns[selectedRunId];
+    const conn = connectionId || (currentRun ? currentRun.connection_id : '');
+    try {
+      const res = await api.post<{ query_id: string; status: string }>('/api/v1/queries/sql', {
+        connection_id: conn,
+        sql: draft,
+        source_query_id: selectedRunId,
+        max_rows: 100,
+      });
+      submitted(res.query_id);
+    } catch (err) {
+      setPollError(err instanceof Error ? err.message : 'Failed to execute edited SQL');
+    }
+  };
+
   const cancel = async () => {
-    if (!activeQueryId) return;
+    const idToCancel = inFlightRunId || selectedRunId;
+    if (!idToCancel) return;
     setCancelling(true);
     try {
-      await api.post(`/api/v1/queries/${activeQueryId}/cancel`);
+      await api.post(`/api/v1/queries/${idToCancel}/cancel`);
       setRetry((value) => value + 1);
     } catch (err) {
       setPollError(err instanceof Error ? err.message : 'Cancellation failed; please retry');
       setCancelling(false);
     }
   };
-  const running = Boolean(activeQueryId && (!query || !terminal.has(query.status)));
 
-  return <div className="space-y-6">
-    {loadingConnections ? <p role="status">Loading connections...</p> : connectionsError ? (
-      <p role="alert" className="text-red-700">{connectionsError}</p>
-    ) : connections.length ? (
-      <QuestionForm connections={connections} selectedConnectionId={connectionId} onSelectConnection={setConnectionId}
-        onQuerySubmitted={submitted} disabled={running} />
-    ) : <div className="rounded-lg border bg-white p-6">
-      <p>Connect a database and select its allowed tables to start asking questions.</p>
-      <button onClick={onNavigateToConnections} className="mt-3 text-indigo-700 underline">Add database connection</button>
-    </div>}
-    {pollError && <div role="alert" className="rounded border border-red-200 bg-red-50 p-4">
-      {pollError} <button onClick={() => setRetry((value) => value + 1)} className="underline">Retry now</button>
-      {running && <button onClick={() => { setActiveQueryId(null); onActiveQueryChange?.(null); setQuery(null); }} className="ml-4 underline">Dismiss view</button>}
-    </div>}
-    {query && <p className="font-semibold text-slate-800">{query.question}</p>}
-    {activeQueryId && <QueryStatus status={cancelling ? 'cancelling' : query?.status || 'queued'} onCancel={() => void cancel()} />}
-    {query?.status === 'clarification_required' && <Assumptions clarificationQuestion={query.clarification_question} />}
-    {query && ['failed', 'rejected', 'interrupted', 'cancelled'].includes(query.status) && 'safe_message' in query && (
-      <p role="alert" className="rounded border bg-white p-4">{query.safe_message}</p>
-    )}
-    {query?.status === 'completed' && (
-      <AnswerPresentation
-        run={query}
-        onRerun={() => {
-          if (query.origin === 'manual_sql' && query.sql) {
-            api.post<{ query_id: string }>('/api/v1/queries/sql', {
-              connection_id: query.connection_id,
-              sql: query.sql,
-              source_query_id: query.query_id,
-            }).then((res) => submitted(res.query_id)).catch(() => setPollError('Rerun failed'));
-          } else {
-            api.post<{ query_id: string }>('/api/v1/queries', {
-              connection_id: query.connection_id,
-              question: query.question,
-            }).then((res) => submitted(res.query_id)).catch(() => setPollError('Rerun failed'));
+  const selectedRun = selectedRunId ? loadedRuns[selectedRunId] || null : null;
+  const running = Boolean(inFlightRunId || (selectedRun && !terminal.has(selectedRun.status)));
+
+  return (
+    <div className="space-y-6">
+      {loadingConnections ? (
+        <p role="status">Loading connections...</p>
+      ) : connectionsError ? (
+        <p role="alert" className="text-red-700">{connectionsError}</p>
+      ) : connections.length ? (
+        <QuestionForm
+          connections={connections}
+          selectedConnectionId={connectionId}
+          onSelectConnection={(newId) =>
+            confirmDiscardIfDirty(() => {
+              setConnectionId(newId);
+              setSelectedRunId(null);
+              setInFlightRunId(null);
+              onActiveQueryChange?.(null);
+            })
           }
-        }}
-      />
-    )}
-    {trace && <div>
-      <button onClick={() => setInspecting((value) => !value)} className="text-indigo-700 underline">{inspecting ? 'Hide diagnostics' : 'Show diagnostics'}</button>
-      {inspecting && <QueryInspector trace={trace} status={query?.status || trace.status} />}
-    </div>}
-  </div>;
+          onQuerySubmitted={submitted}
+          disabled={running}
+        />
+      ) : (
+        <div className="rounded-lg border bg-white p-6">
+          <p>Connect a database and select its allowed tables to start asking questions.</p>
+          <button onClick={onNavigateToConnections} className="mt-3 text-indigo-700 underline">
+            Add database connection
+          </button>
+        </div>
+      )}
+
+      {pollError && (
+        <div role="alert" className="rounded border border-red-200 bg-red-50 p-4">
+          {pollError}{' '}
+          <button onClick={() => setRetry((value) => value + 1)} className="underline">
+            Retry now
+          </button>
+          {running && (
+            <button
+              onClick={() =>
+                confirmDiscardIfDirty(() => {
+                  setSelectedRunId(null);
+                  setInFlightRunId(null);
+                  onActiveQueryChange?.(null);
+                })
+              }
+              className="ml-4 underline"
+            >
+              Dismiss view
+            </button>
+          )}
+        </div>
+      )}
+
+      {selectedRun && <p className="font-semibold text-slate-800">{selectedRun.question}</p>}
+
+      {targetId && (
+        <QueryStatus
+          status={cancelling ? 'cancelling' : selectedRun?.status || 'queued'}
+          onCancel={() => void cancel()}
+        />
+      )}
+
+      {selectedRun?.status === 'clarification_required' && (
+        <Assumptions clarificationQuestion={selectedRun.clarification_question} />
+      )}
+
+      {selectedRun && ['failed', 'rejected', 'interrupted', 'cancelled'].includes(selectedRun.status) && 'safe_message' in selectedRun && (
+        <div className="space-y-3">
+          <p role="alert" className="rounded border bg-white p-4">
+            {selectedRun.safe_message}
+          </p>
+
+          {/* If manual execution failed, prior successful answer remains selectable */}
+          {lastSuccessfulRunId && lastSuccessfulRunId !== selectedRunId && loadedRuns[lastSuccessfulRunId] && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between">
+              <span className="text-sm text-slate-700">Prior successful query is available.</span>
+              <button
+                type="button"
+                onClick={() => setSelectedRunId(lastSuccessfulRunId)}
+                className="text-sm text-indigo-700 hover:text-indigo-900 font-medium underline"
+              >
+                View previous successful answer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedRun?.status === 'completed' && (
+        <AnswerPresentation
+          run={selectedRun as PublicRunCompleted}
+          onRunSql={handleRunSql}
+          onDraftChange={(draft) => {
+            setDrafts((prev) => ({ ...prev, [selectedRun.query_id]: draft }));
+          }}
+          disabled={running}
+          onRerun={() => {
+            if (selectedRun.origin === 'manual_sql' && selectedRun.sql) {
+              api.post<{ query_id: string }>('/api/v1/queries/sql', {
+                connection_id: selectedRun.connection_id,
+                sql: selectedRun.sql,
+                source_query_id: selectedRun.query_id,
+                max_rows: 100,
+              })
+                .then((res) => submitted(res.query_id))
+                .catch(() => setPollError('Rerun failed'));
+            } else {
+              api.post<{ query_id: string }>('/api/v1/queries', {
+                connection_id: selectedRun.connection_id,
+                question: selectedRun.question,
+              })
+                .then((res) => submitted(res.query_id))
+                .catch(() => setPollError('Rerun failed'));
+            }
+          }}
+        />
+      )}
+
+      {trace && (
+        <div>
+          <button
+            onClick={() => setInspecting((value) => !value)}
+            className="text-indigo-700 underline"
+          >
+            {inspecting ? 'Hide diagnostics' : 'Show diagnostics'}
+          </button>
+          {inspecting && <QueryInspector trace={trace} status={selectedRun?.status || trace.status} />}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default WorkspaceView;

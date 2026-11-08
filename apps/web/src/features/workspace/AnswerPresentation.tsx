@@ -9,9 +9,18 @@ import { Assumptions } from './Assumptions.tsx';
 export interface AnswerPresentationProps {
   run: PublicRunCompleted;
   onRerun?: () => void;
+  onRunSql?: (draft: string) => Promise<void>;
+  onDraftChange?: (draft: string) => void;
+  disabled?: boolean;
 }
 
-export function AnswerPresentation({ run, onRerun }: AnswerPresentationProps): React.JSX.Element {
+export function AnswerPresentation({
+  run,
+  onRerun,
+  onRunSql,
+  onDraftChange,
+  disabled = false,
+}: AnswerPresentationProps): React.JSX.Element {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
   const plot = plotValues(run.presentation, run.columns, run.rows || []);
@@ -178,7 +187,15 @@ export function AnswerPresentation({ run, onRerun }: AnswerPresentationProps): R
           Executed SQL
         </summary>
         <div className="mt-3 space-y-3">
-          <SQLPanel sql={run.sql} dialect={run.dialect} />
+          <SQLPanel
+            sql={run.sql}
+            dialect={run.dialect}
+            origin={run.origin}
+            runId={run.query_id}
+            onRunSql={onRunSql}
+            onDraftChange={onDraftChange}
+            disabled={disabled}
+          />
           {run.assumptions && run.assumptions.length > 0 && (
             <Assumptions assumptions={run.assumptions} />
           )}
