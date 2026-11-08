@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import React from 'react';
 import QueryInspector, { TraceData } from '../features/workspace/QueryInspector.tsx';
 
 describe('QueryInspector Component (Task 07.07)', () => {

@@ -23,16 +23,21 @@ def get_engine(db_url: str | None = None) -> Engine:
             url = url.replace("postgres://", "postgresql+psycopg://", 1)
         elif url.startswith("postgresql://") and not url.startswith("postgresql+psycopg://"):
             url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-        
+
         # Engine configuration
         if "sqlite" in url:
             engine = sa.create_engine(url, echo=False)
         else:
+            settings = get_settings()
             engine = sa.create_engine(
                 url,
                 pool_size=5,
                 max_overflow=5,
-                pool_timeout=5,
+                pool_timeout=settings.pool_acquire_timeout_sec,
+                connect_args={
+                    "connect_timeout": max(1, int(settings.connect_timeout_sec)),
+                    "options": f"-c statement_timeout={max(1, int(settings.cleanup_timeout_sec * 1000))}",
+                },
                 pool_pre_ping=True,
                 echo=False,
             )

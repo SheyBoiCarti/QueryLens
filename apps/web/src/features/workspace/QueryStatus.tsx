@@ -1,5 +1,4 @@
 import React from 'react';
-import { api } from '../../api/client.ts';
 
 interface QueryStatusProps {
   status: string;

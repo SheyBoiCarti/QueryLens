@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from sqlalchemy.engine import Engine
 
 from querylens.connections.mysql import MySQLAdapter
@@ -55,6 +54,7 @@ def create_engine_pool(
     username: str,
     password: str,
     tls_enabled: bool = True,
+    ca_cert: str | None = None,
 ) -> Engine:
     """Create bounded engine pool for target engine."""
     if engine_name == "postgresql":
@@ -65,6 +65,7 @@ def create_engine_pool(
             username=username,
             password=password,
             tls_enabled=tls_enabled,
+            ca_cert=ca_cert,
         )
     elif engine_name == "mysql":
         return MySQLAdapter.create_pool(
@@ -74,6 +75,7 @@ def create_engine_pool(
             username=username,
             password=password,
             tls_enabled=tls_enabled,
+            ca_cert=ca_cert,
         )
     else:
         raise ValueError(f"Unsupported engine: {engine_name}")

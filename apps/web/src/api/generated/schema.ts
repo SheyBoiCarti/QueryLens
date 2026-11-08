@@ -109,7 +109,7 @@ export interface PublicRunCompleted extends PublicRunBase {
   truncated: boolean;
   results_available: boolean;
   results_expires_at?: string;
-  rows?: Record<string, any>[];
+  rows?: Record<string, string | number | boolean | null>[];
 }
 
 export interface PublicRunClarification extends PublicRunBase {

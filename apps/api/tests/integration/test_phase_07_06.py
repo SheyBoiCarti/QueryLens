@@ -24,7 +24,9 @@ import sqlalchemy as sa
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:", poolclass=sa.pool.StaticPool)
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng
@@ -74,7 +76,7 @@ def setup_cancellation_data() -> dict[str, str]:
     return {"user_id": user_id, "other_user_id": other_user_id, "conn_id": conn_id}
 
 
-def test_foreign_cancel_returns_404(setup_cancellation_data: dict[str, str]) -> None:
+async def test_foreign_cancel_returns_404(setup_cancellation_data: dict[str, str]) -> None:
     repo = QueryRunRepository()
     user_id = setup_cancellation_data["user_id"]
     other_user_id = setup_cancellation_data["other_user_id"]
@@ -84,10 +86,10 @@ def test_foreign_cancel_returns_404(setup_cancellation_data: dict[str, str]) -> 
     repo.create(run_id, user_id, conn_id, "test question")
 
     with pytest.raises(NotFoundError):
-        request_cancel(run_id, other_user_id)
+        await request_cancel(run_id, other_user_id)
 
 
-def test_cancel_nonterminal_run(setup_cancellation_data: dict[str, str]) -> None:
+async def test_cancel_nonterminal_run(setup_cancellation_data: dict[str, str]) -> None:
     repo = QueryRunRepository()
     user_id = setup_cancellation_data["user_id"]
     conn_id = setup_cancellation_data["conn_id"]
@@ -97,14 +99,14 @@ def test_cancel_nonterminal_run(setup_cancellation_data: dict[str, str]) -> None
         repo.create(run_id, user_id, conn_id, "test question")
         repo.update_state(run_id, stage)
 
-        res = request_cancel(run_id, user_id)
+        res = await request_cancel(run_id, user_id)
         assert res["status"] == "cancelled"
 
         updated = repo.get(run_id, user_id=user_id)
         assert updated["status"] == "cancelled"
 
 
-def test_terminal_states_cannot_be_overwritten(setup_cancellation_data: dict[str, str]) -> None:
+async def test_terminal_states_cannot_be_overwritten(setup_cancellation_data: dict[str, str]) -> None:
     repo = QueryRunRepository()
     user_id = setup_cancellation_data["user_id"]
     conn_id = setup_cancellation_data["conn_id"]
@@ -113,7 +115,7 @@ def test_terminal_states_cannot_be_overwritten(setup_cancellation_data: dict[str
     repo.create(run_id, user_id, conn_id, "completed question")
     repo.update_state(run_id, "completed")
 
-    res = request_cancel(run_id, user_id)
+    res = await request_cancel(run_id, user_id)
     assert res["status"] == "completed"
 
     updated = repo.get(run_id, user_id=user_id)

@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { api, ApiError } from '../../api/client.ts';
+import { api } from '../../api/client.ts';
 import { ConnectionResponse } from '../../api/generated/schema.ts';
 import ConnectionForm from './ConnectionForm.tsx';
 import ConnectionList from './ConnectionList.tsx';
+import { VisibilityEditor } from './VisibilityEditor.tsx';
 
 export function ConnectionManager(): React.JSX.Element {
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [configuring, setConfiguring] = useState<ConnectionResponse | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState<ConnectionResponse | null>(null);
 
@@ -17,8 +19,8 @@ export function ConnectionManager(): React.JSX.Element {
       setError(null);
       const data = await api.get<ConnectionResponse[]>('/api/v1/connections');
       setConnections(data);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load connections');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load connections');
     } finally {
       setLoading(false);
     }
@@ -33,7 +35,8 @@ export function ConnectionManager(): React.JSX.Element {
     setIsEditing(true);
   };
 
-  const handleFormSuccess = () => {
+  const handleFormSuccess = (saved: ConnectionResponse) => {
+    setConfiguring(saved);
     setIsEditing(false);
     setSelectedConnection(null);
     fetchConnections();
@@ -52,7 +55,9 @@ export function ConnectionManager(): React.JSX.Element {
         </div>
       )}
 
-      {loading && connections.length === 0 ? (
+      {configuring ? (
+        <VisibilityEditor connection={configuring} onDone={() => { setConfiguring(null); void fetchConnections(); }} />
+      ) : loading && connections.length === 0 ? (
         <div className="text-center py-10 text-slate-500 text-sm">Loading connections...</div>
       ) : isEditing ? (
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
@@ -67,13 +72,15 @@ export function ConnectionManager(): React.JSX.Element {
               Cancel
             </button>
           </div>
-          <ConnectionForm onSuccess={handleFormSuccess} />
+          <ConnectionForm connection={selectedConnection} onSuccess={handleFormSuccess} onCancel={handleCancelForm} />
         </div>
       ) : (
         <ConnectionList
           connections={connections}
           onRefresh={fetchConnections}
           onAddNew={handleAddNew}
+          onEdit={(connection) => { setSelectedConnection(connection); setIsEditing(true); }}
+          onConfigure={setConfiguring}
         />
       )}
     </div>

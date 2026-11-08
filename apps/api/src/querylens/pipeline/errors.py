@@ -11,6 +11,7 @@ ErrorCategory = Literal[
     "aggregate",
     "fan_out",
     "dialect",
+    "function",
     "policy",
     "permission",
     "timeout",

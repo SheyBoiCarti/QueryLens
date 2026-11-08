@@ -15,7 +15,9 @@ from querylens.persistence.tables import connections, metadata
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng
@@ -106,5 +108,6 @@ async def test_two_user_ownership_isolation(test_db):
 
     # User B accesses connection -> 404 (NOT 403, does not disclose existence)
     from querylens.api.errors import NotFoundError
+
     with pytest.raises(NotFoundError):
         verify_connection_ownership("conn-user-a", user_b["id"])

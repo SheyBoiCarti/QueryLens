@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StrictBaseModel(BaseModel):
     """Base model forbidding extra fields."""
+
     model_config = ConfigDict(extra="forbid")
 
 
 # --- Auth Schemas ---
+
 
 class UserResponse(StrictBaseModel):
     id: str = Field(..., description="Unique user identifier")
@@ -38,6 +39,7 @@ class StatusResponse(StrictBaseModel):
 
 
 # --- Error Schemas ---
+
 
 class ErrorDetail(StrictBaseModel):
     code: str

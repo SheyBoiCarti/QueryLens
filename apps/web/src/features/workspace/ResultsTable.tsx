@@ -3,7 +3,7 @@ import { ColumnMeta } from '../../api/generated/schema.ts';
 
 interface ResultsTableProps {
   columns: ColumnMeta[];
-  rows: Record<string, any>[];
+  rows: Record<string, string | number | boolean | null>[];
   truncated?: boolean;
 }
 
@@ -63,7 +63,7 @@ export function ResultsTable({ columns, rows, truncated = false }: ResultsTableP
 
       <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
         <span>Showing {rows.length} rows</span>
-        <span>Volatile memory cache (TTL: 300s)</span>
+        <span>Results are temporarily cached</span>
       </div>
     </div>
   );

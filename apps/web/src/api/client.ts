@@ -57,14 +57,7 @@ async function request<T>(
     credentials: 'include', // send cookies
   });
 
-  if (!fetchPromise || typeof (fetchPromise as any).then !== 'function') {
-    return [] as unknown as T;
-  }
-
   const response = await fetchPromise;
-  if (!response) {
-    return [] as unknown as T;
-  }
 
   const requestId = response.headers.get('X-Request-ID') || '';
 
@@ -82,6 +75,10 @@ async function request<T>(
       // Non-JSON response
     }
 
+    if (response.status === 401 && !path.endsWith('/auth/login')) {
+      setCsrfToken(null);
+      window.dispatchEvent(new Event('querylens:unauthorized'));
+    }
     throw new ApiError(errorCode, errorMessage, requestId, response.status);
   }
 
@@ -110,25 +107,29 @@ export const api = {
     return res;
   },
 
-  getMe: async (): Promise<UserResponse> => {
-    return request<UserResponse>('/api/v1/auth/me');
+  getMe: async (options: RequestInit = {}): Promise<UserResponse> => {
+    return request<UserResponse>('/api/v1/auth/me', options);
   },
 
-  getCsrf: async (): Promise<CsrfResponse> => {
-    const res = await request<CsrfResponse>('/api/v1/auth/csrf');
+  getCsrf: async (options: RequestInit = {}): Promise<CsrfResponse> => {
+    const res = await request<CsrfResponse>('/api/v1/auth/csrf', options);
     setCsrfToken(res.csrf_token);
     return res;
   },
 
-  get: async <T>(path: string): Promise<T> => {
-    return request<T>(path, { method: 'GET' });
+  get: async <T>(path: string, options: RequestInit = {}): Promise<T> => {
+    return request<T>(path, { ...options, method: 'GET' });
   },
 
-  post: async <T>(path: string, body?: any): Promise<T> => {
+  post: async <T>(path: string, body?: unknown): Promise<T> => {
     return request<T>(path, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     });
+  },
+
+  patch: async <T>(path: string, body: unknown): Promise<T> => {
+    return request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
   },
 
   delete: async <T>(path: string): Promise<T> => {

@@ -23,7 +23,9 @@ from querylens.persistence.tables import connections, query_runs
 
 @pytest.fixture
 def app_with_test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:", poolclass=sa.pool.StaticPool)
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
 

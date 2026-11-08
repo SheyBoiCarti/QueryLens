@@ -17,7 +17,9 @@ from querylens.schema.inspector import SchemaInspector
 
 @pytest.fixture(autouse=True)
 def test_db():
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
     yield test_eng
@@ -28,7 +30,9 @@ def test_db():
 def test_visibility_policy_empty_yields_empty_catalog():
     """Empty visibility policy yields empty catalog (Contract C05)."""
     # Create test SQLite source database
-    src_eng = sa.create_engine("sqlite:///:memory:")
+    src_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     with src_eng.begin() as conn:
         conn.execute(sa.text("CREATE TABLE test_table (id INTEGER PRIMARY KEY, secret TEXT);"))
 
@@ -45,7 +49,9 @@ def test_visibility_policy_empty_yields_empty_catalog():
 
 def test_visibility_policy_filters_forbidden_tables_and_columns():
     """Reflects ONLY selected tables and columns, filtering unselected ones (Contract C05)."""
-    src_eng = sa.create_engine("sqlite:///:memory:")
+    src_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     with src_eng.begin() as conn:
         conn.execute(sa.text("CREATE TABLE employees (id INTEGER PRIMARY KEY, name TEXT, salary REAL, ssn TEXT);"))
         conn.execute(sa.text("CREATE TABLE secret_audit (id INTEGER, log TEXT);"))

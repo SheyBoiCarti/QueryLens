@@ -65,6 +65,7 @@ connections = Table(
     Column("tls_enabled", Boolean, nullable=False, server_default=sa.true()),
     Column("ca_cert", Text, nullable=True),
     Column("allowed_tables", Text, nullable=True),  # JSON-encoded list/map of visible tables/columns
+    Column("policy_version", Integer, nullable=False, server_default="1"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     CheckConstraint("engine IN ('postgresql', 'mysql')", name="chk_connections_engine"),
@@ -131,6 +132,10 @@ query_runs = Table(
     Column("error_code", String(100), nullable=True),
     Column("safe_message", Text, nullable=True),
     Column("clarification_question", String(500), nullable=True),
+    Column("assumptions", Text, nullable=False, server_default="[]"),
+    Column("warnings", Text, nullable=False, server_default="[]"),
+    Column("canonical_sql", Text, nullable=True),
+    Column("truncated", Boolean, nullable=False, server_default=sa.false()),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     Index("idx_query_runs_user_created", "user_id", "created_at"),

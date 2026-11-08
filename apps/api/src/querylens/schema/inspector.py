@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
@@ -47,9 +46,21 @@ class SchemaInspector:
                 continue
             tables = inspector.get_table_names(schema=s)
             for t in tables:
-                discovered.append(t)
+                discovered.append(f"{s}.{t}")
 
         return sorted(discovered)
+
+    @staticmethod
+    def discover_columns(engine: Engine, engine_name: str) -> dict[str, list[str]]:
+        """Discover selectable identifiers, never row values or SQL expressions."""
+        inspector = sa.inspect(engine)
+        result: dict[str, list[str]] = {}
+        for namespace in inspector.get_schema_names():
+            if is_system_schema(engine_name, namespace):
+                continue
+            for table in inspector.get_table_names(schema=namespace):
+                result[f"{namespace}.{table}"] = [col["name"] for col in inspector.get_columns(table, schema=namespace)]
+        return result
 
     @staticmethod
     def reflect_visible_catalog(
@@ -75,14 +86,19 @@ class SchemaInspector:
         reflected_tables: list[TableMetadata] = []
 
         for table_name, allowed_cols in allowed_tables.items():
+            namespace, separator, name = table_name.partition(".")
+            if not separator:
+                namespace, name = inspector.default_schema_name or "public", table_name
+            if is_system_schema(engine_name, namespace):
+                continue
             # Get columns
             try:
-                raw_cols = inspector.get_columns(table_name)
+                raw_cols = inspector.get_columns(name, schema=namespace)
             except Exception:
                 continue
 
             # Get primary keys
-            pk_constraint = inspector.get_pk_constraint(table_name)
+            pk_constraint = inspector.get_pk_constraint(name, schema=namespace)
             pks = set(pk_constraint.get("constrained_columns") or [])
 
             # Filter columns
@@ -107,21 +123,29 @@ class SchemaInspector:
 
             # Get foreign keys (only where target table is in allowed_tables)
             fks: list[ForeignKeyConstraint] = []
-            raw_fks = inspector.get_foreign_keys(table_name)
+            raw_fks = inspector.get_foreign_keys(name, schema=namespace)
             for fk in raw_fks:
                 target_table = fk.get("referred_table")
-                if not target_table or target_table not in allowed_tables:
+                target_namespace = fk.get("referred_schema") or namespace
+                target_key = f"{target_namespace}.{target_table}"
+                if target_key not in allowed_tables and target_namespace == inspector.default_schema_name:
+                    target_key = target_table
+                if not target_table or target_key not in allowed_tables:
                     continue
                 src_cols = fk.get("constrained_columns", [])
                 tgt_cols = fk.get("referred_columns", [])
                 # Ensure all source cols are allowed
                 if allowed_cols_set and not all(sc in allowed_cols_set for sc in src_cols):
                     continue
+                target_allowed = allowed_tables[target_key]
+                if target_allowed and not all(tc in target_allowed for tc in tgt_cols):
+                    continue
                 fks.append(
                     ForeignKeyConstraint(
                         name=fk.get("name"),
                         source_columns=src_cols,
                         target_table=target_table,
+                        target_namespace=target_namespace,
                         target_columns=tgt_cols,
                         cardinality="many_to_one",
                     )
@@ -129,9 +153,9 @@ class SchemaInspector:
 
             # Get indexes
             indexes: list[IndexMetadata] = []
-            raw_indexes = inspector.get_indexes(table_name)
+            raw_indexes = inspector.get_indexes(name, schema=namespace)
             for idx in raw_indexes:
-                idx_cols = idx.get("column_names", [])
+                idx_cols = [col for col in idx.get("column_names", []) if col is not None]
                 if idx_cols and (not allowed_cols_set or all(ic in allowed_cols_set for ic in idx_cols)):
                     indexes.append(
                         IndexMetadata(
@@ -141,13 +165,13 @@ class SchemaInspector:
                         )
                     )
 
-            ns = normalize_namespace(engine_name, inspector.default_schema_name)
+            ns = normalize_namespace(engine_name, namespace)
             reflected_tables.append(
                 TableMetadata(
-                    name=table_name,
+                    name=name,
                     namespace=ns,
                     columns=cols,
-                    primary_key_columns=list(pks),
+                    primary_key_columns=[key for key in pks if any(col.name == key for col in cols)],
                     foreign_keys=fks,
                     indexes=indexes,
                 )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -97,7 +96,7 @@ def register_error_handlers(app: FastAPI) -> None:
         }
         code = code_map.get(exc.status_code, "HTTP_ERROR")
         msg = str(exc.detail) if exc.detail else "An error occurred"
-        return make_error_response(exc.status_code, code, msg, req_id)
+        return make_error_response(exc.status_code, code, msg, req_id, dict(exc.headers) if exc.headers else None)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

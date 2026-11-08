@@ -8,6 +8,14 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/health", tags=["health"])
 
+_runtime_ready = False
+
+
+def set_runtime_ready(ready: bool) -> None:
+    global _runtime_ready
+    _runtime_ready = ready
+
+
 _metadata_probe: Callable[[], bool] | None = None
 
 
@@ -24,7 +32,14 @@ def check_metadata_db() -> bool:
             return _metadata_probe()
         except Exception:
             return False
-    return True
+    try:
+        import sqlalchemy as sa
+        from querylens.persistence.session import get_db_connection
+
+        with get_db_connection() as connection:
+            return connection.execute(sa.text("SELECT 1")).scalar() == 1
+    except Exception:
+        return False
 
 
 class HealthResponse(BaseModel):
@@ -33,9 +48,9 @@ class HealthResponse(BaseModel):
 
 
 @router.get("", response_model=HealthResponse)
-async def health(response: Response) -> HealthResponse:
+def health(response: Response) -> HealthResponse:
     """General health check endpoint for proxy and smoke tests."""
-    is_ready = check_metadata_db()
+    is_ready = _runtime_ready and check_metadata_db()
     if not is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthResponse(status="degraded", metadata_db="unreachable")
@@ -49,9 +64,9 @@ async def liveness() -> HealthResponse:
 
 
 @router.get("/ready", response_model=HealthResponse)
-async def readiness(response: Response) -> HealthResponse:
+def readiness(response: Response) -> HealthResponse:
     """Readiness probe: returns 200 if metadata DB is reachable, 503 otherwise."""
-    is_ready = check_metadata_db()
+    is_ready = _runtime_ready and check_metadata_db()
     if not is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthResponse(status="unready", metadata_db="unreachable")

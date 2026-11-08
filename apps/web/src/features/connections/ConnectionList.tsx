@@ -6,9 +6,11 @@ interface ConnectionListProps {
   connections: ConnectionResponse[];
   onRefresh: () => void;
   onAddNew: () => void;
+  onEdit?: (connection: ConnectionResponse) => void;
+  onConfigure?: (connection: ConnectionResponse) => void;
 }
 
-export function ConnectionList({ connections, onRefresh, onAddNew }: ConnectionListProps): React.JSX.Element {
+export function ConnectionList({ connections, onRefresh, onAddNew, onEdit, onConfigure }: ConnectionListProps): React.JSX.Element {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
 
@@ -95,6 +97,8 @@ export function ConnectionList({ connections, onRefresh, onAddNew }: ConnectionL
               </div>
 
               <div className="flex items-center space-x-2">
+                {onEdit && <button onClick={() => onEdit(c)} className="text-indigo-700 text-sm">Edit</button>}
+                {onConfigure && <button onClick={() => onConfigure(c)} className="text-indigo-700 text-sm">Select tables</button>}
                 <button
                   onClick={() => handleTest(c.id)}
                   disabled={testingId === c.id}

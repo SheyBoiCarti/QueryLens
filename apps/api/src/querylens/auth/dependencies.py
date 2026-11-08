@@ -2,31 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 from typing import Any
-from fastapi import Cookie, Depends, Header, Request
+from fastapi import Depends, Header, Request
 
 from querylens.api.errors import ForbiddenError, UnauthorizedError
 from querylens.auth.service import AuthService
 from querylens.config import Settings, get_settings
-
-# In-memory mapping of session_id -> csrf_token
-_csrf_token_map: dict[str, str] = {}
+from querylens.utils.workers import run_db
 
 
-def register_session_csrf(session_id: str, csrf_token: str) -> None:
-    """Store CSRF token bound to session."""
-    _csrf_token_map[session_id] = csrf_token
-
-
-def get_session_csrf(session_id: str) -> str | None:
-    """Retrieve CSRF token bound to session."""
-    return _csrf_token_map.get(session_id)
-
-
-def remove_session_csrf(session_id: str) -> None:
-    """Remove CSRF token on logout/revocation."""
-    _csrf_token_map.pop(session_id, None)
+def derive_csrf_token(session_token: str) -> str:
+    """Stable across restarts; only the HttpOnly session bearer can derive it."""
+    return hmac.new(session_token.encode("utf-8"), b"querylens-csrf-v1", hashlib.sha256).hexdigest()
 
 
 def get_auth_service() -> AuthService:
@@ -49,24 +38,21 @@ async def get_current_user(
 ) -> dict[str, Any]:
     """Extract and validate session cookie, or fall back to default dev user in development."""
     cookie_name = settings.session_cookie_name
-    token = request.cookies.get(cookie_name) or request.cookies.get("querylens_session")
+    token = request.cookies.get(cookie_name)
 
     if not token:
-        if settings.environment == "development":
+        if settings.environment == "development" and settings.development_auth_bypass:
             request.state.current_user = DEFAULT_DEV_USER
             request.state.session_token = "dev-token"
             return DEFAULT_DEV_USER
         raise UnauthorizedError("Missing session cookie")
 
-    user_session = auth_service.validate_session(
+    user_session = await run_db(
+        auth_service.validate_session,
         token,
         idle_expiry_sec=settings.session_idle_expiry_sec,
     )
     if not user_session:
-        if settings.environment == "development":
-            request.state.current_user = DEFAULT_DEV_USER
-            request.state.session_token = "dev-token"
-            return DEFAULT_DEV_USER
         raise UnauthorizedError("Invalid or expired session")
 
     # Store raw token and user in request state
@@ -82,7 +68,11 @@ async def verify_csrf_token(
     settings: Settings = Depends(get_settings),
 ) -> None:
     """Verify CSRF token on authenticated mutation routes."""
-    if settings.environment == "development" and current_user.get("user_id") == DEFAULT_DEV_USER["user_id"]:
+    if (
+        settings.environment == "development"
+        and settings.development_auth_bypass
+        and current_user.get("user_id") == DEFAULT_DEV_USER["user_id"]
+    ):
         return
 
     # Check Origin header
@@ -92,8 +82,8 @@ async def verify_csrf_token(
             raise ForbiddenError("Unapproved request origin")
 
     # Verify session-bound CSRF token
-    session_id = current_user.get("session_id")
-    expected_csrf = get_session_csrf(session_id)
+    session_token = getattr(request.state, "session_token", "")
+    expected_csrf = derive_csrf_token(session_token) if session_token else None
     if not expected_csrf or not x_csrf_token:
         raise ForbiddenError("Missing or invalid CSRF token")
 

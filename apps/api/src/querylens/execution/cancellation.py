@@ -1,82 +1,112 @@
-"""Active database source execution handle and cancellation coordinator (Contracts C03, C07, C08)."""
+"""Cancellation bound to a live execution lease, including connect/register races."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections.abc import Callable
 import threading
-from typing import Any
-import sqlalchemy as sa
+import socket
 
-from querylens.connections.registry import get_registry
-from querylens.connections.service import ConnectionService
 from querylens.observability.logging import log_event
 
 
 @dataclass(frozen=True)
 class ExecutionHandle:
-    """Descriptor binding an active query run to its source backend PID."""
-
     query_id: str
     connection_id: str
     engine: str
     backend_pid: int
     lease_id: str
+    cancel: Callable[[], None] | None = field(default=None, compare=False, repr=False)
+    terminate: Callable[[], None] | None = field(default=None, compare=False, repr=False)
+    operation_lock: threading.RLock = field(default_factory=threading.RLock, compare=False, repr=False)
 
 
-_registry_lock = threading.Lock()
+_registry_lock = threading.RLock()
 _active_handles: dict[str, ExecutionHandle] = {}
+_cancel_events: dict[str, threading.Event] = {}
+
+
+def prepare_execution(query_id: str) -> threading.Event:
+    with _registry_lock:
+        return _cancel_events.setdefault(query_id, threading.Event())
+
+
+def check_cancelled(query_id: str | None) -> None:
+    if query_id and prepare_execution(query_id).is_set():
+        raise InterruptedError("Source execution cancelled")
 
 
 def register_execution(handle: ExecutionHandle) -> None:
-    """Register an in-flight source query execution handle."""
     with _registry_lock:
+        check_cancelled(handle.query_id)
         _active_handles[handle.query_id] = handle
 
 
 def unregister_execution(query_id: str) -> None:
-    """Unregister an execution handle upon statement completion or release."""
     with _registry_lock:
-        _active_handles.pop(query_id, None)
+        handle = _active_handles.get(query_id)
+    if handle:
+        with handle.operation_lock:
+            with _registry_lock:
+                if _active_handles.get(query_id) is handle:
+                    _active_handles.pop(query_id, None)
+
+
+def forget_execution(query_id: str) -> None:
+    with _registry_lock:
+        _cancel_events.pop(query_id, None)
 
 
 def get_active_execution(query_id: str) -> ExecutionHandle | None:
-    """Retrieve active execution handle for a query run."""
     with _registry_lock:
         return _active_handles.get(query_id)
 
 
+def signal_cancel(query_id: str) -> None:
+    prepare_execution(query_id).set()
+
+
 def cancel_active_source_query(handle: ExecutionHandle) -> bool:
-    """Cancel active statement on the remote database using an isolated control connection (Contracts C03, C07)."""
-    if not handle.backend_pid:
-        return False
-
-    try:
-        from querylens.persistence.tables import connections
-        from querylens.persistence.session import get_db_connection
-        from querylens.connections.adapters import create_engine_with_pinning
-
-        with get_db_connection() as c:
-            row = c.execute(connections.select().where(connections.c.id == handle.connection_id)).fetchone()
-            if not row:
+    # Hold only this execution's lease during control I/O. Other workers and
+    # socket interruption must remain available if a cancel connection stalls.
+    with handle.operation_lock:
+        with _registry_lock:
+            if _active_handles.get(handle.query_id) is not handle or not handle.cancel:
                 return False
-            conn_dict = dict(row._mapping)
+        try:
+            handle.cancel()
+            return True
+        except Exception:
+            log_event("source_cancel_failed", query_id=handle.query_id, engine=handle.engine)
+            return False
 
-        registry = get_registry()
-        engine_pool = registry.get_or_create(conn_dict)
 
-        with engine_pool.connect() as conn:
-            if handle.engine in ("postgresql", "postgres"):
-                stmt = sa.text("SELECT pg_cancel_backend(:pid)")
-                res = conn.execute(stmt, {"pid": handle.backend_pid}).scalar()
-                log_event("source_cancel_sent", query_id=handle.query_id, engine="postgres", pid=handle.backend_pid, success=bool(res))
-                return bool(res)
-            elif handle.engine == "mysql":
-                stmt = sa.text(f"KILL QUERY {int(handle.backend_pid)}")
-                conn.execute(stmt)
-                log_event("source_cancel_sent", query_id=handle.query_id, engine="mysql", pid=handle.backend_pid, success=True)
-                return True
-    except Exception as e:
-        log_event("source_cancel_failed", query_id=handle.query_id, error=str(e))
-        return False
+def cancel_source(query_id: str) -> None:
+    signal_cancel(query_id)
+    handle = get_active_execution(query_id)
+    if handle:
+        cancel_active_source_query(handle)
 
-    return False
+
+def terminate_source(query_id: str) -> None:
+    """Interrupt a stalled source socket after graceful cancellation expires."""
+    with _registry_lock:
+        handle = _active_handles.get(query_id)
+        if handle and handle.terminate:
+            try:
+                handle.terminate()
+            except Exception:
+                pass  # A concurrently finished/closed socket is already interrupted.
+
+
+def shutdown_source_socket(connection, engine: str) -> None:
+    if engine == "mysql":
+        connection._sock.shutdown(socket.SHUT_RDWR)
+    else:
+        # Borrow the native handle without taking ownership of libpq's socket.
+        borrowed = socket.socket(fileno=connection.fileno())
+        try:
+            borrowed.shutdown(socket.SHUT_RDWR)
+        finally:
+            borrowed.detach()

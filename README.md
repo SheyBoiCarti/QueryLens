@@ -4,7 +4,7 @@
 [![Security Scans](https://github.com/querylens/querylens/actions/workflows/security.yml/badge.svg)](.github/workflows/security.yml)
 [![Benchmark Evaluation](https://github.com/querylens/querylens/actions/workflows/evaluation.yml/badge.svg)](.github/workflows/evaluation.yml)
 
-QueryLens is an enterprise natural-language analytics engine for **PostgreSQL 16–18** and **Oracle MySQL 8.0/8.4**. It translates natural language questions into secure, read-only SQL queries, displays bounded result grids and transparent assumptions, and provides end-to-end diagnostic observability behind strict multi-tenant isolation and security policies.
+QueryLens is an enterprise natural-language analytics engine for **PostgreSQL 16â€“18** and **Oracle MySQL 8.0/8.4**. It translates natural language questions into secure, read-only SQL queries, displays bounded result grids and transparent assumptions, and provides end-to-end diagnostic observability behind strict multi-tenant isolation and security policies.
 
 ---
 
@@ -37,27 +37,27 @@ QueryLens is an enterprise natural-language analytics engine for **PostgreSQL 16
 
 ```
 .
-├── apps/
-│   ├── api/                      # FastAPI Python backend service
-│   │   ├── src/querylens/        # Application modules (ast, llm, pipeline, connections, etc.)
-│   │   └── tests/                # Unit, integration, evaluation, and security test suites
-│   └── web/                      # React SPA frontend (TypeScript, Tailwind, Vite)
-├── benchmarks/
-│   └── cases/                    # 150 held-out golden benchmark cases (Contract C10)
-├── datasets/                     # Deterministic 10-table business models (PostgreSQL & MySQL)
-├── docs/                         # Architecture, security model, runbooks, and contracts
-│   ├── CONTRACTS.md              # Normative implementation contracts (C01–C11)
-│   ├── DESIGN.md                 # System architecture and domain design
-│   ├── security.md               # 5-boundary threat model and controls
-│   ├── deployment.md             # Hardened production deployment topology
-│   ├── operations.md             # Disaster recovery runbooks (RPO/RTO) and key rotation
-│   ├── evaluation.md             # Benchmark methodology and results
-│   └── limitations.md            # Text-to-SQL scope and dialect boundaries
-├── infra/
-│   ├── compose.yaml              # Local development compose with fixture databases
-│   ├── compose.prod.yaml         # Hardened production compose (Caddy, non-root API, meta DB)
-│   └── proxy/Caddyfile           # Reverse proxy configuration with TLS and security headers
-└── scripts/                      # PowerShell automation scripts (verify, dev, backup, restore, etc.)
+â”œâ”€â”€ apps/
+â”‚   â”œâ”€â”€ api/                      # FastAPI Python backend service
+â”‚   â”‚   â”œâ”€â”€ src/querylens/        # Application modules (ast, llm, pipeline, connections, etc.)
+â”‚   â”‚   â””â”€â”€ tests/                # Unit, integration, evaluation, and security test suites
+â”‚   â””â”€â”€ web/                      # React SPA frontend (TypeScript, Tailwind, Vite)
+â”œâ”€â”€ benchmarks/
+â”‚   â””â”€â”€ cases/                    # 150 held-out golden benchmark cases (Contract C10)
+â”œâ”€â”€ datasets/                     # Deterministic 10-table business models (PostgreSQL & MySQL)
+â”œâ”€â”€ docs/                         # Architecture, security model, runbooks, and contracts
+â”‚   â”œâ”€â”€ CONTRACTS.md              # Normative implementation contracts (C01â€“C11)
+â”‚   â”œâ”€â”€ DESIGN.md                 # System architecture and domain design
+â”‚   â”œâ”€â”€ security.md               # 5-boundary threat model and controls
+â”‚   â”œâ”€â”€ deployment.md             # Hardened production deployment topology
+â”‚   â”œâ”€â”€ operations.md             # Disaster recovery runbooks (RPO/RTO) and key rotation
+â”‚   â”œâ”€â”€ evaluation.md             # Benchmark methodology and results
+â”‚   â””â”€â”€ limitations.md            # Text-to-SQL scope and dialect boundaries
+â”œâ”€â”€ infra/
+â”‚   â”œâ”€â”€ compose.yaml              # Local development compose with fixture databases
+â”‚   â”œâ”€â”€ compose.prod.yaml         # Hardened production compose (Caddy, non-root API, meta DB)
+â”‚   â””â”€â”€ proxy/Caddyfile           # Reverse proxy configuration with TLS and security headers
+â””â”€â”€ scripts/                      # PowerShell automation scripts (verify, dev, backup, restore, etc.)
 ```
 
 ---
@@ -83,6 +83,8 @@ Launch local support services (PostgreSQL metadata database and integration fixt
 ```powershell
 pwsh scripts/dev.ps1
 ```
+Create an administrator using `querylens-admin bootstrap` before signing in. Development authentication bypass is disabled by default; enable `DEVELOPMENT_AUTH_BYPASS=true` only for a trusted local workspace.
+
 - **Web UI:** `http://localhost:5173`
 - **API Server:** `http://127.0.0.1:8000`
 - **API Documentation:** `http://127.0.0.1:8000/docs`
@@ -97,7 +99,7 @@ QueryLens enforces strictly non-skipping verification gates across all 10 archit
 # Run verification for a specific phase (e.g., Phase 09)
 pwsh scripts/verify.ps1 -Phase 09
 
-# Run the full end-to-end release gate (Phases 00–10)
+# Run the full end-to-end release gate (Phases 00â€“10)
 pwsh scripts/verify.ps1
 ```
 
@@ -125,10 +127,16 @@ QueryLens provides a hardened, private-network deployment topology where only th
 # 1. Set required production environment secrets
 export METADATA_DB_PASSWORD="<strong-password>"
 export LLM_API_KEY="<production-llm-key>"
+export QUERYLENS_DOMAIN="analytics.example.com"
+export METADATA_DATABASE_URL="postgresql+psycopg://querylens_app:<URL-encoded-password>@metadata-db:5432/querylens_prod"
+export CREDENTIAL_KEYS_FILE="/absolute/path/to/keyring.json"
+export CREDENTIAL_ACTIVE_KEY_ID="prod-key-01"
 
 # 2. Launch production stack
 docker compose -f infra/compose.prod.yaml up -d --build
 ```
+
+Provision the keyring and review the single-worker runtime requirements in [the deployment guide](docs/deployment.md). Bootstrap the administrator with `docker compose -f infra/compose.prod.yaml exec api querylens-admin bootstrap`.
 
 For operational runbooks, backup/restore procedures, and key rotation details, see [`docs/operations.md`](docs/operations.md).
 

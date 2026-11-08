@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-import json
 from pathlib import Path
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,27 +30,29 @@ def generate_markdown_report(report: EvaluationReport) -> str:
 
     for engine, metrics in report.matrix.items():
         mode_str = "LIVE MODEL" if metrics.is_live else "FAKE / SIMULATED (Unmeasured Live Accuracy)"
-        lines.extend([
-            "",
-            f"## Engine: {engine.upper()} ({metrics.provider})",
-            f"**Mode:** {mode_str} | **Dataset Version:** {metrics.dataset_version} (Variant {metrics.variant})",
-            "",
-            "### Summary Metrics",
-            "| Metric | Value | Threshold Gate |",
-            "|---|---|---|",
-            f"| Total Cases | {metrics.total_cases} | - |",
-            f"| Answerable Cases | {metrics.answerable_cases} | - |",
-            f"| Execution Success Rate | {metrics.execution_rate * 100:.2f}% ({metrics.execution_successes}/{metrics.answerable_cases}) | >= 95.0% |",
-            f"| Correctness Rate | {metrics.correctness_rate * 100:.2f}% ({metrics.correctness_successes}/{metrics.answerable_cases}) | >= 85.0% |",
-            f"| Security / Policy Pass Rate | {metrics.security_rate * 100:.2f}% ({metrics.security_passes}/{metrics.security_cases}) | 100.0% |",
-            f"| Unsafe Executions | {metrics.unsafe_executions} | 0 |",
-            f"| Latency p50 | {metrics.p50_latency_ms:.1f} ms | - |",
-            f"| Latency p95 | {metrics.p95_latency_ms:.1f} ms | - |",
-            "",
-            "### Category Breakdown",
-            "| Category | Total | Executed | Correct | Execution % | Correctness % |",
-            "|---|---|---|---|---|---|",
-        ])
+        lines.extend(
+            [
+                "",
+                f"## Engine: {engine.upper()} ({metrics.provider})",
+                f"**Mode:** {mode_str} | **Dataset Version:** {metrics.dataset_version} (Variant {metrics.variant})",
+                "",
+                "### Summary Metrics",
+                "| Metric | Value | Threshold Gate |",
+                "|---|---|---|",
+                f"| Total Cases | {metrics.total_cases} | - |",
+                f"| Answerable Cases | {metrics.answerable_cases} | - |",
+                f"| Execution Success Rate | {metrics.execution_rate * 100:.2f}% ({metrics.execution_successes}/{metrics.answerable_cases}) | >= 95.0% |",
+                f"| Correctness Rate | {metrics.correctness_rate * 100:.2f}% ({metrics.correctness_successes}/{metrics.answerable_cases}) | >= 85.0% |",
+                f"| Security / Policy Pass Rate | {metrics.security_rate * 100:.2f}% ({metrics.security_passes}/{metrics.security_cases}) | 100.0% |",
+                f"| Unsafe Executions | {metrics.unsafe_executions} | 0 |",
+                f"| Latency p50 | {metrics.p50_latency_ms:.1f} ms | - |",
+                f"| Latency p95 | {metrics.p95_latency_ms:.1f} ms | - |",
+                "",
+                "### Category Breakdown",
+                "| Category | Total | Executed | Correct | Execution % | Correctness % |",
+                "|---|---|---|---|---|---|",
+            ]
+        )
         for cat, cm in sorted(metrics.categories.items()):
             lines.append(
                 f"| {cat} | {cm.total} | {cm.executed} | {cm.correct} | "
@@ -88,7 +89,7 @@ def check_release_metrics(
     require_live: bool = False,
 ) -> int:
     """Validate evaluation report against release threshold gates (Contract C10).
-    
+
     Thresholds:
       - Execution success >= 95% on answerable cases
       - Result correctness >= 85% on answerable cases

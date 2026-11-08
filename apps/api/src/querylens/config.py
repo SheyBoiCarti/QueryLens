@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import os
 from typing import Literal
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SecurityProfileError(Exception):
     """Raised when application configuration violates security contracts."""
+
     pass
 
 
@@ -23,6 +23,18 @@ def validate_security_profile(settings: Settings, deployment: str = "production"
             raise SecurityProfileError("Production requires session_cookie_name to start with '__Host-'")
         if settings.session_cookie_samesite not in ("lax", "strict"):
             raise SecurityProfileError("Production requires session_cookie_samesite='lax' or 'strict'")
+
+        if not settings.session_cookie_httponly or settings.session_cookie_path != "/":
+            raise SecurityProfileError("Production cookies require HttpOnly and Path=/")
+        if settings.network_allow_loopback:
+            raise SecurityProfileError("Production cannot enable loopback source access")
+        if not settings.allowed_origins or any(
+            "localhost" in origin or "127.0.0.1" in origin or not origin.startswith("https://")
+            for origin in settings.allowed_origins
+        ):
+            raise SecurityProfileError("Production requires explicit HTTPS allowed_origins")
+        if not settings.metadata_database_url.startswith(("postgresql", "postgres://")):
+            raise SecurityProfileError("Production requires PostgreSQL metadata for single-process ownership")
 
         # 2. Credential encryption keyring
         if not settings.credential_keys_file or not settings.credential_active_key_id:
@@ -57,12 +69,18 @@ class Settings(BaseSettings):
         description="Runtime environment profile",
     )
 
+    development_auth_bypass: bool = Field(default=False)
+
     # Server config
     host: str = Field(default="127.0.0.1")
     port: int = Field(default=8000)
-    allowed_origins: list[str] = Field(
-        default=["http://localhost:5173", "http://127.0.0.1:5173"]
-    )
+    allowed_origins: list[str] = Field(default=["http://localhost:5173", "http://127.0.0.1:5173"])
+
+    network_allow_loopback: bool | None = None
+    network_allow_private: bool | None = None
+    source_permitted_cidrs: list[str] = Field(default_factory=list)
+    retention_days: int = Field(default=7, ge=1, le=365)
+    maintenance_interval_sec: int = Field(default=300, ge=30)
 
     # Metadata Database
     metadata_database_url: str = Field(
@@ -76,9 +94,9 @@ class Settings(BaseSettings):
     session_cookie_samesite: Literal["lax", "strict", "none"] = Field(default="lax")
     session_cookie_httponly: bool = Field(default=True)
     session_cookie_path: str = Field(default="/")
-    session_absolute_expiry_sec: int = Field(default=28800)  # 8 hours
-    session_idle_expiry_sec: int = Field(default=1800)  # 30 minutes
-    max_active_sessions_per_user: int = Field(default=10)
+    session_absolute_expiry_sec: int = Field(default=28800, ge=1)  # 8 hours
+    session_idle_expiry_sec: int = Field(default=1800, ge=1)  # 30 minutes
+    max_active_sessions_per_user: int = Field(default=10, ge=1)
 
     # Rate limiting
     login_rate_limit_failed_per_min: int = Field(default=5)
@@ -95,35 +113,35 @@ class Settings(BaseSettings):
     )
 
     # Budgets & Limits (C07)
-    max_request_bytes: int = Field(default=65536)
-    max_question_chars: int = Field(default=4000)
-    max_sql_bytes: int = Field(default=32768)
-    default_max_rows: int = Field(default=100)
-    max_max_rows: int = Field(default=1000)
-    max_result_bytes: int = Field(default=1048576)
-    max_cell_bytes: int = Field(default=65536)
+    max_request_bytes: int = Field(default=65536, ge=1, le=65536)
+    max_question_chars: int = Field(default=4000, ge=1, le=4000)
+    max_sql_bytes: int = Field(default=32768, ge=1, le=32768)
+    default_max_rows: int = Field(default=100, ge=1, le=100)
+    max_max_rows: int = Field(default=1000, ge=1, le=1000)
+    max_result_bytes: int = Field(default=1048576, ge=1, le=1048576)
+    max_cell_bytes: int = Field(default=65536, ge=1, le=65536)
 
-    global_active_jobs: int = Field(default=4)
-    per_user_active_jobs: int = Field(default=2)
-    per_source_active_jobs: int = Field(default=1)
-    waiting_jobs_global: int = Field(default=16)
-    waiting_jobs_per_user: int = Field(default=4)
+    global_active_jobs: int = Field(default=4, ge=1, le=4)
+    per_user_active_jobs: int = Field(default=2, ge=1, le=2)
+    per_source_active_jobs: int = Field(default=1, ge=1, le=1)
+    waiting_jobs_global: int = Field(default=16, ge=1, le=16)
+    waiting_jobs_per_user: int = Field(default=4, ge=1, le=4)
 
-    connect_timeout_sec: float = Field(default=5.0)
-    pool_acquire_timeout_sec: float = Field(default=2.0)
-    statement_timeout_sec: float = Field(default=10.0)
-    lock_timeout_sec: float = Field(default=1.0)
-    cleanup_timeout_sec: float = Field(default=5.0)
+    connect_timeout_sec: float = Field(default=5.0, gt=0, le=5)
+    pool_acquire_timeout_sec: float = Field(default=2.0, gt=0, le=2)
+    statement_timeout_sec: float = Field(default=10.0, gt=0, le=10)
+    lock_timeout_sec: float = Field(default=1.0, gt=0, le=1)
+    cleanup_timeout_sec: float = Field(default=5.0, gt=0, le=5)
 
-    generation_timeout_sec: float = Field(default=15.0)
-    total_run_timeout_sec: float = Field(default=30.0)
-    max_input_tokens: int = Field(default=6000)
-    max_output_tokens: int = Field(default=2000)
-    max_cumulative_tokens: int = Field(default=16000)
-    max_repairs: int = Field(default=2)
+    generation_timeout_sec: float = Field(default=15.0, gt=0, le=15)
+    total_run_timeout_sec: float = Field(default=30.0, gt=0, le=30)
+    max_input_tokens: int = Field(default=6000, ge=1, le=6000)
+    max_output_tokens: int = Field(default=2000, ge=1, le=2000)
+    max_cumulative_tokens: int = Field(default=16000, ge=1, le=16000)
+    max_repairs: int = Field(default=2, ge=0, le=2)
 
-    result_cache_ttl_sec: int = Field(default=300)
-    result_cache_bytes: int = Field(default=33554432)
+    result_cache_ttl_sec: int = Field(default=300, ge=1, le=300)
+    result_cache_bytes: int = Field(default=33554432, ge=1, le=33554432)
 
     # LLM Settings (C08)
     llm_provider: Literal["fake", "live", "groq", "openrouter", "openai"] = Field(default="fake")
@@ -168,17 +186,17 @@ class Settings(BaseSettings):
     mysql_sslmode: str | None = Field(default=None)
     mysql_url: str | None = Field(default=None)
 
+    @model_validator(mode="after")
+    def validate_budgets(self) -> Settings:
+        if self.total_run_timeout_sec <= self.cleanup_timeout_sec:
+            raise ValueError("total_run_timeout_sec must exceed cleanup_timeout_sec")
+        if self.default_max_rows > self.max_max_rows or self.max_max_rows > 1000:
+            raise ValueError("Row budgets must satisfy default_max_rows <= max_max_rows <= 1000")
+        return self
+
     def validate_for_production(self) -> None:
         """Enforce strict production constraints (C01, C02, C03, C04, C11)."""
-        if self.environment == "production":
-            if not self.session_cookie_secure:
-                raise ValueError("session_cookie_secure must be True in production")
-            if not self.session_cookie_name.startswith("__Host-"):
-                raise ValueError("session_cookie_name must use __Host- prefix in production")
-            if self.llm_provider == "fake":
-                raise ValueError("Cannot use fake LLM provider in production")
-            if not self.credential_keys_file or not self.credential_active_key_id:
-                raise ValueError("Production requires credential_keys_file and credential_active_key_id")
+        validate_security_profile(self, self.environment)
 
 
 _global_settings: Settings | None = None

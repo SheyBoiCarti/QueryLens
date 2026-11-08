@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any, Literal
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
@@ -16,6 +16,7 @@ SupportedEngine = Literal["postgresql", "mysql"]
 
 class VisibilityPolicy(StrictBaseModel):
     """Explicit mapping of visible tables and allowed columns."""
+
     allowed_tables: dict[str, list[str]] = Field(
         default_factory=dict,
         description="Map of table names to lists of allowed column names",

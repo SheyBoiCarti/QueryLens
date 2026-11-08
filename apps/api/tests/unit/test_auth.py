@@ -20,7 +20,9 @@ from querylens.persistence.tables import metadata, sessions, users
 @pytest.fixture(autouse=True)
 def sqlite_engine():
     """Create in-memory SQLite database for fast isolated unit tests."""
-    test_eng = sa.create_engine("sqlite:///:memory:")
+    test_eng = sa.create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
+    )
     set_engine(test_eng)
     metadata.create_all(bind=test_eng)
     yield test_eng

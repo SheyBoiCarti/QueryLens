@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import React from 'react';
 import { compareCell, compareDecimalStrings } from '../components/resultComparators.ts';
 import DataGrid, { ColumnMeta } from '../components/DataGrid.tsx';
 

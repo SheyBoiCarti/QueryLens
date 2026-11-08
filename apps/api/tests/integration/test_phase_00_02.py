@@ -9,7 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 from querylens.config import Settings
 from querylens.main import create_app
-from querylens.api.health import set_metadata_probe
+from querylens.api.health import set_metadata_probe, set_runtime_ready
 from querylens.utils.workers import run_db
 from querylens.observability.logging import log_event, get_logger, StructuredJsonFormatter
 
@@ -18,6 +18,7 @@ from querylens.observability.logging import log_event, get_logger, StructuredJso
 async def test_health_liveness_and_readiness_probes():
     """Liveness 200 and readiness 503/200 based on metadata probe."""
     app = create_app(Settings(environment="test"))
+    set_runtime_ready(True)
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:

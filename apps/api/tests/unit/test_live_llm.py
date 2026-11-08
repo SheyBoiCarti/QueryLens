@@ -3,7 +3,7 @@
 import json
 import pytest
 import httpx
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
 
 from querylens.config import Settings
 from querylens.llm.live import OpenAICompatibleProvider, LiveLLMError, get_live_llm_provider
@@ -51,12 +51,14 @@ async def test_openai_compatible_provider_success():
         "choices": [
             {
                 "message": {
-                    "content": json.dumps({
-                        "sql": "SELECT id, name FROM customers LIMIT 10;",
-                        "assumptions": ["Limited to 10 customers"],
-                        "requires_clarification": False,
-                        "clarification_question": None,
-                    })
+                    "content": json.dumps(
+                        {
+                            "sql": "SELECT id, name FROM customers LIMIT 10;",
+                            "assumptions": ["Limited to 10 customers"],
+                            "requires_clarification": False,
+                            "clarification_question": None,
+                        }
+                    )
                 }
             }
         ],
@@ -66,14 +68,10 @@ async def test_openai_compatible_provider_success():
         },
     }
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 200
-    mock_response.content = json.dumps(mock_resp_data).encode("utf-8")
-    mock_response.json.return_value = mock_resp_data
+    mock_response = httpx.Response(200, json=mock_resp_data)
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.return_value = mock_response
-
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: mock_response))
+    with patch("querylens.llm.live.httpx.AsyncClient", return_value=client):
         candidate = await provider.generate(
             question="list 10 customers",
             dialect="postgresql",
@@ -101,26 +99,24 @@ async def test_openai_compatible_provider_clarification():
         "choices": [
             {
                 "message": {
-                    "content": json.dumps({
-                        "sql": None,
-                        "assumptions": [],
-                        "requires_clarification": True,
-                        "clarification_question": "Which year are you referring to?",
-                    })
+                    "content": json.dumps(
+                        {
+                            "sql": None,
+                            "assumptions": [],
+                            "requires_clarification": True,
+                            "clarification_question": "Which year are you referring to?",
+                        }
+                    )
                 }
             }
         ],
         "usage": {"prompt_tokens": 80, "completion_tokens": 15},
     }
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 200
-    mock_response.content = json.dumps(mock_resp_data).encode("utf-8")
-    mock_response.json.return_value = mock_resp_data
+    mock_response = httpx.Response(200, json=mock_resp_data)
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.return_value = mock_response
-
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: mock_response))
+    with patch("querylens.llm.live.httpx.AsyncClient", return_value=client):
         candidate = await provider.generate(
             question="show sales",
             dialect="postgresql",
@@ -141,20 +137,16 @@ async def test_openai_compatible_markdown_stripping():
         api_key="gsk_test",
     )
 
-    raw_markdown = "```json\n{\"sql\": \"SELECT 1;\", \"assumptions\": [], \"requires_clarification\": false}\n```"
+    raw_markdown = '```json\n{"sql": "SELECT 1;", "assumptions": [], "requires_clarification": false}\n```'
     mock_resp_data = {
         "choices": [{"message": {"content": raw_markdown}}],
         "usage": {"prompt_tokens": 50, "completion_tokens": 10},
     }
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 200
-    mock_response.content = json.dumps(mock_resp_data).encode("utf-8")
-    mock_response.json.return_value = mock_resp_data
+    mock_response = httpx.Response(200, json=mock_resp_data)
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.return_value = mock_response
-
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: mock_response))
+    with patch("querylens.llm.live.httpx.AsyncClient", return_value=client):
         candidate = await provider.generate(
             question="ping",
             dialect="mysql",
@@ -172,17 +164,14 @@ async def test_openai_compatible_error_handling():
         api_key="gsk_test",
     )
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 401
-    mock_response.text = "Invalid API Key"
+    mock_response = httpx.Response(401, text="Invalid API Key")
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.return_value = mock_response
-
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: mock_response))
+    with patch("querylens.llm.live.httpx.AsyncClient", return_value=client):
         with pytest.raises(LiveLLMError) as exc_info:
             await provider.generate(
                 question="ping",
                 dialect="postgresql",
                 schema_context="",
             )
-        assert "401" in str(exc_info.value)
+        assert exc_info.value.code == "MODEL_UNAVAILABLE"

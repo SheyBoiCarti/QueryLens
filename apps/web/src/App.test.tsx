@@ -1,37 +1,29 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App.tsx';
+import { api, ApiError } from './api/client.ts';
 
-describe('App Shell Smoke Test', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-  });
+// Authentication is the actual application gate. No tests were run during remediation.
+describe('Application session restoration', () => {
+  beforeEach(() => { vi.restoreAllMocks(); window.location.hash = ''; });
 
-  it('renders application title and loading indicator initially', () => {
-    vi.spyOn(global, 'fetch').mockImplementation(() => new Promise(() => {}));
+  it('shows session restoration while authentication is pending', () => {
+    vi.spyOn(api, 'getMe').mockImplementation(() => new Promise(() => {}));
     render(<App />);
     expect(screen.getByText('QueryLens')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/Checking API/i);
+    expect(screen.getByRole('status')).toHaveTextContent(/Restoring your session/i);
   });
 
-  it('renders connected status when health probe succeeds', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 'ok', metadata_db: 'healthy' }),
-    } as Response);
-
+  it('shows a reachable login when the session has expired', async () => {
+    vi.spyOn(api, 'getMe').mockRejectedValue(new ApiError('UNAUTHORIZED', 'Sign in', '', 401));
     render(<App />);
-    await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent(/API Connected \(healthy\)/i);
-    });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Sign in to QueryLens' })).toBeInTheDocument());
   });
 
-  it('renders offline status when network call fails without unhandled rejection', async () => {
-    vi.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('Network error'));
-
+  it('shows a recoverable connection error without pretending the user is logged out successfully', async () => {
+    vi.spyOn(api, 'getMe').mockRejectedValue(new Error('Network error'));
     render(<App />);
-    await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent(/API Offline/i);
-    });
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Network error'));
+    expect(screen.getByRole('button', { name: 'Reconnect' })).toBeInTheDocument();
   });
 });

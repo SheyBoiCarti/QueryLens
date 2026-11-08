@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from typing import Any
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
 
-from querylens.api.errors import NotFoundError
 from querylens.auth.dependencies import get_current_user, verify_csrf_token
 from querylens.auth.ownership import verify_query_run_ownership
 from querylens.jobs.results import get_result_cache
 from querylens.persistence.repositories.history import HistoryRepository
+from querylens.schema.snapshots import get_latest_snapshot
 
 router = APIRouter(prefix="/queries", tags=["history"])
 
@@ -35,7 +35,7 @@ class HistoryResponse(StrictBaseModel):
 
 
 @router.get("/history", response_model=HistoryResponse)
-async def get_query_history(
+def get_query_history(
     cursor: str | None = Query(None, description="Keyset pagination cursor"),
     limit: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     current_user: dict[str, Any] = Depends(get_current_user),
@@ -49,14 +49,17 @@ async def get_query_history(
 
     items = []
     for r in raw_items:
-        is_available = cache.get(r["id"]) is not None
+        snapshot = get_latest_snapshot(r["connection_id"])
+        is_available = snapshot is not None and cache.get(r["id"], snapshot.snapshot_hash) is not None
         items.append(
             HistoryItem(
                 id=r["id"],
                 connection_id=r["connection_id"],
                 question=r["question"],
                 status=r["status"],
-                created_at=r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+                created_at=r["created_at"].isoformat()
+                if hasattr(r["created_at"], "isoformat")
+                else str(r["created_at"]),
                 max_rows=r["max_rows"],
                 results_available=is_available,
             )
@@ -76,7 +79,12 @@ async def delete_query(
     verify_query_run_ownership(query_id, user_id)
 
     repo = HistoryRepository()
-    repo.delete_run(query_id, user_id)
+    from querylens.jobs.cancel import request_cancel
+
+    await request_cancel(query_id, user_id)
+    from querylens.utils.workers import run_db
+
+    await run_db(repo.delete_run, query_id, user_id)
 
     cache = get_result_cache()
     cache.evict(query_id)

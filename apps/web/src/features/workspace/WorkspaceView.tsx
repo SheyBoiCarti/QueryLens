@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client.ts';
-import { ConnectionResponse } from '../../api/generated/schema.ts';
+import { ConnectionResponse, PublicRun } from '../../api/generated/schema.ts';
 import { QuestionForm } from './QuestionForm.tsx';
 import { QueryStatus } from './QueryStatus.tsx';
 import { ResultsTable } from './ResultsTable.tsx';
@@ -10,214 +10,122 @@ import { QueryInspector, TraceData } from './QueryInspector.tsx';
 
 interface WorkspaceViewProps {
   onNavigateToConnections: () => void;
+  initialQueryId?: string | null;
+  onActiveQueryChange?: (id: string | null) => void;
 }
 
-export function WorkspaceView({ onNavigateToConnections }: WorkspaceViewProps): React.JSX.Element {
+const terminal = new Set(['completed', 'failed', 'rejected', 'clarification_required', 'cancelled', 'interrupted']);
+
+export function WorkspaceView({ onNavigateToConnections, initialQueryId, onActiveQueryChange }: WorkspaceViewProps): React.JSX.Element {
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
-  const [loadingConnections, setLoadingConnections] = useState(true);
+  const [connectionId, setConnectionId] = useState('');
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
-
-  // In-flight / Completed Query state
-  const [activeQueryId, setActiveQueryId] = useState<string | null>(null);
-  const [queryState, setQueryState] = useState<any | null>(null);
-  const [traceData, setTraceData] = useState<TraceData | null>(null);
-  const [showInspector, setShowInspector] = useState(false);
-
-  const loadConnections = () => {
-    setLoadingConnections(true);
-    setConnectionsError(null);
-    api.get<ConnectionResponse[]>('/api/v1/connections')
-      .then((conns) => {
-        setConnections(conns);
-        if (conns.length > 0) {
-          setSelectedConnectionId(conns[0].id);
-        }
-      })
-      .catch((err) => {
-        setConnectionsError(err instanceof ApiError ? err.message : 'Could not fetch database connections');
-      })
-      .finally(() => {
-        setLoadingConnections(false);
-      });
-  };
+  const [loadingConnections, setLoadingConnections] = useState(true);
+  const [activeQueryId, setActiveQueryId] = useState<string | null>(initialQueryId || null);
+  const [query, setQuery] = useState<PublicRun | null>(null);
+  const [trace, setTrace] = useState<TraceData | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    loadConnections();
+    const abort = new AbortController();
+    api.get<ConnectionResponse[]>('/api/v1/connections', { signal: abort.signal })
+      .then((items) => { setConnections(items); setConnectionId(items[0]?.id || ''); })
+      .catch((err: unknown) => { if (!abort.signal.aborted) setConnectionsError(err instanceof Error ? err.message : 'Could not load connections'); })
+      .finally(() => { if (!abort.signal.aborted) setLoadingConnections(false); });
+    return () => abort.abort();
   }, []);
 
-  // Poll active query state until terminal
   useEffect(() => {
     if (!activeQueryId) return;
-
-    let isMounted = true;
-    const interval = setInterval(async () => {
+    const abort = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
+    const poll = async () => {
       try {
-        const run = await api.get<any>(`/api/v1/queries/${activeQueryId}`);
-        if (!isMounted) return;
-        setQueryState(run);
-
-        const terminalStates = ['completed', 'failed', 'rejected', 'clarification_required', 'cancelled', 'interrupted'];
-        if (terminalStates.includes(run.status)) {
-          clearInterval(interval);
-          // Fetch trace
+        const run = await api.get<PublicRun>(`/api/v1/queries/${activeQueryId}`, { signal: abort.signal });
+        if (abort.signal.aborted) return;
+        setConnectionId(run.connection_id);
+        setQuery((previous) => previous && previous.state_version > run.state_version ? previous : run);
+        setPollError(null);
+        failures = 0;
+        if (terminal.has(run.status)) {
+          setCancelling(false);
           try {
-            const trace = await api.get<TraceData>(`/api/v1/queries/${activeQueryId}/trace`);
-            if (isMounted) setTraceData(trace);
-          } catch {
-            // Ignore trace fetch failure
-          }
+            const data = await api.get<TraceData>(`/api/v1/queries/${activeQueryId}/trace`, { signal: abort.signal });
+            if (!abort.signal.aborted) setTrace(data);
+          } catch { /* Results remain usable when diagnostics are unavailable. */ }
+          return;
         }
       } catch (err) {
-        if (isMounted) {
-          clearInterval(interval);
-        }
+        if (abort.signal.aborted) return;
+        failures += 1;
+        setPollError(err instanceof Error ? err.message : 'Could not refresh query status');
+        if (err instanceof ApiError && [401, 403, 404].includes(err.statusCode)) return;
       }
-    }, 1000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
+      if (!abort.signal.aborted) timer = setTimeout(() => void poll(), Math.min(30000, 1000 * 2 ** failures));
     };
-  }, [activeQueryId]);
+    void poll();
+    return () => { abort.abort(); if (timer) clearTimeout(timer); };
+  }, [activeQueryId, retry]);
 
-  const handleCancel = async () => {
+  const submitted = (id: string) => {
+    setActiveQueryId(id);
+    onActiveQueryChange?.(id);
+    setQuery(null);
+    setTrace(null);
+    setInspecting(false);
+    setPollError(null);
+  };
+
+  const cancel = async () => {
     if (!activeQueryId) return;
+    setCancelling(true);
     try {
       await api.post(`/api/v1/queries/${activeQueryId}/cancel`);
-    } catch {
-      // Ignore cancel error
+      setRetry((value) => value + 1);
+    } catch (err) {
+      setPollError(err instanceof Error ? err.message : 'Cancellation failed; please retry');
+      setCancelling(false);
     }
   };
+  const running = Boolean(activeQueryId && (!query || !terminal.has(query.status)));
 
-  const handleQuerySubmitted = (queryId: string) => {
-    setActiveQueryId(queryId);
-    setQueryState({ status: 'queued' });
-    setTraceData(null);
-    setShowInspector(false);
-  };
-
-  if (loadingConnections) {
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center text-slate-500">
-        Loading database connections...
-      </div>
-    );
-  }
-
-  if (connectionsError && connections.length === 0) {
-    return (
-      <div className="bg-white rounded-lg border border-red-200 p-8 text-center space-y-4">
-        <div className="text-red-700 text-sm font-medium">{connectionsError}</div>
-        <button
-          onClick={loadConnections}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-md shadow-sm transition"
-        >
-          Retry Loading Connections
-        </button>
-      </div>
-    );
-  }
-
-  if (connections.length === 0) {
-    return (
-      <div className="bg-white rounded-lg border border-dashed border-slate-300 p-12 text-center space-y-4">
-        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-          !
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900">No Database Connected</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
-            To ask natural language questions, connect a PostgreSQL or MySQL analytics database first.
-          </p>
-        </div>
-        <button
-          onClick={onNavigateToConnections}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-md shadow-sm transition"
-        >
-          Add Database Connection
-        </button>
-      </div>
-    );
-  }
-
-  const selectedConn = connections.find((c) => c.id === selectedConnectionId);
-
-  return (
-    <div className="space-y-6">
-      <QuestionForm
-        connections={connections}
-        selectedConnectionId={selectedConnectionId}
-        onSelectConnection={setSelectedConnectionId}
-        onQuerySubmitted={handleQuerySubmitted}
-        disabled={queryState && ['queued', 'contextualizing', 'generating', 'validating', 'executing', 'repairing'].includes(queryState.status)}
-      />
-
-      {queryState && (
-        <div className="space-y-6">
-          <QueryStatus status={queryState.status} onCancel={handleCancel} />
-
-          {queryState.status === 'clarification_required' && (
-            <Assumptions
-              clarificationQuestion={
-                queryState.clarification_question?.trim() ||
-                'The question is ambiguous (for example: did you mean the highest total count of orders, or the highest total monetary spend across orders?). Please rephrase or specify in the input above.'
-              }
-              assumptions={queryState.assumptions || []}
-            />
-          )}
-
-          {queryState.status === 'rejected' && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-lg text-sm">
-              <span className="font-semibold">Query Rejected by Policy:</span> {queryState.safe_message || 'Policy violation.'}
-            </div>
-          )}
-
-          {queryState.status === 'failed' && (
-            <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-sm">
-              <span className="font-semibold">Pipeline Error:</span> {queryState.safe_message || 'Execution error.'}
-            </div>
-          )}
-
-          {queryState.sql && (
-            <SQLPanel sql={queryState.sql} dialect={selectedConn?.engine || 'postgresql'} />
-          )}
-
-          {queryState.assumptions && queryState.assumptions.length > 0 && queryState.status === 'completed' && (
-            <Assumptions
-              assumptions={queryState.assumptions}
-              warnings={queryState.warnings || []}
-              resultsExpired={!queryState.results_available}
-            />
-          )}
-
-          {queryState.status === 'completed' && queryState.columns && queryState.rows && (
-            <ResultsTable
-              columns={queryState.columns}
-              rows={queryState.rows}
-              truncated={queryState.truncated}
-            />
-          )}
-
-          {traceData && (
-            <div className="pt-2">
-              <button
-                onClick={() => setShowInspector(!showInspector)}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 underline focus:outline-none"
-              >
-                {showInspector ? 'Hide Diagnostics & Attempt Trace' : 'Show Diagnostics & Attempt Trace'}
-              </button>
-              {showInspector && (
-                <div className="mt-4">
-                  <QueryInspector trace={traceData} status={queryState.status} />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="space-y-6">
+    {loadingConnections ? <p role="status">Loading connections...</p> : connectionsError ? (
+      <p role="alert" className="text-red-700">{connectionsError}</p>
+    ) : connections.length ? (
+      <QuestionForm connections={connections} selectedConnectionId={connectionId} onSelectConnection={setConnectionId}
+        onQuerySubmitted={submitted} disabled={running} />
+    ) : <div className="rounded-lg border bg-white p-6">
+      <p>Connect a database and select its allowed tables to start asking questions.</p>
+      <button onClick={onNavigateToConnections} className="mt-3 text-indigo-700 underline">Add database connection</button>
+    </div>}
+    {pollError && <div role="alert" className="rounded border border-red-200 bg-red-50 p-4">
+      {pollError} <button onClick={() => setRetry((value) => value + 1)} className="underline">Retry now</button>
+      {running && <button onClick={() => { setActiveQueryId(null); onActiveQueryChange?.(null); setQuery(null); }} className="ml-4 underline">Dismiss view</button>}
+    </div>}
+    {query && <p className="font-semibold text-slate-800">{query.question}</p>}
+    {activeQueryId && <QueryStatus status={cancelling ? 'cancelling' : query?.status || 'queued'} onCancel={() => void cancel()} />}
+    {query?.status === 'clarification_required' && <Assumptions clarificationQuestion={query.clarification_question} />}
+    {query && ['failed', 'rejected', 'interrupted', 'cancelled'].includes(query.status) && 'safe_message' in query && (
+      <p role="alert" className="rounded border bg-white p-4">{query.safe_message}</p>
+    )}
+    {query?.status === 'completed' && <>
+      <SQLPanel sql={query.sql} dialect={query.dialect} />
+      <Assumptions assumptions={query.assumptions} warnings={query.warnings} resultsExpired={!query.results_available} />
+      {query.results_available && query.rows ? <>
+        <ResultsTable columns={query.columns} rows={query.rows} truncated={query.truncated} />
+        <a className="text-indigo-700 underline" href={`/api/v1/queries/${query.query_id}/export?format=csv`}>Download CSV</a>
+      </> : <p>Results have expired or the connection policy changed. Submit the question again to retrieve fresh results.</p>}
+    </>}
+    {trace && <div>
+      <button onClick={() => setInspecting((value) => !value)} className="text-indigo-700 underline">{inspecting ? 'Hide diagnostics' : 'Show diagnostics'}</button>
+      {inspecting && <QueryInspector trace={trace} status={query?.status || trace.status} />}
+    </div>}
+  </div>;
 }
 
 export default WorkspaceView;

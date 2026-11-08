@@ -1,194 +1,92 @@
 import React, { useEffect, useState } from 'react';
-import { api, ApiError } from '../../api/client.ts';
+import { api } from '../../api/client.ts';
 import { ConnectionResponse } from '../../api/generated/schema.ts';
+import { CatalogSnapshot, CatalogTable } from '../../api/catalog.ts';
 import TableDetails from './TableDetails.tsx';
+import { Metrics } from './Metrics.tsx';
 
 interface SchemaExplorerProps {
   connectionId?: string;
   onConnectionChange?: (id: string) => void;
 }
 
-export function SchemaExplorer({ connectionId: initialConnectionId, onConnectionChange }: SchemaExplorerProps): React.JSX.Element {
+export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplorerProps): React.JSX.Element {
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
-  const [activeConnectionId, setActiveConnectionId] = useState<string>(initialConnectionId || '');
-  const [catalog, setCatalog] = useState<any | null>(null);
-  const [selectedTable, setSelectedTable] = useState<any | null>(null);
+  const [activeId, setActiveId] = useState(connectionId || '');
+  const [catalog, setCatalog] = useState<CatalogSnapshot | null>(null);
+  const [table, setTable] = useState<CatalogTable | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
 
-  // Load available connections
   useEffect(() => {
-    let isMounted = true;
-    api.get<ConnectionResponse[]>('/api/v1/connections')
-      .then((conns) => {
-        if (!isMounted) return;
-        setConnections(conns);
-        if (!activeConnectionId && conns.length > 0) {
-          const defaultId = initialConnectionId && conns.some(c => c.id === initialConnectionId)
-            ? initialConnectionId
-            : conns[0].id;
-          setActiveConnectionId(defaultId);
-          onConnectionChange?.(defaultId);
-        }
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        setError(err instanceof ApiError ? err.message : 'Failed to load connections');
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    const abort = new AbortController();
+    api.get<ConnectionResponse[]>('/api/v1/connections', { signal: abort.signal }).then((items) => {
+      if (abort.signal.aborted) return;
+      setConnections(items);
+      setActiveId((current) => current || items[0]?.id || '');
+    }).catch((err: unknown) => { if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not load connections'); });
+    return () => abort.abort();
   }, []);
 
-  // Update active connection if prop changes from outside
-  useEffect(() => {
-    if (initialConnectionId && initialConnectionId !== activeConnectionId) {
-      setActiveConnectionId(initialConnectionId);
-    }
-  }, [initialConnectionId]);
+  useEffect(() => { if (connectionId) setActiveId(connectionId); }, [connectionId]);
 
-  const fetchCatalog = async (connId: string) => {
-    if (!connId) return;
+  useEffect(() => {
+    if (!activeId) return;
+    const abort = new AbortController();
     setLoading(true);
     setError(null);
-    try {
-      const data = await api.get<any>(`/api/v1/connections/${connId}/schema`);
+    setCatalog(null);
+    setTable(null);
+    api.get<CatalogSnapshot>(`/api/v1/connections/${activeId}/schema`, { signal: abort.signal }).then((data) => {
+      if (abort.signal.aborted) return;
       setCatalog(data);
-      if (data?.tables?.length > 0) {
-        setSelectedTable(data.tables[0]);
-      } else {
-        setSelectedTable(null);
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load catalog');
-    } finally {
-      setLoading(false);
-    }
-  };
+      setTable(data.tables[0] || null);
+    }).catch((err: unknown) => { if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not load schema'); })
+      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
+    return () => abort.abort();
+  }, [activeId, version]);
 
-  const handleRefresh = async () => {
-    if (!activeConnectionId) return;
-    setLoading(true);
+  const refresh = async () => {
+    if (!activeId) return;
+    setRefreshing(true);
+    setError(null);
     try {
-      const refreshed = await api.post<any>(`/api/v1/connections/${activeConnectionId}/schema/refresh`);
-      setCatalog(refreshed);
-      if (refreshed?.tables?.length > 0) {
-        setSelectedTable(refreshed.tables[0]);
-      }
+      await api.post<CatalogSnapshot>(`/api/v1/connections/${activeId}/schema/refresh`);
+      setVersion((value) => value + 1);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Refresh failed');
+      setError(err instanceof Error ? err.message : 'Could not refresh schema');
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    if (activeConnectionId) {
-      fetchCatalog(activeConnectionId);
-    }
-  }, [activeConnectionId]);
-
-  const handleSelectConnection = (connId: string) => {
-    setActiveConnectionId(connId);
-    onConnectionChange?.(connId);
-  };
-
-  if (!loading && connections.length === 0 && !activeConnectionId) {
-    return (
-      <div className="bg-white rounded-lg border border-dashed border-slate-300 p-12 text-center text-slate-500 space-y-2">
-        <p className="font-semibold text-slate-700">No Database Connections Found</p>
-        <p className="text-sm">Please configure a database connection in the Connections tab to explore its schema.</p>
+  return <div className="space-y-5">
+    <div className="flex justify-between items-center">
+      <h2 className="text-xl font-semibold">Schema explorer</h2>
+      <div className="flex gap-4">
+        <label>Database <select aria-label="Schema database" value={activeId} onChange={(event) => {
+          setActiveId(event.target.value); onConnectionChange?.(event.target.value);
+        }}>
+          {connections.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select></label>
+        <button disabled={!activeId || refreshing || loading} onClick={() => void refresh()}>{refreshing ? 'Refreshing...' : 'Refresh schema'}</button>
       </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Schema Explorer</h2>
-          <p className="text-xs text-slate-500 font-mono">
-            {catalog ? `Snapshot Hash: ${catalog.snapshot_hash?.slice(0, 16)}... | Policy v${catalog.policy_version}` : 'Loading schema metadata...'}
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          {connections.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <label htmlFor="schema-conn-select" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Database:
-              </label>
-              <select
-                id="schema-conn-select"
-                value={activeConnectionId}
-                onChange={(e) => handleSelectConnection(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-medium text-slate-700 shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                {connections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.engine})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <button
-            onClick={handleRefresh}
-            disabled={loading || !activeConnectionId}
-            className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
-          >
-            {loading ? 'Refreshing...' : 'Refresh Schema'}
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div role="alert" className="p-3 bg-red-50 text-red-700 text-sm rounded border border-red-200">
-          {error}
-        </div>
-      )}
-
-      {catalog && catalog.tables?.length === 0 ? (
-        <div className="bg-white rounded-lg border border-dashed border-slate-300 p-12 text-center text-slate-500">
-          <p className="font-medium text-slate-700 mb-1">No tables currently visible</p>
-          <p className="text-sm">Configure allowed tables and columns in the connection settings to enable analysis.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-2">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Visible Tables</h4>
-            <div className="space-y-1 max-h-[600px] overflow-y-auto">
-              {catalog?.tables?.map((t: any) => (
-                <button
-                  key={t.name}
-                  onClick={() => setSelectedTable(t)}
-                  className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${
-                    selectedTable?.name === t.name
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold border-l-4 border-indigo-600'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="md:col-span-3">
-            {selectedTable ? (
-              <TableDetails table={selectedTable} />
-            ) : (
-              <div className="bg-white rounded-lg border border-slate-200 p-12 text-center text-slate-400">
-                Select a table to view columns and relationships.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
-  );
+    {error && <p role="alert" className="text-red-700">{error}</p>}
+    {loading && <p role="status">Loading schema...</p>}
+    {catalog && <p className="text-xs text-slate-500">Snapshot {catalog.snapshot_hash.slice(0, 16)} · policy {catalog.policy_version}</p>}
+    {catalog?.tables.length === 0 && <p>Select allowed tables and columns in Connections to enable analytics.</p>}
+    {catalog && catalog.tables.length > 0 && <div className="grid grid-cols-4 gap-4">
+      <nav aria-label="Visible tables" className="space-y-2">
+        {catalog.tables.map((item) => <button key={`${item.namespace}.${item.name}`} className="block text-left text-indigo-700"
+          onClick={() => setTable(item)}>{item.namespace}.{item.name}</button>)}
+      </nav>
+      <div className="col-span-3">{table && <TableDetails table={table} />}</div>
+    </div>}
+    {activeId && <Metrics key={activeId} connectionId={activeId} />}
+  </div>;
 }
 
 export default SchemaExplorer;

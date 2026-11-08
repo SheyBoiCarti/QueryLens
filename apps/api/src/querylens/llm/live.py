@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -11,10 +12,12 @@ import httpx
 from querylens.config import Settings, get_settings
 from querylens.llm.protocol import GeneratedCandidate, LLMUsage
 from querylens.llm.provider import LLMProvider
+from querylens.pipeline.context import estimate_tokens
 
 
 class LiveLLMError(Exception):
     """Base exception for live LLM provider failures."""
+
     def __init__(self, message: str, code: str = "MODEL_OUTPUT_INVALID") -> None:
         super().__init__(message)
         self.code = code
@@ -43,10 +46,10 @@ class OpenAICompatibleProvider(LLMProvider):
             f"2. Use strictly compliant {dialect} syntax and functions.\n"
             "3. ONLY use tables and columns explicitly defined in the provided schema context. NEVER invent or assume columns (e.g. do NOT assume total_amount on orders if orders only has id, customer_id, order_date, status; check line_items or payments instead).\n"
             "4. Output MUST be a single valid JSON object with these exact keys:\n"
-            "   - \"sql\": string or null (the SQL query, terminated with a semicolon)\n"
-            "   - \"assumptions\": array of strings (business assumptions or filters applied, max 10 items, max 500 chars each)\n"
-            "   - \"requires_clarification\": boolean\n"
-            "   - \"clarification_question\": string or null (required if requires_clarification is true, max 500 chars)\n"
+            '   - "sql": string or null (the SQL query, terminated with a semicolon)\n'
+            '   - "assumptions": array of strings (business assumptions or filters applied, max 10 items, max 500 chars each)\n'
+            '   - "requires_clarification": boolean\n'
+            '   - "clarification_question": string or null (required if requires_clarification is true, max 500 chars)\n'
             "5. If repairing a previous failed query, carefully fix the exact error reported and DO NOT repeat the same SQL.\n"
             "6. Do NOT include Markdown code blocks or any other text outside the JSON object."
         )
@@ -73,66 +76,68 @@ class OpenAICompatibleProvider(LLMProvider):
         }
 
         user_content = (
-            f"Database Dialect: {dialect}\n\n"
-            f"Schema Context:\n{schema_context}\n\n"
-            f"User Question:\n{question}\n"
+            f"Database Dialect: {dialect}\n\nSchema Context:\n{schema_context}\n\nUser Question:\n{question}\n"
         )
 
+        settings = get_settings()
+        system_prompt = self._build_system_prompt(dialect)
+        if estimate_tokens(system_prompt + user_content) + 64 > settings.max_input_tokens:
+            raise LiveLLMError("Input exceeds configured token bound", code="TOKEN_BUDGET_EXCEEDED")
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": self._build_system_prompt(dialect)},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.0,
+            "max_tokens": settings.max_output_tokens,
             "response_format": {"type": "json_object"},
         }
 
         start_time = time.monotonic()
         try:
-            async with httpx.AsyncClient(timeout=timeout_sec) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-        except httpx.TimeoutException as e:
-            raise LiveLLMError(f"LLM request timed out after {timeout_sec:.1f}s", code="DEADLINE_EXCEEDED") from e
-        except Exception as e:
-            raise LiveLLMError(f"LLM connection error: {e}", code="MODEL_UNAVAILABLE") from e
-
+            async with asyncio.timeout(timeout_sec):
+                async with httpx.AsyncClient(timeout=timeout_sec) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                        if resp.status_code != 200:
+                            raise LiveLLMError("LLM provider unavailable", code="MODEL_UNAVAILABLE")
+                        chunks = bytearray()
+                        async for chunk in resp.aiter_bytes():
+                            if len(chunks) + len(chunk) > self.max_response_bytes:
+                                raise LiveLLMError("LLM response exceeds byte bound")
+                            chunks.extend(chunk)
+        except (httpx.TimeoutException, TimeoutError) as exc:
+            raise LiveLLMError("LLM request timed out", code="DEADLINE_EXCEEDED") from exc
+        except LiveLLMError:
+            raise
+        except httpx.HTTPError as exc:
+            raise LiveLLMError("LLM connection unavailable", code="MODEL_UNAVAILABLE") from exc
         latency_ms = int((time.monotonic() - start_time) * 1000)
 
-        if resp.status_code != 200:
-            error_preview = resp.text[:500] if resp.text else f"Status {resp.status_code}"
-            raise LiveLLMError(
-                f"LLM provider error (status {resp.status_code}): {error_preview}",
-                code="MODEL_UNAVAILABLE",
-            )
-
-        raw_bytes = resp.content
-        if len(raw_bytes) > self.max_response_bytes:
-            raise LiveLLMError(
-                f"LLM response body exceeded max bound ({len(raw_bytes)} > {self.max_response_bytes} bytes)",
-                code="MODEL_OUTPUT_INVALID",
-            )
-
         try:
-            body = resp.json()
+            body = json.loads(chunks)
             choice = body["choices"][0]["message"]["content"]
             usage_data = body.get("usage", {})
-        except (KeyError, IndexError, json.JSONDecodeError) as e:
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
             raise LiveLLMError(f"Malformed LLM response structure: {e}", code="MODEL_OUTPUT_INVALID") from e
 
+        if not isinstance(choice, str):
+            raise LiveLLMError("Model content must be a string")
         cleaned = self._clean_json_text(choice)
         try:
             parsed = json.loads(cleaned)
         except json.JSONDecodeError as e:
             raise LiveLLMError(f"Model did not return valid JSON: {e}", code="MODEL_OUTPUT_INVALID") from e
 
+        if not isinstance(parsed, dict) or not isinstance(usage_data, dict):
+            raise LiveLLMError("Model response must be a JSON object")
         usage = LLMUsage(
             prompt_tokens=int(usage_data.get("prompt_tokens", 0)),
             completion_tokens=int(usage_data.get("completion_tokens", 0)),
             latency_ms=latency_ms,
         )
 
-        requires_clarification = bool(parsed.get("requires_clarification", False))
+        requires_clarification = parsed.get("requires_clarification", False)
         clarification_q = parsed.get("clarification_question")
         if requires_clarification and (not clarification_q or not str(clarification_q).strip()):
             clarification_q = "The question contains ambiguity. Please specify whether you mean total volume/count or total monetary value."

@@ -27,6 +27,26 @@ def classify_pipeline_error(
     snapshot: Any | None = None,
 ) -> ClassifiedError:
     """Classify exception into a typed, sanitized, bounded ClassifiedError."""
+    from querylens.llm.live import LiveLLMError
+    from querylens.execution.executor import ExecutionSecurityError
+    from querylens.execution.serializer import SerializationError
+
+    if isinstance(exception, LiveLLMError):
+        return ClassifiedError(
+            category="unknown",
+            code=exception.code,
+            safe_message="The model provider could not produce a valid response",
+            repairable=False,
+        )
+    if isinstance(exception, (ExecutionSecurityError, SerializationError)):
+        return ClassifiedError(
+            category="policy",
+            code="POLICY_CHANGED" if isinstance(exception, ExecutionSecurityError) else "RESULT_TOO_LARGE",
+            safe_message="Connection policy changed; submit again"
+            if isinstance(exception, ExecutionSecurityError)
+            else "Result exceeds safe display limits",
+            repairable=False,
+        )
     # 1. Security & policy exceptions take precedence - NEVER repairable even if msg has keywords
     if isinstance(exception, SQLPolicyViolationError):
         return ClassifiedError(
@@ -165,7 +185,7 @@ def _classify_pg_code(pgcode: str, snapshot: Any | None) -> ClassifiedError:
         )
     if pgcode == "42703":
         if snapshot and hasattr(snapshot, "tables"):
-            hints = [col.name for t in snapshot.tables.values() for col in t.columns.values()][:5]
+            hints = [col.name for t in snapshot.tables for col in t.columns][:5]
         return ClassifiedError(
             category="unknown_identifier",
             code="UNDEFINED_COLUMN",
@@ -175,7 +195,7 @@ def _classify_pg_code(pgcode: str, snapshot: Any | None) -> ClassifiedError:
         )
     if pgcode == "42P01":
         if snapshot and hasattr(snapshot, "tables"):
-            hints = list(snapshot.tables.keys())[:5]
+            hints = [table.name for table in snapshot.tables][:5]
         return ClassifiedError(
             category="unknown_identifier",
             code="UNDEFINED_TABLE",
@@ -238,7 +258,7 @@ def _classify_mysql_code(errno: int, snapshot: Any | None) -> ClassifiedError:
         )
     if errno == 1054:
         if snapshot and hasattr(snapshot, "tables"):
-            hints = [col.name for t in snapshot.tables.values() for col in t.columns.values()][:5]
+            hints = [col.name for t in snapshot.tables for col in t.columns][:5]
         return ClassifiedError(
             category="unknown_identifier",
             code="UNKNOWN_COLUMN",
@@ -248,7 +268,7 @@ def _classify_mysql_code(errno: int, snapshot: Any | None) -> ClassifiedError:
         )
     if errno == 1146:
         if snapshot and hasattr(snapshot, "tables"):
-            hints = list(snapshot.tables.keys())[:5]
+            hints = [table.name for table in snapshot.tables][:5]
         return ClassifiedError(
             category="unknown_identifier",
             code="UNKNOWN_TABLE",

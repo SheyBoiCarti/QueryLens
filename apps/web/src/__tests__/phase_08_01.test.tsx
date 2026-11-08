@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import React, { useState } from 'react';
 import AppShell from '../components/AppShell.tsx';
 import StatusNotice from '../components/StatusNotice.tsx';
 
