@@ -1,8 +1,9 @@
 # Analytics contracts
 
-This document records persistence and semantic metadata delivered by Everyday
-Analytics Tasks 1 and 2. Answer presentation, parameter compilation, and new
-execution origins are owned by subsequent tasks in the implementation plan.
+This document records Everyday Analytics persistence, semantic metadata and
+editing, verified presentation, and shared/manual execution (Tasks 1–5).
+Parameter compilation, saved-question workflows, and follow-ups remain owned by
+subsequent tasks in the implementation plan.
 
 ## C04 — Metadata schema and migrations
 
@@ -85,7 +86,7 @@ enforced when follow-up execution is introduced.
 History repository listings remain owner-scoped with stable keyset pagination.
 They include origin, parent/source IDs, and saved-question ID/revision. Listings
 exclude submitted SQL, accepted definition snapshots, and run context/parameter
-payloads. Public response additions are introduced by the later delivery task.
+payloads. Public responses include typed origin and relationship/revision fields.
 
 Deleting or expiring a run removes its run-local context/accepted parameter data
 and cascades attempts; cached rows are evicted. Removing an ancestor clears
@@ -221,3 +222,162 @@ certificate checks plus the existing vertical-slice admission setup; it is not
 source-engine compatibility evidence. No source-driver behavior is changed here.
 OpenAPI is re-exported, corresponding semantic TypeScript contracts are updated,
 and Ruff, Mypy, and frontend TypeScript checks pass.
+
+## C01/C06 — Authenticated manual SQL and validated provenance
+
+`POST /api/v1/queries/sql` is an authenticated, owner-scoped read-only SQL
+endpoint. It accepts `connection_id`, `sql`, optional `source_query_id`, and
+`max_rows` (default 100, hard maximum 1,000). The approved-origin and session-bound
+CSRF rules apply. This explicitly permits authenticated manual SQL submission;
+it does not add unauthenticated SQL access or relax source network restrictions,
+engine allowlists, function restrictions, visible-catalog authorization, or
+read-only transactions.
+
+An optional source must be an owner-authorized completed run on the same
+connection. Unknown and foreign sources return 404; incomplete or mismatched
+sources return 422 before admission. The worker checks source eligibility again.
+The accepted response remains `{query_id, status:"queued"}` with HTTP 202.
+Configured SQL UTF-8 byte and row budgets apply before acceptance and again in
+the worker. Unsafe statements, multiple statements, unresolved placeholders,
+hidden identifiers, locking reads, and forbidden functions become terminal
+rejected runs without source dispatch. Direct execution never invokes generation
+or repair, even after syntax or database errors.
+
+`validate_query_artifact` produces an internal `ValidatedArtifact` containing the
+executable token, authorized canonical template before fetch-limit injection,
+original top-level author limit, and empty resolved bindings with the effective
+row budget. The compatibility wrapper `validate_and_bound_sql` still returns a
+`ValidatedQuery`. Without an author LIMIT, request 100 executes with LIMIT 101
+while storing `author_limit=null`; explicit LIMIT 20 remains 20. Submitted SQL is
+retained separately from bounded canonical executed SQL. Manual runs use origin
+`manual_sql` and neutral meaning; the original question cannot confer business
+meaning on an edited query. Direct attempts retain zero prompt/completion tokens.
+
+## C07/C08 — Shared execution lifecycle
+
+Natural-language and manual runs use `run_with_lifecycle`, which owns admission
+activation, total deadline, safe terminal errors, cancellation, cleanup, and task
+deregistration. `RunServices.execute` uses the existing bounded DBAPI executor,
+remaining statement/connect/cleanup budgets, source cancellation, and socket
+termination fallback. A cancelled asyncio waiter does not release its active
+lease while its DBAPI worker is still running. Shutdown/startup reconciliation
+continues to mark unfinished prior runs interrupted.
+
+Publication locks the owner-scoped connection and checks the latest physical
+snapshot, policy version, and semantic version in the transaction that atomically
+completes durable run metadata. Drift prevents publication. Cancellation and
+other terminal states cannot be overwritten; a lost completion race evicts any
+cached rows. Rows and result-derived presentation are never persisted.
+
+## Task 3 — Structured schema editing
+
+The schema explorer shows editable business labels alongside inspectable physical
+namespace/table/column names. Label saves use PUT with the loaded semantic version;
+metric edits PATCH the complete structured DSL and expected metric version.
+The editor supports descriptions, synonyms, units, all six aggregations, grain,
+and all existing filter operators with scalar/list types. Server conflicts and
+validation errors preserve drafts. Connection changes invalidate stale reads and
+save callbacks, including catalog and metric-list requests. All client mutations
+use the shared credentials, client-header, and CSRF path.
+
+## C08/C09 — Verified intent and volatile answer presentation (Task 4)
+
+`build_run_context(template_sql, author_limit, question, origin, snapshot,
+semantics, resolved_parameters=None)` resolves physical objects and column types
+from the authorized template AST, including nested scopes and expanded stars.
+Supported conjunctive literal predicates become typed audit filters. Unsupported
+predicates remain inspectable in the authoritative canonical SQL template.
+Effective descriptions use verified physical scope; arbitrary question wording
+never proves business meaning. Manual SQL always uses a neutral description.
+
+A metric reference requires one plain single-table SELECT with exactly one
+supported aggregation and matching measure, group columns, and complete filter
+set. Joins, derived scopes, OR, windows, HAVING, extra projections, and other
+unsupported shapes receive no metric claim. Numeric filters compare exact
+context-independent decimal representations, preserving long integers and
+negative values; string and boolean literals remain distinct. Enabled metric
+IDs, versions, and DSL hashes are retained, alongside copies of labels on the
+referenced objects. No result rows or computed summaries enter stored context.
+
+Completed GET responses explicitly map origin, parent/source IDs, saved-question
+ID/revision, and optional authorized context. Historical label copies are filtered
+against current physical visibility. Metric references and display definitions
+require a currently enabled, visible, identical version/hash; removing a reference
+also removes the effective description's stale verified-metric claim. Legacy
+runs may omit context and presentation.
+
+`PresentationMetadata` is a typed volatile contract with title, deterministic
+explanation, chart type (`table`, `single_value`, `line`, `bar`), optional x/y
+columns and exact single value, at most 50 plotting row indices, typed date scope,
+currently verified metric display definitions/units, and visible warnings.
+Definitions include ID, key, version, name, description, and declared units.
+Unknown units are absent. Conflicting declared units fall back to a table.
+Explanations never call a model or persist with query history.
+
+Single values require exactly one non-null numeric cell and preserve its exact
+string, including integers beyond the JavaScript safe range. Plotting requires
+exactly two compatible columns, 1..50 rows, unique nonempty valid keys, and no
+null measures. Numeric-looking columns declared as strings are ineligible.
+Plot values must be finite and their shortest JavaScript-number-compatible
+decimal representation must equal the original exact decimal value; integral
+values outside ±9,007,199,254,740,991 are ineligible. Distinct exact values may
+never collapse to one plotted number. Date keys must be valid; equivalent
+timestamp instants are duplicate keys. Temporal recommendations provide sorted
+row indices without changing table order. Unsupported shapes use the complete
+table, with no sampling or aggregation. Truncation warnings remain explicit.
+
+`ResultCache.get_entry` retains the original monotonic expiry and byte eviction
+rules; cache TTL is capped at 300 seconds. `results_expires_at` translates the
+remaining TTL to UTC without refreshing it. GET derives presentation only from
+an owner-authorized entry matching the current physical/policy snapshot. Expiry,
+eviction, missing snapshots, and stale policy omit rows, presentation, and expiry
+and return `results_available:false`. Reading completed results never reflects
+or connects to a source to repair stale authorization metadata. CSV uses the
+same current snapshot/policy check and returns 410 when unavailable. Public
+history maps origins and relationship/revision metadata while excluding rows.
+
+Task 4 validation on 2026-11-08: the initial scoped run failed during collection
+on the missing intent module. The final installed-environment command
+`python -m pytest tests/unit/test_presentation_and_charts.py tests/integration/test_presentation_delivery.py tests/integration/test_history.py tests/unit/test_csv_export.py -q`
+passed 40 tests, including authenticated GET/history, hidden metadata,
+foreign ownership, policy revocation without source reflection, TTL/eviction,
+and CSV 410. Scoped Ruff and mypy checks also pass. Source-engine execution is
+unchanged by this presentation task and is not claimed by these checks.
+
+Physical-table aliases may rename the table, but may not supply positional column
+alias lists. Catalog visibility can omit source columns, so their positional
+mapping cannot be safely inferred. Derived-table and CTE aliases retain existing
+scoped validation. Unsupported table modifiers (including TABLESAMPLE and ONLY)
+do not prove a full-table metric definition and receive neutral presentation.
+The metric editor selects actual physical measure columns and rejects numeric
+scalar/list input whose JSON number representation would change its exact decimal
+value. It preserves the entered draft so the author can revise it explicitly.
+
+## Tasks 2–5 final verification — 2026-11-08
+
+All commands used the installed environment. Backend tests ran from `apps/api`
+so the repository-root `.env` could not select external source credentials.
+
+- `python -m pytest tests/unit tests/integration tests/security -q -ra`:
+  exit 0, 254 passed, 3 skipped. The skips remain existing live PostgreSQL,
+  MySQL, and PostgreSQL vertical-slice cases without configured credentials.
+  Disposable PostgreSQL migration/concurrency tests passed without skipping.
+- `npm test --prefix apps/web`: exit 0, 48 tests passed across 7 files.
+- `ruff check apps/api`: exit 0.
+- `mypy --config-file apps/api/mypy.ini apps/api/src`: exit 0, 94 source files.
+- Frontend lint, TypeScript checking, and production build: exit 0.
+- Deterministic exported OpenAPI bytes match the runtime schema. Explicit
+  TypeScript declarations include origin/lineage, run context, presentation,
+  manual SQL requests, and history. The exporter emits JSON, not TypeScript.
+
+New tests were first observed red for absent label UI, presentation interfaces,
+and manual endpoint/lifecycle behavior. Independent reviews prompted fixes for
+unsupported wildcard metric measures, exact scalar/list numeric entry, and
+unsupported table modifiers/positional column aliases; their focused regressions
+passed and review confirmed the fixes. An early combined test process imported
+an old repair fixture while it was being corrected; the final whole backend run
+uses a computed snapshot hash and passes the existing repair assertions.
+No PostgreSQL/MySQL source-driver changes are claimed, and the skipped external
+source tests are not source-engine compatibility evidence. Backend presentation
+recommendations and the manual endpoint are delivered here; chart rendering and
+workspace SQL editing remain their later plan tasks.
