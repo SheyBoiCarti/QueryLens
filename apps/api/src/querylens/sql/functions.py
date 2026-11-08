@@ -70,6 +70,9 @@ def validate_functions(ast: exp.Expression) -> None:
         raise FunctionPolicyError("User-defined cast types are prohibited")
     # Check all exp.Func subclasses
     for func_node in ast.find_all(exp.Func):
+        # EXISTS is SQL syntax, not a callable function; still inspect its subtree.
+        if isinstance(func_node, exp.Exists):
+            continue
         func_name = func_node.name.lower() if isinstance(func_node, exp.Anonymous) else func_node.sql_name().lower()
         if func_name not in ALLOWED_FUNCTIONS:
             raise FunctionPolicyError(f"Disallowed function '{func_name}' is not in policy allowlist")

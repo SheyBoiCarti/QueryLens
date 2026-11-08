@@ -65,7 +65,7 @@ def test_connection_crud_and_password_preservation(test_db):
         assert decrypted == "my_original_password"
 
 
-def test_mysql_adapter_rejects_mariadb():
+def test_mysql_adapter_rejects_mariadb(monkeypatch):
     """MySQL adapter explicitly rejects MariaDB by server identity (Contract C01)."""
 
     # Mock pymysql connect returning MariaDB version
@@ -83,18 +83,20 @@ def test_mysql_adapter_rejects_mariadb():
             return ("10.5.12-MariaDB-1:10.5.12+maria~focal",)
 
     class FakeConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
         def cursor(self):
             return FakeCursor()
 
         def close(self):
             pass
 
-    import pymysql
-
-    orig_connect = pymysql.connect
-    try:
-        pymysql.connect = lambda *args, **kwargs: FakeConn()
-        success, version, msg = MySQLAdapter.test_connection(
+    monkeypatch.setattr(MySQLAdapter, "connect", lambda *args, **kwargs: FakeConn())
+    success, version, msg = MySQLAdapter.test_connection(
             host="127.0.0.1",
             port=3306,
             database="test",
@@ -102,10 +104,8 @@ def test_mysql_adapter_rejects_mariadb():
             password="pwd",
             tls_enabled=False,
         )
-        assert success is False
-        assert "MariaDB is explicitly rejected" in msg
-    finally:
-        pymysql.connect = orig_connect
+    assert success is False
+    assert "MariaDB is explicitly rejected" in msg
 
 
 def test_live_aiven_database_connections():

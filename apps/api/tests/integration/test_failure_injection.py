@@ -1,6 +1,5 @@
 """Integration tests for failure injection, crash recovery, and socket disposal (Contracts C03, C07, C08, C11)."""
 
-import pytest
 import sqlalchemy as sa
 from querylens.connections.registry import get_registry
 from querylens.jobs.runner import reconcile_interrupted_jobs

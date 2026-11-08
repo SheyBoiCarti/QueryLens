@@ -8,13 +8,10 @@ from httpx import ASGITransport, AsyncClient
 from querylens.auth.crypto import hash_password
 from querylens.auth.service import AuthService
 from querylens.config import Settings, get_settings
-from querylens.connections.models import ConnectionCreate
-from querylens.connections.service import ConnectionService
 from querylens.llm.fake import get_fake_llm_provider
 from querylens.llm.protocol import GeneratedCandidate, LLMUsage
 from querylens.main import create_app
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
-from querylens.schema.catalog import CatalogService
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +39,7 @@ async def test_full_vertical_slice_workflow(test_db):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # 1. Create user and login
         auth = AuthService()
-        user = auth.create_user("analyst_pipeline@example.com", hash_password("Pass123!"))
+        auth.create_user("analyst_pipeline@example.com", hash_password("Pass123!"))
 
         login_res = await client.post(
             "/api/v1/auth/login",

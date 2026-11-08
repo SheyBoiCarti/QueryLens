@@ -30,6 +30,7 @@ def save_snapshot(snapshot: CatalogSnapshot, conn: Connection | None = None) -> 
     else:
         with get_db_connection() as c:
             c.execute(stmt)
+            c.commit()
 
 
 def get_latest_snapshot(connection_id: str, conn: Connection | None = None) -> CatalogSnapshot | None:

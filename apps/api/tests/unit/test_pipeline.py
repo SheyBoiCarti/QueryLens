@@ -1,16 +1,13 @@
 """Unit tests for Phase 05 LLM protocol, fake provider, state repository, and result cache."""
 
-import time
 import pytest
 from pydantic import ValidationError
 
-from querylens.domain.schema import CatalogSnapshot
 from querylens.jobs.results import ResultCache
 from querylens.llm.fake import FakeLLMProvider
-from querylens.llm.protocol import GeneratedCandidate, LLMUsage
+from querylens.llm.protocol import GeneratedCandidate
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
-from querylens.persistence.tables import metadata
 import sqlalchemy as sa
 
 

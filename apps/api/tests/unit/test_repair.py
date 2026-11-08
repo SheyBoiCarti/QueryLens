@@ -13,15 +13,17 @@ from querylens.llm.fake import FakeLLMProvider
 from querylens.llm.protocol import GeneratedCandidate, LLMUsage
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_runs, users
+from querylens.persistence.tables import connections, users
 from querylens.pipeline.orchestrator import run_query_pipeline
-from querylens.schema.catalog import CatalogService
 from querylens.schema.snapshots import save_snapshot
 import sqlalchemy as sa
 
 
 @pytest.fixture(autouse=True)
 def test_db():
+    from querylens.jobs.admission import initialize_admission_controller
+
+    initialize_admission_controller()
     test_eng = sa.create_engine(
         "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=sa.pool.StaticPool
     )
@@ -127,7 +129,7 @@ async def test_invalid_then_correct_sql_yields_one_repair(
         truncated=False,
         execution_time_ms=5,
     )
-    monkeypatch.setattr(SafeExecutor, "execute", lambda token, timeout_sec: mock_result)
+    monkeypatch.setattr(SafeExecutor, "execute", lambda token, timeout_sec, query_id: mock_result)
 
     await run_query_pipeline(
         query_id=query_id,

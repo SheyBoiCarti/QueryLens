@@ -3,15 +3,10 @@
 import pytest
 import sqlalchemy as sa
 
-from querylens.auth.service import AuthService
 from querylens.config import get_settings
-from querylens.connections.models import ConnectionCreate
 from querylens.connections.mysql import MySQLAdapter
 from querylens.connections.postgres import PostgresAdapter
-from querylens.connections.service import ConnectionService
-from querylens.domain.schema import CatalogSnapshot
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
-from querylens.schema.catalog import CatalogService
 from querylens.schema.inspector import SchemaInspector
 
 

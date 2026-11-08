@@ -5,8 +5,8 @@ import pytest
 import sqlalchemy as sa
 
 from querylens.persistence.retention import run_retention_cleanup
-from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_engine, set_engine
-from querylens.persistence.tables import metadata, query_attempts, query_runs, sessions, users
+from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
+from querylens.persistence.tables import sessions, users
 
 
 @pytest.fixture(autouse=True)

@@ -11,7 +11,6 @@ import pytest
 from querylens.api.errors import NotFoundError
 from querylens.execution.cancellation import (
     ExecutionHandle,
-    cancel_active_source_query,
     get_active_execution,
     register_execution,
     unregister_execution,
@@ -20,7 +19,7 @@ from querylens.jobs.cancel import request_cancel
 from querylens.jobs.state import reconcile_interrupted_runs
 from querylens.persistence.repositories.query_runs import NONTERMINAL_STATES, QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_runs, users
+from querylens.persistence.tables import connections, users
 import sqlalchemy as sa
 
 

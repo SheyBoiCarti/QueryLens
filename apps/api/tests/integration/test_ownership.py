@@ -10,7 +10,7 @@ from querylens.auth.service import AuthService
 from querylens.config import Settings
 from querylens.main import create_app
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
-from querylens.persistence.tables import connections, metadata
+from querylens.persistence.tables import connections
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +30,7 @@ async def test_auth_endpoints_workflow(test_db):
     """Full login -> me -> csrf -> logout flow with cookie and CSRF handling."""
     # Seed user
     service = AuthService()
-    user = service.create_user("analyst@example.com", hash_password("SecretPass123!"))
+    service.create_user("analyst@example.com", hash_password("SecretPass123!"))
 
     app = create_app(Settings(environment="test"))
     transport = ASGITransport(app=app)
@@ -69,7 +69,7 @@ async def test_auth_endpoints_workflow(test_db):
         assert csrf_res.json()["csrf_token"] == csrf_token
 
         # 5. Logout
-        logout_res = await client.post("/api/v1/auth/logout")
+        logout_res = await client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
         assert logout_res.status_code == 200
         assert logout_res.json()["status"] == "logged_out"
 

@@ -6,7 +6,7 @@ import httpx
 from unittest.mock import patch
 
 from querylens.config import Settings
-from querylens.llm.live import OpenAICompatibleProvider, LiveLLMError, get_live_llm_provider
+from querylens.llm.live import OpenAICompatibleProvider, LiveLLMError
 from querylens.llm.protocol import GeneratedCandidate
 
 

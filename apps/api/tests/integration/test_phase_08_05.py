@@ -24,7 +24,7 @@ from querylens.jobs.results import get_result_cache
 from querylens.main import create_app
 from querylens.persistence.retention import run_retention_cleanup
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_attempts, query_runs
+from querylens.persistence.tables import connections, query_runs
 
 
 @pytest.fixture
@@ -93,6 +93,10 @@ async def test_history_api_contracts(app_with_test_db) -> None:
         assert items[0]["results_available"] is False
 
         # Put cached rows -> results_available becomes true
+        from querylens.domain.schema import CatalogSnapshot
+        from querylens.schema.snapshots import save_snapshot
+
+        save_snapshot(CatalogSnapshot(connection_id=conn_id, engine="postgresql", snapshot_hash="snap"))
         cache = get_result_cache()
         cache.put(run_id, "snap", [{"name": "num", "type": "integer"}], [{"num": "1"}])
 

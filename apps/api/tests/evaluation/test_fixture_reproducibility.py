@@ -1,6 +1,5 @@
 """Test deterministic fixture generation and reproducibility (Contracts C05, C10)."""
 
-import pytest
 import sqlalchemy as sa
 from datasets.generator import compute_dataset_hash, generate_dataset_records, seed_dataset
 

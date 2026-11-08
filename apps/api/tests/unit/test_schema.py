@@ -1,6 +1,5 @@
 """Unit tests for Phase 03 schema models, canonical hashing, normalization, and graph traversal."""
 
-import pytest
 
 from querylens.domain.schema import (
     CatalogSnapshot,

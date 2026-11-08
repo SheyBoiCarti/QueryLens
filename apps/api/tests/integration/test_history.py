@@ -16,7 +16,6 @@ from querylens.auth.service import AuthService
 from querylens.config import Settings
 from querylens.jobs.results import get_result_cache
 from querylens.main import create_app
-from querylens.persistence.repositories.history import HistoryRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
 from querylens.persistence.tables import connections, query_runs
 
@@ -138,7 +137,7 @@ async def test_owner_deletion_and_foreign_rejection(app_with_test_db) -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         auth = AuthService()
         owner = auth.create_user("owner_del@example.com", hash_password("Pass123!"))
-        foreign_user = auth.create_user("foreign_del@example.com", hash_password("Pass123!"))
+        auth.create_user("foreign_del@example.com", hash_password("Pass123!"))
 
         # Login owner
         res_login = await client.post(
@@ -146,7 +145,7 @@ async def test_owner_deletion_and_foreign_rejection(app_with_test_db) -> None:
             json={"email": "owner_del@example.com", "password": "Pass123!"},
             headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
         )
-        csrf_token = res_login.json()["csrf_token"]
+        res_login.json()["csrf_token"]
 
         conn_id = str(uuid.uuid4())
         run_id = str(uuid.uuid4())

@@ -19,7 +19,7 @@ from querylens.api.errors import NotFoundError
 from querylens.api.traces import get_trace
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_attempts, query_runs, users
+from querylens.persistence.tables import connections, query_runs, users
 import sqlalchemy as sa
 
 

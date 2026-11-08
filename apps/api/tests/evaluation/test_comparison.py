@@ -13,14 +13,12 @@ Assertions:
 from __future__ import annotations
 
 from decimal import Decimal
-import pytest
 
 from querylens.evaluation.comparison import (
     ComparisonResult,
     compare_cells,
     compare_result_sets,
     compare_results,
-    compare_rows,
 )
 
 

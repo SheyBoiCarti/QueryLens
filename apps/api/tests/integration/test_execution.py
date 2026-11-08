@@ -8,7 +8,7 @@ from querylens.config import get_settings
 from querylens.connections.models import ConnectionCreate
 from querylens.connections.service import ConnectionService
 from querylens.domain.query import ValidatedQuery
-from querylens.domain.schema import CatalogSnapshot, ColumnMetadata, TableMetadata
+from querylens.domain.schema import CatalogSnapshot
 from querylens.execution.executor import ExecutionSecurityError, SafeExecutor
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
 from querylens.sql.policy import validate_and_bound_sql
