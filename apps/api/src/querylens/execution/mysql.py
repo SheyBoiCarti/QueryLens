@@ -16,6 +16,7 @@ from sqlalchemy.engine import Engine
 
 from querylens.domain.query import QueryResult, ValidatedQuery
 from querylens.execution.bounds import bounded_source_sql, fetch_bounded_rows, metadata_probe_sql
+from querylens.sql.bindings import compile_driver_statement
 
 
 def execute_mysql_restricted(
@@ -54,14 +55,24 @@ def execute_mysql_restricted(
                 timeout_ms = int(timeout_sec * 1000)
                 cur.execute(f"SET SESSION max_execution_time = {timeout_ms};")
 
-                cur.execute(metadata_probe_sql(query.canonical_sql, query.engine))
+                probe_sql = metadata_probe_sql(query.canonical_sql, query.engine)
+                probe_stmt, probe_params = compile_driver_statement(probe_sql, query.engine, query.bindings)
+                if probe_params:
+                    cur.execute(probe_stmt, probe_params)
+                else:
+                    cur.execute(probe_stmt)
                 col_desc = list(cur.description or [])
             from pymysql.cursors import SSCursor
 
             stream = conn.cursor(SSCursor)
             try:
                 check_cancelled(query_id)
-                stream.execute(bounded_source_sql(query.canonical_sql, len(col_desc), query.engine))
+                guarded_sql = bounded_source_sql(query.canonical_sql, len(col_desc), query.engine)
+                stream_stmt, stream_params = compile_driver_statement(guarded_sql, query.engine, query.bindings)
+                if stream_params:
+                    stream.execute(stream_stmt, stream_params)
+                else:
+                    stream.execute(stream_stmt)
                 columns, rows, truncated = fetch_bounded_rows(stream, col_desc, query.max_rows)
             except BaseException:
                 # Avoid draining an oversized unbuffered result on cursor close.

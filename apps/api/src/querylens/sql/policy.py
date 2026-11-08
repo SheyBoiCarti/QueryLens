@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from sqlglot import exp
 from querylens.config import get_settings
-from querylens.domain.analytics import ResolvedParameters
+from querylens.domain.analytics import BoundParameter, ResolvedParameters
 from querylens.domain.query import ValidatedArtifact, ValidatedQuery
 from querylens.domain.schema import CatalogSnapshot
 from querylens.sql.functions import validate_functions
@@ -43,6 +43,7 @@ def validate_query_artifact(
     engine: str,
     snapshot: CatalogSnapshot,
     max_rows: int = 100,
+    bindings: tuple[BoundParameter, ...] = (),
 ) -> ValidatedArtifact:
     """Validate raw SQL against AST policy and mint an immutable ValidatedQuery token."""
     settings = get_settings()
@@ -80,8 +81,15 @@ def validate_query_artifact(
     if any(node.args.get("recursive") for node in ast.find_all(exp.With)):
         raise SQLPolicyViolationError("Recursive CTEs are strictly prohibited")
 
-    if ast.find(exp.Placeholder) or ast.find(exp.Parameter):
+    ast_placeholders = {
+        p.this if isinstance(p.this, str) else p.this.name
+        for p in ast.find_all(exp.Placeholder, exp.Parameter)
+    }
+    binding_names = {b.name for b in bindings}
+    if not bindings and (ast.find(exp.Placeholder) or ast.find(exp.Parameter)):
         raise SQLPolicyViolationError("Unresolved parameters are prohibited")
+    if bindings and ast_placeholders != binding_names:
+        raise SQLPolicyViolationError("Query placeholders do not match server bindings")
 
     # 7. Validate functions allowlist
     validate_functions(ast)
@@ -111,13 +119,14 @@ def validate_query_artifact(
         canonical_sql=canonical_sql,
         permitted_identifiers=permitted_identifiers,
         max_rows=max_rows,
+        bindings=bindings,
     )
 
     return ValidatedArtifact(
         token=token,
         template_sql=template_sql,
         author_limit=author_limit,
-        resolved_parameters=ResolvedParameters(max_rows=max_rows),
+        resolved_parameters=ResolvedParameters(bindings=bindings, max_rows=max_rows),
     )
 
 

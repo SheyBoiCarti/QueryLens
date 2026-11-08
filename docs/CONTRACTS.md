@@ -386,3 +386,37 @@ The final integration review also verified metric conflict recovery: an explicit
 Cancel discards the draft and reloads current definitions before reopening; the
 next PATCH uses the new server version. The complete web suite passes after this
 fix, and the scoped final review reports no remaining findings.
+
+## C06 — Parameter Slots, Immutable Capability Tokens, and Driver Bindings (Task 6)
+
+`BoundParameter(name, scalar_type, value)` and `ResolvedParameters` provide immutable
+typed driver bindings. Capability tokens (`ValidatedQuery`) carry an immutable tuple
+of `bindings: tuple[BoundParameter, ...] = ()`. A deterministic typed fingerprint
+function `compute_token_fingerprint` hashes the canonical SQL, bindings, connection ID,
+engine, policy version, snapshot hash, permitted identifiers, and effective max rows
+deterministically using SHA-256. `SafeExecutor.execute` checks this fingerprint before
+credential access, and revalidates the canonical AST (prohibited constructs, function
+policy, and placeholder-binding set equality) before source dispatch.
+
+`compile_driver_statement(sql: str, engine: str, bindings: tuple[BoundParameter, ...])`
+in `sql/bindings.py` renders named placeholders as DBAPI pyformat `%(name)s` for both
+PostgreSQL (`psycopg`) and MySQL (`PyMySQL`). Literal `%` characters not belonging to a
+valid parameter token are escaped to `%%`. This compilation is applied after metadata
+probe (`metadata_probe_sql`) and oversize-guard (`bounded_source_sql`) transformations,
+passing bound parameters to both cursor executions.
+
+`extract_eligible_parameters` and `compile_parameterized_query` in `sql/parameters.py`
+offer only unambiguous conjunctive WHERE predicates and server-owned result count.
+Date range presets (`this_month`, `this_year`, `fixed`) resolve to UTC inclusive starts
+and exclusive midnight ends. Category parameters enforce type-aware membership against
+allowed scalars. Result counts are clamped by author LIMIT and system limits. Values
+are strictly bound through driver parameters and never interpolated into SQL text.
+
+## Task 6 verification — 2026-11-08
+
+Backend tests ran from `apps/api`:
+- `python -m pytest tests/unit/test_sql_parameters.py tests/integration/test_parameter_execution.py -q`: 11 passed.
+- `python -m pytest tests/unit tests/integration tests/security -q -ra`: 265 passed, 3 skipped.
+- `ruff check apps/api`: exit 0.
+- `mypy --config-file apps/api/mypy.ini apps/api/src`: exit 0, 96 source files.
+
