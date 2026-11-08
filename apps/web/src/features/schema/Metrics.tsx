@@ -1,42 +1,50 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client.ts';
+import { CatalogSnapshot } from '../../api/catalog.ts';
+import { MetricResponse } from '../../api/generated/schema.ts';
 import { MetricEditor } from './MetricEditor.tsx';
 
-interface Metric {
-  id: string;
-  key: string;
-  name: string;
-  description: string | null;
+interface MetricsProps { connectionId: string; catalog?: CatalogSnapshot }
+export function Metrics(props: MetricsProps): React.JSX.Element {
+  return <MetricList key={props.connectionId} {...props} />;
 }
-
-export function Metrics({ connectionId }: { connectionId: string }): React.JSX.Element {
-  const [items, setItems] = useState<Metric[]>([]);
-  const [editing, setEditing] = useState(false);
+function MetricList({ connectionId, catalog }: MetricsProps): React.JSX.Element {
+  const [items, setItems] = useState<MetricResponse[]>([]);
+  const [editing, setEditing] = useState<MetricResponse | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    try {
-      setItems(await api.get<Metric[]>(`/api/v1/connections/${connectionId}/metrics`));
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load metric definitions');
-    }
-  }, [connectionId]);
-  useEffect(() => { void load(); }, [load]);
+  const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState(0);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    const abort = new AbortController();
+    setLoading(true);
+    api.get<MetricResponse[]>(`/api/v1/connections/${connectionId}/metrics`, { signal: abort.signal }).then((data) => {
+      if (!abort.signal.aborted) { setItems(data); setError(null); }
+    }).catch((err: unknown) => { if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not load metric definitions'); })
+      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
+    return () => abort.abort();
+  }, [connectionId, version]);
   const remove = async (id: string) => {
     try {
       await api.delete(`/api/v1/connections/${connectionId}/metrics/${id}`);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove metric');
-    }
+      if (mounted.current) setVersion((value) => value + 1);
+    } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : 'Could not remove metric'); }
   };
   return <section className="space-y-3 border rounded bg-white p-4">
     <h3 className="font-semibold">Business metrics</h3>
     {error && <p role="alert">{error}</p>}
-    {items.map((item) => <div key={item.id} className="flex justify-between">
-      <span>{item.name} ({item.key})</span><button className="text-red-700" onClick={() => void remove(item.id)}>Delete metric</button>
+    {loading && <p role="status">Loading metrics...</p>}
+    {items.map((item) => <div key={item.id} className="flex justify-between gap-3">
+      <div><span>{item.name} ({item.key}){!item.enabled && ' · disabled'}</span>
+        {item.description && <p className="text-sm text-slate-600">{item.description}</p>}
+        {!!item.dsl.synonyms?.length && <p className="text-sm">Also called: {item.dsl.synonyms.join(', ')}</p>}
+        <p className="font-mono text-xs">{item.dsl.table}.{item.dsl.measure_column} · {item.dsl.aggregation}{item.dsl.units ? ` · ${item.dsl.units}` : ''} · version {item.version}</p>
+      </div>
+      <button disabled={editing !== null || catalog?.connection_id !== connectionId} onClick={() => setEditing(item)}>Edit {item.name}</button>
+      <button disabled={editing !== null} className="text-red-700" onClick={() => void remove(item.id)}>Delete metric</button>
     </div>)}
-    {editing ? <MetricEditor connectionId={connectionId} onSaved={() => { setEditing(false); void load(); }} onCancel={() => setEditing(false)} />
-      : <button className="text-indigo-700 underline" onClick={() => setEditing(true)}>Define metric</button>}
+    {editing ? <MetricEditor connectionId={connectionId} catalog={catalog} metric={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); setVersion((value) => value + 1); }} onCancel={() => setEditing(null)} />
+      : <button disabled={catalog?.connection_id !== connectionId} className="text-indigo-700 underline" onClick={() => setEditing('new')}>Define metric</button>}
   </section>;
 }

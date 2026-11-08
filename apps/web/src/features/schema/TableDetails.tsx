@@ -1,4 +1,6 @@
 import React from 'react';
+import { CatalogLabelInput } from '../../api/generated/schema.ts';
+import { labelFor } from './LabelManager.tsx';
 
 interface ColumnMeta {
   name: string;
@@ -18,6 +20,7 @@ interface ForeignKeyMeta {
 }
 
 interface TableDetailsProps {
+  labels?: CatalogLabelInput[];
   table: {
     name: string;
     namespace: string;
@@ -27,10 +30,12 @@ interface TableDetailsProps {
   };
 }
 
-export function TableDetails({ table }: TableDetailsProps): React.JSX.Element {
+export function TableDetails({ table, labels = [] }: TableDetailsProps): React.JSX.Element {
+  const label = labelFor(labels, table.namespace, table.name);
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
       <div>
+        {label && <div className="mb-2"><p className="font-semibold">{label.display_name}</p>{label.description && <p className="text-sm text-slate-600">{label.description}</p>}</div>}
         <div className="flex items-center space-x-2">
           <h3 className="text-xl font-bold text-slate-900">{table.name}</h3>
           <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
@@ -55,7 +60,7 @@ export function TableDetails({ table }: TableDetailsProps): React.JSX.Element {
             <tbody className="divide-y divide-slate-100">
               {table.columns.map((c) => (
                 <tr key={c.name} className="hover:bg-slate-50">
-                  <td className="py-2 px-3 font-mono font-medium text-slate-900">{c.name}</td>
+                  <td className="py-2 px-3 text-slate-900"><span className="font-mono font-medium">{c.name}</span>{labelFor(labels, table.namespace, table.name, c.name) && <div className="text-sm"><p>{labelFor(labels, table.namespace, table.name, c.name)?.display_name}</p><p className="text-slate-600">{labelFor(labels, table.namespace, table.name, c.name)?.description}</p></div>}</td>
                   <td className="py-2 px-3">
                     <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-mono">
                       {c.canonical_type}

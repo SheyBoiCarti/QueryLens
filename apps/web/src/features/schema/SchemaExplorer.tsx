@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client.ts';
-import { ConnectionResponse } from '../../api/generated/schema.ts';
+import { CatalogLabelInput, ConnectionResponse } from '../../api/generated/schema.ts';
 import { CatalogSnapshot, CatalogTable } from '../../api/catalog.ts';
 import TableDetails from './TableDetails.tsx';
 import { Metrics } from './Metrics.tsx';
+import { LabelManager, labelFor } from './LabelManager.tsx';
 
 interface SchemaExplorerProps {
   connectionId?: string;
@@ -19,6 +20,10 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
+  const [labels, setLabels] = useState<CatalogLabelInput[]>([]);
+  const activeRef = useRef(activeId);
+  activeRef.current = activeId;
+  const currentCatalog = catalog?.connection_id === activeId ? catalog : null;
 
   useEffect(() => {
     const abort = new AbortController();
@@ -39,6 +44,8 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
     setError(null);
     setCatalog(null);
     setTable(null);
+    setLabels([]);
+    setRefreshing(false);
     api.get<CatalogSnapshot>(`/api/v1/connections/${activeId}/schema`, { signal: abort.signal }).then((data) => {
       if (abort.signal.aborted) return;
       setCatalog(data);
@@ -50,15 +57,16 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
 
   const refresh = async () => {
     if (!activeId) return;
+    const refreshId = activeId;
     setRefreshing(true);
     setError(null);
     try {
       await api.post<CatalogSnapshot>(`/api/v1/connections/${activeId}/schema/refresh`);
-      setVersion((value) => value + 1);
+      if (activeRef.current === refreshId) setVersion((value) => value + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not refresh schema');
+      if (activeRef.current === refreshId) setError(err instanceof Error ? err.message : 'Could not refresh schema');
     } finally {
-      setRefreshing(false);
+      if (activeRef.current === refreshId) setRefreshing(false);
     }
   };
 
@@ -76,16 +84,19 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
     </div>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {loading && <p role="status">Loading schema...</p>}
-    {catalog && <p className="text-xs text-slate-500">Snapshot {catalog.snapshot_hash.slice(0, 16)} · policy {catalog.policy_version}</p>}
-    {catalog?.tables.length === 0 && <p>Select allowed tables and columns in Connections to enable analytics.</p>}
-    {catalog && catalog.tables.length > 0 && <div className="grid grid-cols-4 gap-4">
+    {currentCatalog && <p className="text-xs text-slate-500">Snapshot {currentCatalog.snapshot_hash.slice(0, 16)} · policy {currentCatalog.policy_version}</p>}
+    {currentCatalog?.tables.length === 0 && <p>Select allowed tables and columns in Connections to enable analytics.</p>}
+    {currentCatalog && currentCatalog.tables.length > 0 && <div className="grid grid-cols-4 gap-4">
       <nav aria-label="Visible tables" className="space-y-2">
-        {catalog.tables.map((item) => <button key={`${item.namespace}.${item.name}`} className="block text-left text-indigo-700"
-          onClick={() => setTable(item)}>{item.namespace}.{item.name}</button>)}
+        {currentCatalog.tables.map((item) => <button key={`${item.namespace}.${item.name}`} className="block text-left text-indigo-700"
+          onClick={() => setTable(item)}>{labelFor(labels, item.namespace, item.name)?.display_name && <span className="block font-semibold">{labelFor(labels, item.namespace, item.name)?.display_name}</span>}<span className="font-mono text-sm">{item.namespace}.{item.name}</span></button>)}
       </nav>
-      <div className="col-span-3">{table && <TableDetails table={table} />}</div>
+      <div className="col-span-3">{table && <TableDetails table={table} labels={labels} />}</div>
     </div>}
-    {activeId && <Metrics key={activeId} connectionId={activeId} />}
+    {activeId && currentCatalog && <LabelManager key={`${activeId}:${version}`} connectionId={activeId} tables={currentCatalog.tables}
+      onLoaded={(data) => { if (activeRef.current === activeId) setLabels(data.labels); }}
+      onSaved={(data) => { if (activeRef.current === activeId) setLabels(data.labels); }} />}
+    {activeId && <Metrics key={activeId} connectionId={activeId} catalog={currentCatalog ?? undefined} />}
   </div>;
 }
 

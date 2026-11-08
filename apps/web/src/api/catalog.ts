@@ -27,5 +27,6 @@ export interface CatalogSnapshot {
   engine: string;
   snapshot_hash: string;
   policy_version: number;
+  semantic_version?: number;
   tables: CatalogTable[];
 }
