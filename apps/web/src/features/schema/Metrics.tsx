@@ -41,10 +41,15 @@ function MetricList({ connectionId, catalog }: MetricsProps): React.JSX.Element 
         {!!item.dsl.synonyms?.length && <p className="text-sm">Also called: {item.dsl.synonyms.join(', ')}</p>}
         <p className="font-mono text-xs">{item.dsl.table}.{item.dsl.measure_column} · {item.dsl.aggregation}{item.dsl.units ? ` · ${item.dsl.units}` : ''} · version {item.version}</p>
       </div>
-      <button disabled={editing !== null || catalog?.connection_id !== connectionId} onClick={() => setEditing(item)}>Edit {item.name}</button>
+      <button disabled={loading || editing !== null || catalog?.connection_id !== connectionId} onClick={() => setEditing(item)}>Edit {item.name}</button>
       <button disabled={editing !== null} className="text-red-700" onClick={() => void remove(item.id)}>Delete metric</button>
     </div>)}
-    {editing ? <MetricEditor connectionId={connectionId} catalog={catalog} metric={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); setVersion((value) => value + 1); }} onCancel={() => setEditing(null)} />
+    {editing ? <MetricEditor connectionId={connectionId} catalog={catalog} metric={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); setVersion((value) => value + 1); }} onCancel={() => {
+      setEditing(null);
+      setItems([]);
+      setLoading(true);
+      setVersion((value) => value + 1);
+    }} />
       : <button disabled={catalog?.connection_id !== connectionId} className="text-indigo-700 underline" onClick={() => setEditing('new')}>Define metric</button>}
   </section>;
 }

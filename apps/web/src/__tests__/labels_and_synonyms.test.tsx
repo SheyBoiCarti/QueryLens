@@ -281,3 +281,42 @@ describe('metric DSL boundary validation', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).dsl.filters[0].value).toEqual(expected);
   });
 });
+
+describe('metric conflict recovery', () => {
+  it('reloads the current version after explicitly discarding a conflicted draft', async () => {
+    let reads = 0;
+    let writes = 0;
+    let finishReload!: (value: Response) => void;
+    const latest = { ...metric, version: 4, dsl: { ...metric.dsl, synonyms: ['Current alias'] } };
+    fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
+      if (options.method === 'PATCH') {
+        writes += 1;
+        return writes === 1
+          ? response({ error: { code: 'CONFLICT', message: 'Metric changed' } }, 409)
+          : response({ ...latest, version: 5 });
+      }
+      reads += 1;
+      if (reads === 2) return new Promise<Response>((resolve) => { finishReload = resolve; });
+      return response([reads === 1 ? metric : { ...latest, version: 5 }]);
+    });
+    render(<Metrics connectionId="one" catalog={catalog} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Revenue' }));
+    change('Synonyms (one per line)', 'Conflicted draft');
+    fireEvent.click(screen.getByRole('button', { name: 'Save metric' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Metric changed');
+    expect(screen.getByLabelText('Synonyms (one per line)')).toHaveValue('Conflicted draft');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(reads).toBe(2));
+    const editWhileLoading = screen.queryByRole('button', { name: 'Edit Revenue' });
+    if (editWhileLoading) expect(editWhileLoading).toBeDisabled();
+    await act(async () => finishReload(response([latest])));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Revenue' }));
+    expect(screen.getByLabelText('Synonyms (one per line)')).toHaveValue('Current alias');
+    fireEvent.click(screen.getByRole('button', { name: 'Save metric' }));
+    await waitFor(() => expect(writes).toBe(2));
+    const patches = fetchMock.mock.calls.filter((call) => call[1].method === 'PATCH');
+    expect(JSON.parse(patches[0][1].body).expected_version).toBe(3);
+    expect(JSON.parse(patches[1][1].body).expected_version).toBe(4);
+    await waitFor(() => expect(screen.queryByLabelText('Synonyms (one per line)')).toBeNull());
+  });
+});

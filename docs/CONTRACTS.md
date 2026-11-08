@@ -362,7 +362,7 @@ so the repository-root `.env` could not select external source credentials.
   exit 0, 254 passed, 3 skipped. The skips remain existing live PostgreSQL,
   MySQL, and PostgreSQL vertical-slice cases without configured credentials.
   Disposable PostgreSQL migration/concurrency tests passed without skipping.
-- `npm test --prefix apps/web`: exit 0, 48 tests passed across 7 files.
+- `npm test --prefix apps/web`: exit 0, 49 tests passed across 7 files.
 - `ruff check apps/api`: exit 0.
 - `mypy --config-file apps/api/mypy.ini apps/api/src`: exit 0, 94 source files.
 - Frontend lint, TypeScript checking, and production build: exit 0.
@@ -381,3 +381,8 @@ No PostgreSQL/MySQL source-driver changes are claimed, and the skipped external
 source tests are not source-engine compatibility evidence. Backend presentation
 recommendations and the manual endpoint are delivered here; chart rendering and
 workspace SQL editing remain their later plan tasks.
+
+The final integration review also verified metric conflict recovery: an explicit
+Cancel discards the draft and reloads current definitions before reopening; the
+next PATCH uses the new server version. The complete web suite passes after this
+fix, and the scoped final review reports no remaining findings.
