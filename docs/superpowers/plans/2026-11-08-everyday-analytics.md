@@ -262,11 +262,11 @@ Implemented on `feat/everyday-analytics-persistence`; verification and API behav
 
 **Interfaces:** AnswerPresentation({run: PublicRunCompleted,onRerun}) uses typed context/presentation and available rows. AccessibleChart({presentation,columns,rows}) renders validated plot values and exact accessible text. Frontend numeric eligibility follows Task 4 rules; any mismatch falls back to table.
 
-- [ ] **1. Write failing rendering/interaction tests.** Answer-first order, collapsed SQL, visible warnings, chart/table switch, keyboard/ARIA behavior, exact KPI/table strings, and fallback for 51 points, unsafe numbers, null/empty values, mixed units, duplicate keys, or incompatible saved preferences. Assert plotted meaning/data, not SVG presence alone.
-- [ ] **2. Run red:** npm test --prefix apps/web -- src/__tests__/answer_presentation.test.tsx.
-- [ ] **3. Implement conservative SVG.** Keep every eligible <=50 point, chronological line scale, axes, labels, exact accessible tooltips/text, and markers/patterns. No sampling/aggregation/currency guessing. Keep existing table and warnings in either view; apply preferences only when compatible.
-- [ ] **4. Add expiry/revalidation behavior.** At results_expires_at clear rows/chart/KPI/result-derived explanation, disable CSV, and re-fetch availability. Revalidate completed runs on focus and periodic refresh no more than once per 30 seconds to discover early eviction/revocation. Clear protected data on authorization failure. Preserve permitted immutable metadata and offer origin-appropriate rerun. Fake-timer tests cover expiry, early eviction with unchanged state_version, and revocation. Availability changes must not be discarded by state_version-only comparison. Run focused tests/typecheck.
-- [ ] **5. Commit verified presentation changes.**
+- [x] **1. Write failing rendering/interaction tests.** Answer-first order, collapsed SQL, visible warnings, chart/table switch, keyboard/ARIA behavior, exact KPI/table strings, and fallback for 51 points, unsafe numbers, null/empty values, mixed units, duplicate keys, or incompatible saved preferences. Assert plotted meaning/data, not SVG presence alone.
+- [x] **2. Run red:** npm test --prefix apps/web -- src/__tests__/answer_presentation.test.tsx.
+- [x] **3. Implement conservative SVG.** Keep every eligible <=50 point, chronological line scale, axes, labels, exact accessible tooltips/text, and markers/patterns. No sampling/aggregation/currency guessing. Keep existing table and warnings in either view; apply preferences only when compatible.
+- [x] **4. Add expiry/revalidation behavior.** At results_expires_at clear rows/chart/KPI/result-derived explanation, disable CSV, and re-fetch availability. Revalidate completed runs on focus and periodic refresh no more than once per 30 seconds to discover early eviction/revocation. Clear protected data on authorization failure. Preserve permitted immutable metadata and offer origin-appropriate rerun. Fake-timer tests cover expiry, early eviction with unchanged state_version, and revocation. Availability changes must not be discarded by state_version-only comparison. Run focused tests/typecheck.
+- [x] **5. Commit verified presentation changes.**
 
 ### Task 10: Workspace Selection State and Integrated SQL Editing
 
