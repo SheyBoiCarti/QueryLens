@@ -1,22 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client.ts';
 import {
   SavedQuestionDetail,
   SavedQuestionListResponse,
   SavedQuestionSummary,
 } from '../../api/generated/schema.ts';
+import { ParameterDefinitionEditor } from './ParameterDefinitionEditor.tsx';
 import { SavedQuestionFilters } from './SavedQuestionFilters.tsx';
 
 export interface SavedQuestionsManagerProps {
   connectionId: string;
   onRunAccepted: (queryId: string) => void;
   onClose?: () => void;
+  onAskVariation?: (question: string) => void;
 }
 
 export function SavedQuestionsManager({
   connectionId,
   onRunAccepted,
   onClose,
+  onAskVariation,
 }: SavedQuestionsManagerProps): React.JSX.Element {
   const [items, setItems] = useState<SavedQuestionSummary[]>([]);
   const [search, setSearch] = useState('');
@@ -28,34 +31,76 @@ export function SavedQuestionsManager({
   const [filterValues, setFilterValues] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPreference, setEditPreference] = useState('');
+  const [editParameters, setEditParameters] = useState<SavedQuestionDetail['parameters']>([]);
+  const [editSlots, setEditSlots] = useState<Set<string>>(new Set());
+  const [parametersValid, setParametersValid] = useState(true);
+  const [reviewSql, setReviewSql] = useState<string | null>(null);
+  const [variation, setVariation] = useState('');
+  const [replacementRunId, setReplacementRunId] = useState('');
+  const currentConnection = useRef(connectionId);
+  currentConnection.current = connectionId;
+  const listRequest = useRef<AbortController | null>(null);
+  const detailRequest = useRef<AbortController | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async (cursor?: string | null, append = false) => {
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
+    const requestedConnection = connectionId;
     setLoading(true);
     setError(null);
     try {
-      const q = search.trim() ? `&query=${encodeURIComponent(search.trim())}` : '';
+      const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
+      const page = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
       const res = await api.get<SavedQuestionListResponse>(
-        `/api/v1/saved-questions?connection_id=${encodeURIComponent(connectionId)}${q}`
+        `/api/v1/saved-questions?connection_id=${encodeURIComponent(requestedConnection)}${q}${page}`,
+        { signal: controller.signal }
       );
-      setItems(res.items);
+      if (controller.signal.aborted || listRequest.current !== controller || requestedConnection !== currentConnection.current) return;
+      setItems((previous) => append ? [...previous, ...res.items] : res.items);
+      setNextCursor(res.next_cursor ?? null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load saved questions');
+      if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to load saved questions');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && listRequest.current === controller) setLoading(false);
     }
-  };
+  }, [connectionId, search]);
 
   useEffect(() => {
-    fetchItems();
+    selectedIdRef.current = null;
     setSelectedId(null);
     setSelectedDetail(null);
+    setFilterValues({});
   }, [connectionId]);
 
+  useEffect(() => {
+    void fetchItems();
+    return () => {
+      listRequest.current?.abort();
+      detailRequest.current?.abort();
+    };
+  }, [fetchItems]);
+
   const loadDetail = async (id: string) => {
+    detailRequest.current?.abort();
+    const requestedConnection = connectionId;
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    selectedIdRef.current = id;
     setSelectedId(id);
+    setSelectedDetail(null);
+    setReviewSql(null);
+    setVariation('');
     setRunError(null);
     try {
-      const detail = await api.get<SavedQuestionDetail>(`/api/v1/saved-questions/${id}`);
+      const detail = await api.get<SavedQuestionDetail>(`/api/v1/saved-questions/${id}`, { signal: controller.signal });
+      if (controller.signal.aborted || detailRequest.current !== controller || selectedIdRef.current !== id || requestedConnection !== currentConnection.current) return;
       setSelectedDetail(detail);
 
       // Initialize filter values from defaults
@@ -71,7 +116,9 @@ export function SavedQuestionsManager({
       });
       setFilterValues(defaults);
     } catch (err: unknown) {
-      setRunError(err instanceof Error ? err.message : 'Failed to load question details');
+      if (!controller.signal.aborted && detailRequest.current === controller) {
+        setRunError(err instanceof Error ? err.message : 'Failed to load question details');
+      }
     }
   };
 
@@ -87,11 +134,65 @@ export function SavedQuestionsManager({
           expected_revision: selectedDetail.revision,
         }
       );
-      onRunAccepted(res.query_id);
+      if (selectedDetail.connection_id === currentConnection.current) onRunAccepted(res.query_id);
     } catch (err: unknown) {
       setRunError(err instanceof Error ? err.message : 'Failed to execute saved question');
     } finally {
       setRunning(false);
+    }
+  };
+
+  const runReview = async () => {
+    if (!selectedDetail) return;
+    setRunning(true);
+    setRunError(null);
+    try {
+      const result = await api.post<{ query_id: string }>('/api/v1/queries/sql', {
+        connection_id: selectedDetail.connection_id,
+        sql: reviewSql ?? selectedDetail.canonical_sql_template,
+        max_rows: selectedDetail.default_max_rows,
+      });
+      if (selectedDetail.connection_id === currentConnection.current) onRunAccepted(result.query_id);
+    } catch (error) {
+      setRunError(error instanceof Error ? error.message : 'Review submission failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const beginEdit = () => {
+    if (!selectedDetail) return;
+    setEditTitle(selectedDetail.title);
+    setEditDescription(selectedDetail.description || '');
+    setEditPreference(selectedDetail.chart_preference || '');
+    setEditParameters(selectedDetail.parameters);
+    setEditSlots(new Set(selectedDetail.parameters.map((parameter) => parameter.slot_id)));
+    setParametersValid(true);
+    setReplacementRunId('');
+    setEditing(true);
+  };
+
+  const saveDefinition = async (replacement = false) => {
+    if (!selectedDetail) return;
+    try {
+      const payload = replacement
+        ? { expected_revision: selectedDetail.revision, replacement_query_id: replacementRunId.trim() }
+        : {
+            expected_revision: selectedDetail.revision,
+            title: editTitle,
+            description: editDescription || null,
+            chart_preference: editPreference || null,
+            parameters: editParameters.filter((parameter) => editSlots.has(parameter.slot_id)),
+          };
+      const detail = await api.patch<SavedQuestionDetail>(`/api/v1/saved-questions/${selectedDetail.id}`, payload);
+      if (detail.connection_id !== currentConnection.current || selectedIdRef.current !== detail.id) return;
+      setSelectedDetail(detail);
+      setFilterValues(Object.fromEntries(detail.parameters.map((parameter) => [parameter.name, parameter.default_value])));
+      setItems((previous) => previous.map((item) => item.id === detail.id ? { ...item, ...detail } : item));
+      setEditing(false);
+      setRunError(null);
+    } catch (err: unknown) {
+      setRunError(err instanceof Error ? err.message : 'Failed to update saved question');
     }
   };
 
@@ -151,7 +252,7 @@ export function SavedQuestionsManager({
         />
         <button
           type="button"
-          onClick={fetchItems}
+          onClick={() => void fetchItems()}
           className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded"
         >
           Search
@@ -172,7 +273,7 @@ export function SavedQuestionsManager({
             <p className="text-sm text-slate-400 py-4 italic">No saved questions found for this connection.</p>
           ) : (
             <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-96 overflow-y-auto">
-              {items.map((item) => (
+              {items.filter((item) => item.connection_id === connectionId).map((item) => (
                 <div
                   key={item.id}
                   className={`p-3 space-y-1 transition-colors ${
@@ -217,13 +318,38 @@ export function SavedQuestionsManager({
               ))}
             </div>
           )}
+          {!loading && nextCursor && (
+            <button type="button" onClick={() => void fetchItems(nextCursor, true)}
+              className="w-full py-2 text-sm text-indigo-700 underline">Load more saved questions</button>
+          )}
         </div>
 
         {/* Right: Selected Question Detail & Filters */}
         <div>
-          {selectedDetail ? (
+          {selectedDetail?.connection_id === connectionId ? (
             <div className="space-y-4">
               <div className="border-b pb-3">
+                {editing ? (
+                  <div className="space-y-2">
+                    <input aria-label="Saved question title" value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className="w-full border rounded px-2 py-1" />
+                    <textarea aria-label="Saved question description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="w-full border rounded px-2 py-1" />
+                    <select aria-label="Saved chart preference" value={editPreference} onChange={(event) => setEditPreference(event.target.value)} className="border rounded px-2 py-1">
+                      <option value="">Auto</option><option value="table">Table</option><option value="line">Line</option><option value="bar">Bar</option>
+                    </select>
+                    <ParameterDefinitionEditor parameters={editParameters} onChange={setEditParameters}
+                      selectedSlots={editSlots} onSelectionChange={setEditSlots} onValidityChange={setParametersValid} />
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={!parametersValid} onClick={() => void saveDefinition()} className="text-indigo-700 underline">Save definition</button>
+                      <button type="button" onClick={() => setEditing(false)} className="text-slate-600 underline">Cancel edit</button>
+                    </div>
+                    <div className="border-t pt-2 space-y-1">
+                      <label className="block text-xs">Replace from a successful run ID (explicit revision action)</label>
+                      <input aria-label="Successful replacement run" value={replacementRunId} onChange={(event) => setReplacementRunId(event.target.value)} className="w-full border rounded px-2 py-1" />
+                      <button type="button" disabled={!replacementRunId.trim()} onClick={() => void saveDefinition(true)} className="text-rose-700 underline disabled:opacity-50">Replace stored SQL from run</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 <h4 className="text-base font-bold text-slate-900">{selectedDetail.title}</h4>
                 {selectedDetail.description && (
                   <p className="text-xs text-slate-600 mt-1">{selectedDetail.description}</p>
@@ -231,6 +357,8 @@ export function SavedQuestionsManager({
                 <span className="text-[10px] text-slate-400 font-mono mt-1 block">
                   Revision: {selectedDetail.revision} | Created: {new Date(selectedDetail.created_at).toLocaleDateString()}
                 </span>
+                  </>
+                )}
               </div>
 
               {runError && (
@@ -239,13 +367,26 @@ export function SavedQuestionsManager({
                 </div>
               )}
 
-              <SavedQuestionFilters
+              <details><summary>Review stored SQL and revision {selectedDetail.revision}</summary>
+                <textarea aria-label="SQL for saved question review" className="w-full font-mono text-xs border rounded p-2" rows={6}
+                  value={reviewSql ?? selectedDetail.canonical_sql_template} onChange={(event) => setReviewSql(event.target.value)} />
+                <button type="button" disabled={running} onClick={() => void runReview()} className="text-indigo-700 underline">Run SQL for review</button>
+                <p className="text-xs">Physical or metric changes require a successful run and an explicit replacement below.</p>
+              </details>
+              {!editing && <SavedQuestionFilters
                 parameters={selectedDetail.parameters}
                 values={filterValues}
                 onChange={(name, val) => setFilterValues((prev) => ({ ...prev, [name]: val }))}
                 onRun={handleRun}
                 disabled={running}
-              />
+              />}
+              {!editing && <div className="flex flex-wrap gap-3 text-xs">
+                <button type="button" onClick={beginEdit} className="text-indigo-700 underline">Edit definition</button>
+                {onAskVariation && <label>Variation request
+                  <input aria-label="Variation request" value={variation} onChange={(event) => setVariation(event.target.value)} className="border rounded p-1 mx-2" />
+                  <button type="button" disabled={!variation.trim()} onClick={() => onAskVariation(`${variation.trim()}\nOriginal scope: ${selectedDetail.effective_question}`)} className="text-indigo-700 underline disabled:opacity-50">Ask for a variation</button>
+                </label>}
+              </div>}
             </div>
           ) : (
             <div className="h-full flex items-center justify-center p-8 border border-dashed rounded-lg text-slate-400 text-xs text-center">

@@ -396,3 +396,17 @@ describe('WorkspaceView Expiry and Revalidation (Task 9)', () => {
     vi.unstubAllGlobals();
   });
 });
+
+it('spaces temporal points by elapsed time while preserving exact labels', () => {
+  const rows = [
+    { month: '2026-01-01', active_users: '100' },
+    { month: '2026-01-02', active_users: '150' },
+    { month: '2026-12-31', active_users: '200' },
+  ];
+  render(<AccessibleChart columns={baseCompletedRun.columns} rows={rows} presentation={baseCompletedRun.presentation} />);
+  const points = screen.getAllByRole('graphics-symbol');
+  const positions = points.map((point) => Number(point.getAttribute('cx')));
+  expect((positions[1] - positions[0]) / (positions[2] - positions[0])).toBeCloseTo(1 / 364, 6);
+  expect(points[1]).toHaveAttribute('aria-label', '2026-01-02: 150 users');
+  expect(rows.map((row) => row.month)).toEqual(['2026-01-01', '2026-01-02', '2026-12-31']);
+});

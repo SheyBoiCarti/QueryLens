@@ -17,6 +17,7 @@ class PublicRunBase(BaseModel):
     question: str
     created_at: str
     updated_at: str
+    max_rows: int = 100
     origin: RunOrigin = "natural_language"
     parent_query_id: str | None = None
     source_query_id: str | None = None
@@ -105,7 +106,7 @@ class SavedQuestionDuplicateRequest(BaseModel):
 class SavedQuestionRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     parameters: dict[str, Any] = {}
-    expected_revision: int | None = None
+    expected_revision: int
 
 
 class SavedQuestionSummary(BaseModel):

@@ -209,5 +209,74 @@ describe('Workspace Selection State and Manual SQL Execution (Task 10)', () => {
 
     // Initial successful answer is shown again
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /edit sql/i }));
+    expect(screen.getByRole('textbox', { name: /sql editor/i })).toHaveValue('SELECT * FROMM customers;');
+  });
+});
+
+describe('Expired rerun origins', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  it.each(['saved_question', 'follow_up', 'manual_sql'] as const)('retains %s origin and execution inputs', async (origin) => {
+    const completed: PublicRunCompleted = {
+      ...initialCompletedRun, origin, results_available: false, rows: undefined,
+      parent_query_id: origin === 'follow_up' ? 'parent-1' : undefined,
+      saved_question_id: origin === 'saved_question' ? 'saved-1' : undefined,
+      saved_question_version: origin === 'saved_question' ? 7 : undefined,
+      max_rows: 200,
+      context: {
+        effective_question: 'Filtered customers', canonical_sql_template: initialCompletedRun.sql,
+        snapshot_hash: 'a'.repeat(64), policy_version: 1, semantic_version: 1,
+        resolved_parameters: { bindings: [], values: { country: 'UK' }, resolved_dates: [], max_rows: 200 },
+      },
+    };
+    const posts: { url: string; body: any }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options: RequestInit = {}) => {
+      if (options.method === 'POST') {
+        posts.push({ url, body: JSON.parse(String(options.body)) });
+        return new Response(JSON.stringify({ query_id: 'accepted', status: 'queued' }), { status: 202 });
+      }
+      return new Response(JSON.stringify(url.includes('/connections') ? [connectionItem] : completed), { status: 200 });
+    }));
+    render(<WorkspaceView onNavigateToConnections={vi.fn()} initialQueryId="run-init" />);
+    fireEvent.click(await screen.findByRole('button', { name: /rerun query/i }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    if (origin === 'saved_question') {
+      expect(posts[0]).toEqual({ url: '/api/v1/saved-questions/saved-1/run', body: { expected_revision: 7, parameters: { country: 'UK' } } });
+    } else if (origin === 'manual_sql') {
+      expect(posts[0].url).toBe('/api/v1/queries/sql');
+      expect(posts[0].body).toMatchObject({ sql: completed.sql, source_query_id: 'run-init', max_rows: 200 });
+    } else {
+      expect(posts[0].url).toBe('/api/v1/queries');
+      expect(posts[0].body).toMatchObject({ parent_query_id: 'parent-1', question: completed.question, max_rows: 200 });
+    }
+  });
+});
+
+describe('Retained answer expiry', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+  it('clears an unselected answer before returning while revalidation is pending', async () => {
+    vi.useFakeTimers();
+    const start = Date.now();
+    let holdOld = false;
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.includes('/connections')) return Promise.resolve(new Response(JSON.stringify([connectionItem])));
+      if (url.includes('run-init') && holdOld) return new Promise<Response>(() => {});
+      const run = url.includes('run-init')
+        ? { ...initialCompletedRun, results_expires_at: new Date(start + 5000).toISOString() }
+        : { ...editedRunAccepted, results_expires_at: new Date(start + 60000).toISOString() };
+      return Promise.resolve(new Response(JSON.stringify(run)));
+    }));
+    const { rerender } = render(<WorkspaceView onNavigateToConnections={vi.fn()} initialQueryId="run-init" />);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    rerender(<WorkspaceView onNavigateToConnections={vi.fn()} initialQueryId="run-manual" />);
+    await vi.advanceTimersByTimeAsync(100);
+    holdOld = true;
+    await vi.advanceTimersByTimeAsync(6000);
+    rerender(<WorkspaceView onNavigateToConnections={vi.fn()} initialQueryId="run-init" />);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(screen.getByText(/results have expired/i)).toBeInTheDocument();
+    expect(screen.queryByText('alice@example.com')).not.toBeInTheDocument();
+    expect(screen.queryByText('1 returned row.')).not.toBeInTheDocument();
   });
 });

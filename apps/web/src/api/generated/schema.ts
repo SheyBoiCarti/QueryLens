@@ -96,6 +96,7 @@ export interface CreateQueryRequest {
 }
 
 export interface PublicRunBase {
+  max_rows?: number;
   query_id: string;
   connection_id: string;
   status: QueryRunStatus;
@@ -250,6 +251,14 @@ export interface RunContext {
   snapshot_hash: string;
   policy_version: number;
   semantic_version: number;
+  resolved_parameters?: ResolvedParameters | null;
+}
+
+export interface ResolvedParameters {
+  bindings: { name: string; scalar_type: CanonicalType; value: unknown }[];
+  values: Record<string, unknown>;
+  resolved_dates: { slot_id: string; start: string; end_exclusive: string }[];
+  max_rows: number;
 }
 
 export interface VerifiedDefinition {
@@ -316,6 +325,7 @@ export interface ParameterTarget {
   namespace: string;
   table_name: string;
   column_name: string;
+  db_type?: string | null;
   operator: string;
   secondary_predicate_path?: string | null;
   secondary_operator?: string | null;

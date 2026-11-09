@@ -207,6 +207,7 @@ class QueryRunRepository:
                 snapshot_hash=context.snapshot_hash,
                 policy_version=context.policy_version,
                 semantic_version=context.semantic_version,
+                max_rows=(context.resolved_parameters.max_rows if context.resolved_parameters else query_runs.c.max_rows),
                 canonical_sql=canonical_sql,
                 assumptions=json.dumps(assumptions, ensure_ascii=False),
                 warnings=json.dumps(warnings, ensure_ascii=False),

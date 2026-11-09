@@ -36,3 +36,26 @@ This document describes the operational boundaries, hard limits, and design trad
 - **UTC Boundary Guarantees:** Date filter presets (`this_month`, `this_year`, `fixed`) resolve to UTC execution-time boundaries.
 - **Inclusive Ends:** Date range filters treat the end date as inclusive of that full calendar day (through 23:59:59.999 UTC), preventing partial-day cutoff bugs.
 - **Clock Dependency:** Date range resolution depends on the server system clock in UTC.
+
+## 5. Saved filter eligibility and review
+
+Only server-discovered, unambiguous root `SELECT` predicates can become filters.
+Table aliases resolve to exact physical namespace/table/column identities.
+Unsupported predicates, including `OR`, nested scopes, ambiguous columns, and
+unsupported date comparisons, remain literal SQL. Date ranges require an
+existing `>=` lower bound and `<` upper bound with calendar-date literals. The
+compiler preserves defaults and uses `>= start AND < next_day_after_inclusive_end`
+for both DATE and timestamp columns; no fractional-second approximation is used.
+`LIMIT 0` remains a zero-row query and has no result-count filter.
+
+Saved runs require an exact revision and reject unknown names, invalid scalar
+types, choices, and defaults before accepting work. Physical type or namespace
+changes require review. Review the stored SQL, run an edited query successfully,
+and explicitly replace the saved definition from that completed run. Ordinary
+runs and variations leave the stored revision unchanged.
+
+Completion retains typed bindings, supplied selections, resolved date bounds,
+and effective row limits. Editable/resavable SQL is reconstructed from AST
+nodes; executable statements continue to bind values through the driver. Chart
+preferences belong to the accepted revision and apply only to eligible results.
+Required inherited schema and repair context are never truncated to fit a budget.

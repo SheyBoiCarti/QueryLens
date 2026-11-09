@@ -70,6 +70,7 @@ def derive_presentation(
     *,
     semantics: SemanticContext | None = None,
     units: tuple[str, ...] = (),
+    chart_preference: str | None = None,
 ) -> PresentationMetadata:
     definitions = []
     if semantics:
@@ -106,13 +107,13 @@ def derive_presentation(
         warnings=tuple(warnings),
     )
     if len(known_units) > 1:
-        return base
+        return _apply_chart_preference(base, chart_preference)
     if len(columns) == 1 and len(rows) == 1 and columns[0]["type"] in NUMERIC_TYPES:
         name = columns[0]["name"]
         value = rows[0].get(name)
         if _number(value, columns[0]["type"]) is not None:
             exact = str(value)
-            return base.model_copy(
+            base = base.model_copy(
                 update={
                     "explanation": f"{name}: {exact}.",
                     "chart_type": "single_value",
@@ -120,30 +121,31 @@ def derive_presentation(
                     "value": exact,
                 }
             )
+        return _apply_chart_preference(base, chart_preference)
     if len(columns) != 2 or not 1 <= len(rows) <= 50:
-        return base
+        return _apply_chart_preference(base, chart_preference)
     x, y = columns
     if x["type"] in NUMERIC_TYPES and y["type"] not in NUMERIC_TYPES:
         x, y = y, x
     if x["type"] not in ("date", "datetime", "string", "boolean") or y["type"] not in NUMERIC_TYPES:
-        return base
+        return _apply_chart_preference(base, chart_preference)
     keys = []
     decimals: dict[float, Decimal] = {}
     for row in rows:
         key = row.get(x["name"])
         value = row.get(y["name"])
         if key is None or key == "" or not _safe_plot(value, y["type"]):
-            return base
+            return _apply_chart_preference(base, chart_preference)
         try:
             if x["type"] in ("date", "datetime"):
                 key = _date_key(key, x["type"])
             elif x["type"] == "boolean":
                 if type(key) is not bool:
-                    return base
+                    return _apply_chart_preference(base, chart_preference)
             elif not isinstance(key, str):
-                return base
+                return _apply_chart_preference(base, chart_preference)
             if key in keys:
-                return base
+                return _apply_chart_preference(base, chart_preference)
             keys.append(key)
             numeric = float(value)
             exact_decimal = Decimal(str(value))
@@ -151,13 +153,13 @@ def derive_presentation(
                 return base
             decimals[numeric] = exact_decimal
         except (ValueError, TypeError, OverflowError):
-            return base
+            return _apply_chart_preference(base, chart_preference)
     order = (
         tuple(sorted(range(len(rows)), key=lambda i: keys[i]))
         if x["type"] in ("date", "datetime")
         else tuple(range(len(rows)))
     )
-    return base.model_copy(
+    base = base.model_copy(
         update={
             "chart_type": "line" if x["type"] in ("date", "datetime") else "bar",
             "x_column": x["name"],
@@ -165,3 +167,12 @@ def derive_presentation(
             "plot_row_order": order,
         }
     )
+    return _apply_chart_preference(base, chart_preference)
+
+
+def _apply_chart_preference(base: PresentationMetadata, preference: str | None) -> PresentationMetadata:
+    if preference == "table":
+        return base.model_copy(update={"chart_type": "table", "x_column": None, "y_column": None, "value": None, "plot_row_order": ()})
+    if preference in {"line", "bar"} and base.chart_type in {"line", "bar"}:
+        return base.model_copy(update={"chart_type": preference})
+    return base

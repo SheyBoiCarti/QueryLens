@@ -32,7 +32,12 @@ from querylens.semantics.saved_questions import (
     validate_saved_dependencies,
 )
 from querylens.semantics.versions import load_semantic_context
-from querylens.sql.parameters import ParameterDefinition
+from querylens.sql.parameters import (
+    ParameterCompilationError,
+    ParameterDefinition,
+    extract_eligible_parameters,
+    verify_parameter_definitions,
+)
 
 router = APIRouter(prefix="/saved-questions", tags=["saved_questions"])
 
@@ -98,6 +103,16 @@ def create_saved_question(
     policy_version = ctx.get("policy_version") or run.get("policy_version") or 1
     semantic_version = ctx.get("semantic_version") or 1
     author_limit = ctx.get("author_limit")
+
+    snapshot = CatalogService().get_catalog(user_id, run["connection_id"])
+    discovered = extract_eligible_parameters(
+        template_sql, snapshot, snapshot.engine, author_limit,
+        default_max_rows=int(run.get("max_rows", 100)),
+    )
+    try:
+        verify_parameter_definitions(tuple(payload.parameters), discovered)
+    except ParameterCompilationError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
     param_defs_json = json.dumps([p.model_dump() for p in payload.parameters])
     param_defaults_json = json.dumps({p.name: p.default_value for p in payload.parameters if p.default_value is not None})
@@ -203,16 +218,10 @@ def update_saved_question(
     changes: dict[str, Any] = {}
     if payload.title is not None:
         changes["title"] = payload.title
-    if payload.description is not None:
+    if "description" in payload.model_fields_set:
         changes["description"] = payload.description
-    if payload.chart_preference is not None:
+    if "chart_preference" in payload.model_fields_set:
         changes["chart_preference"] = payload.chart_preference
-    if payload.parameters is not None:
-        changes["parameter_definitions_json"] = json.dumps([p.model_dump() for p in payload.parameters])
-        changes["parameter_defaults_json"] = json.dumps(
-            {p.name: p.default_value for p in payload.parameters if p.default_value is not None}
-        )
-
     if payload.replacement_query_id is not None:
         query_repo = QueryRunRepository()
         run = query_repo.get(payload.replacement_query_id, user_id=user_id)
@@ -238,6 +247,22 @@ def update_saved_question(
         changes["semantic_version"] = ctx.get("semantic_version") or 1
         changes["author_limit"] = ctx.get("author_limit")
         changes["default_max_rows"] = run.get("max_rows", 100)
+
+    if payload.parameters is not None or payload.replacement_query_id is not None:
+        snapshot = CatalogService().get_catalog(user_id, existing["connection_id"])
+        template = changes.get("canonical_sql_template", existing["canonical_sql_template"])
+        discovered = extract_eligible_parameters(
+            template, snapshot, snapshot.engine,
+            changes.get("author_limit", existing.get("author_limit")),
+            int(changes.get("default_max_rows", existing.get("default_max_rows", 100))),
+        )
+        definitions = tuple(payload.parameters) if payload.parameters is not None else tuple(discovered)
+        try:
+            verify_parameter_definitions(definitions, discovered)
+        except ParameterCompilationError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        changes["parameter_definitions_json"] = json.dumps([p.model_dump() for p in definitions])
+        changes["parameter_defaults_json"] = json.dumps({p.name: p.default_value for p in definitions})
 
     updated = repo.update(saved_question_id, user_id, payload.expected_revision, changes)
     if updated is None:
@@ -301,8 +326,14 @@ async def run_saved_question(
     if saved is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Saved question not found")
 
-    if payload.expected_revision is not None and payload.expected_revision != saved["revision"]:
+    if payload.expected_revision != saved["revision"]:
         raise HTTPException(status.HTTP_409_CONFLICT, "Saved question revision conflict; reload and retry")
+
+    raw_defs = json.loads(saved.get("parameter_definitions_json") or "[]")
+    allowed_names = {item["name"] for item in raw_defs}
+    unknown = set(payload.parameters) - allowed_names
+    if unknown:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown saved question parameter")
 
     verify_connection_ownership(saved["connection_id"], user_id)
     snapshot = CatalogService().get_catalog(user_id, saved["connection_id"])
@@ -315,6 +346,19 @@ async def run_saved_question(
             status.HTTP_409_CONFLICT,
             detail={"error_code": "SAVED_QUESTION_REVIEW_REQUIRED", "message": exc.message},
         )
+
+    # Resolve and validate values before accepting work. The worker repeats
+    # compilation against its current snapshot immediately before execution.
+    from querylens.sql.parameters import ParameterDefinition, compile_parameterized_query
+    try:
+        definitions = tuple(ParameterDefinition.model_validate(item) for item in raw_defs)
+        compile_parameterized_query(
+            saved["canonical_sql_template"], definitions, payload.parameters, snapshot,
+            saved["connection_id"], snapshot.engine, int(saved.get("default_max_rows") or 100),
+            saved.get("author_limit"), dt.datetime.now(dt.timezone.utc),
+        )
+    except Exception as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid saved question parameters") from exc
 
     query_id = str(uuid.uuid4())
     admission = get_admission_controller()

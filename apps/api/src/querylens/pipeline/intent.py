@@ -280,7 +280,7 @@ def build_run_context(
         )
     return RunContext(
         effective_question=effective,
-        canonical_sql_template=template_sql,
+        canonical_sql_template=ast.sql(dialect=dialect, comments=False),
         author_limit=author_limit,
         applied_filters=tuple(filters),
         metric_references=metrics,
@@ -289,4 +289,5 @@ def build_run_context(
         snapshot_hash=snapshot.snapshot_hash,
         policy_version=snapshot.policy_version,
         semantic_version=semantics.semantic_version,
+        resolved_parameters=resolved_parameters,
     )

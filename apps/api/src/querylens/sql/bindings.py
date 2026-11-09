@@ -1,54 +1,39 @@
-"""Driver statement compilation and parameter binding (Contract C06)."""
+"""Compile driver parameters from SQL placeholder AST nodes only."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
+import uuid
+
+from sqlglot import exp
+
 from querylens.domain.analytics import BoundParameter
+from querylens.sql.parse import parse_query
 
 
 def compile_driver_statement(
     sql: str, engine: str, bindings: tuple[BoundParameter, ...]
 ) -> tuple[str, Mapping[str, object]]:
-    """Render placeholder nodes as psycopg/PyMySQL named parameters without substituting values.
-
-    Correctly escapes literal percent signs for the parameter protocol.
-    """
     if not bindings:
         return sql, {}
-
-    binding_names = {b.name for b in bindings}
-    params: dict[str, object] = {b.name: b.value for b in bindings}
-
-    working_sql = sql
-    # In MySQL, sqlglot outputs :name for placeholders.
-    # Convert :name to %(name)s for PyMySQL pyformat protocol.
-    if engine == "mysql":
-
-        def repl_colon(m: re.Match[str]) -> str:
-            name = m.group(1)
-            if name in binding_names:
-                return f"%({name})s"
-            return m.group(0)
-
-        # Match :param where param is word characters not preceded by : (to avoid :: cast if any)
-        working_sql = re.sub(r"(?<!:):([A-Za-z_][A-Za-z0-9_]*)", repl_colon, working_sql)
-
-    # In both drivers with parameter dicts, literal '%' must be escaped to '%%'.
-    # Match valid parameter tokens '%(name)s' vs existing '%%' vs unescaped '%'
-    pattern = re.compile(r"(%\([A-Za-z_][A-Za-z0-9_]*\)s|%%|%)")
-    parts: list[str] = []
-    last_end = 0
-    for match in pattern.finditer(working_sql):
-        matched = match.group(0)
-        parts.append(working_sql[last_end : match.start()])
-        if matched.startswith("%(") and matched[2:-2] in binding_names:
-            parts.append(matched)
-        elif matched == "%%":
-            parts.append("%%")
-        else:
-            parts.append("%%")
-        last_end = match.end()
-    parts.append(working_sql[last_end:])
-
-    return "".join(parts), params
+    params = {binding.name: binding.value for binding in bindings}
+    if len(params) != len(bindings):
+        raise ValueError("Duplicate driver binding")
+    ast = parse_query(sql, dialect=engine)
+    # Unique markers separate generated protocol syntax from every literal,
+    # identifier and comment. Escape data before installing driver placeholders.
+    prefix = "ql_binding_" + uuid.uuid4().hex
+    while prefix in sql:
+        prefix = "ql_binding_" + uuid.uuid4().hex
+    markers: dict[str, str] = {}
+    for index, node in enumerate(list(ast.find_all(exp.Placeholder))):
+        if node.name not in params:
+            raise ValueError("Unbound SQL placeholder")
+        marker = f"{prefix}_{index}"
+        markers[marker] = node.name
+        node.replace(exp.Var(this=marker))
+    dialect = "postgres" if engine == "postgresql" else engine
+    rendered = ast.sql(dialect=dialect, comments=False).replace("%", "%%")
+    for marker, name in markers.items():
+        rendered = rendered.replace(marker, f"%({name})s")
+    return rendered, params

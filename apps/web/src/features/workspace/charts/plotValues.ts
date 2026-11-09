@@ -35,7 +35,7 @@ export type PlotResult = PlotData | IneligiblePlot;
 export function plotValues(
   presentation?: PresentationMetadata | null,
   columns: ColumnMeta[] = [],
-  rows: Record<string, any>[] = []
+  rows: Record<string, unknown>[] = []
 ): PlotResult {
   if (!presentation || presentation.chart_type === 'table' || presentation.chart_type === 'single_value') {
     return { eligible: false, reason: 'Presentation is not a chart' };
@@ -129,7 +129,7 @@ export function plotValues(
 
     rawPoints.push({
       point: {
-        x: String(rawX),
+        x: xCol.type === 'date' || xCol.type === 'datetime' ? Number(sortKey) : String(rawX),
         y: yNum,
         label: String(rawX),
         originalX: rawX,

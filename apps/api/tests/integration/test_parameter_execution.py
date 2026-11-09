@@ -116,3 +116,27 @@ def test_executor_rejects_tampered_bindings_and_sql():
     )
     with pytest.raises(ExecutionSecurityError, match="fingerprint mismatch"):
         SafeExecutor.execute(tampered_sql_token)
+
+
+@pytest.mark.parametrize("kind", ["postgresql", "mysql"])
+def test_real_driver_rendering_keeps_literal_placeholder_text(kind):
+    """Driver adaptation must escape data independently of placeholder AST nodes."""
+    bindings = (BoundParameter(name="p", scalar_type="string", value="' OR SLEEP(30) -- "),)
+    literal = "%(p)s :p %%"
+    sql = f"SELECT '{literal}' AS note, " + ("%(p)s" if kind == "postgresql" else ":p") + " AS selected"
+    statement, parameters = compile_driver_statement(sql, kind, bindings)
+    if kind == "mysql":
+        import pymysql
+        connection = pymysql.connect(defer_connect=True)
+        connection.server_status = 0
+        rendered = connection.cursor().mogrify(statement, parameters)
+        # A placeholder-looking literal stays a single quoted data literal.
+        assert f"'{literal}' AS note" in rendered
+        assert "\\' OR SLEEP(30) -- " in rendered
+    else:
+        from psycopg import adapt
+        from psycopg._queries import PostgresQuery
+        query = PostgresQuery(adapt.Transformer())
+        query.convert(statement, parameters)
+        assert f"'{literal}' AS note" in query.query.decode()
+        assert query.params == [bindings[0].value.encode()]

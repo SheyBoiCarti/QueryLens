@@ -11,6 +11,7 @@ export interface AnswerPresentationProps {
   onRerun?: () => void;
   onRunSql?: (draft: string) => Promise<void>;
   onDraftChange?: (draft: string) => void;
+  draftValue?: string;
   disabled?: boolean;
 }
 
@@ -19,6 +20,7 @@ export function AnswerPresentation({
   onRerun,
   onRunSql,
   onDraftChange,
+  draftValue,
   disabled = false,
 }: AnswerPresentationProps): React.JSX.Element {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
@@ -192,6 +194,7 @@ export function AnswerPresentation({
             dialect={run.dialect}
             origin={run.origin}
             runId={run.query_id}
+            draftValue={draftValue}
             onRunSql={onRunSql}
             onDraftChange={onDraftChange}
             disabled={disabled}

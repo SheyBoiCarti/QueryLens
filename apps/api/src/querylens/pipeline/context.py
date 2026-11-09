@@ -20,6 +20,10 @@ from querylens.sql.policy import validate_and_bound_sql
 MAX_INPUT_TOKENS = 6000
 
 
+class ContextBudgetError(ValueError):
+    """Required context cannot fit without losing query meaning."""
+
+
 @dataclass(frozen=True)
 class SchemaContext:
     tables: list[Any] = field(default_factory=list)
@@ -35,7 +39,7 @@ def estimate_tokens(text: str) -> int:
 def build_schema_context(snapshot: CatalogSnapshot, max_tokens: int = MAX_INPUT_TOKENS) -> str:
     header = f"TARGET DATABASE ENGINE: {snapshot.engine.upper()}\nCATALOG SNAPSHOT HASH: {snapshot.snapshot_hash}\nVISIBLE TABLES AND COLUMNS:\n"
     if estimate_tokens(header) > max_tokens:
-        raise ValueError("Input budget cannot fit schema header")
+        raise ContextBudgetError("Input budget cannot fit schema header")
     sections = [header]
     for table in snapshot.tables:
         columns = ", ".join(
@@ -64,7 +68,7 @@ def build_query_context(
     followup_tokens = getattr(followup_context, "estimated_tokens", 0) if followup_context else 0
     available = max_tokens - estimate_tokens(question) - 2200 - followup_tokens
     if available < 512:
-        raise ValueError("Question leaves insufficient room for schema context")
+        raise ContextBudgetError("Question leaves insufficient room for schema context")
     with get_db_connection() as conn:
         if semantic_context is None:
             semantic_context = SemanticContext(
@@ -108,8 +112,8 @@ def build_query_context(
     if followup_context and getattr(followup_context, "required_references", None):
         for ref in followup_context.required_references:
             for table in snapshot.tables:
-                if table.name.lower() == ref.table_name.lower():
-                    if not ref.namespace or table.namespace.lower() == ref.namespace.lower():
+                if table.name == ref.table_name:
+                    if not ref.namespace or table.namespace == ref.namespace:
                         inherited_tables.append(table)
 
     selected = expand_join_paths(
@@ -119,20 +123,22 @@ def build_query_context(
     # Reserve complete matched definitions before optional examples/schema expansion.
     additions = ["BUSINESS METRIC (apply its filters and grain): " + metric.model_dump_json() for metric in metrics]
     labels = [label.model_dump() for label in semantic_context.labels if label_is_visible(label, subset)]
-    if labels:
-        additions.append(
-            "BUSINESS LABELS (metadata only; use physical identifiers in SQL): "
-            + json.dumps(labels, ensure_ascii=False)
-        )
     semantics = "\n".join(additions)
     schema_budget = available - (estimate_tokens(semantics) + 1 if semantics else 0)
     context = build_schema_context(subset, schema_budget)
     # Referenced metric tables must fit with all columns, filters, and grain.
     for table in metric_tables:
         if f"TABLE {table.namespace}.{table.name}:" not in context:
-            raise ValueError("Input budget cannot fit complete metric schema and definitions")
+            raise ContextBudgetError("Input budget cannot fit complete metric schema and definitions")
+    for table in inherited_tables:
+        if f"TABLE {table.namespace}.{table.name}:" not in context:
+            raise ContextBudgetError("Input budget cannot fit required follow-up table schema")
     if semantics:
         context += "\n" + semantics
+    if labels:
+        label_text = "BUSINESS LABELS (metadata only; use physical identifiers in SQL): " + json.dumps(labels, ensure_ascii=False)
+        if estimate_tokens(context + "\n" + label_text) <= available:
+            context += "\n" + label_text
     additions = []
     candidate_examples = [(row[0], row[1]) for row in examples]
     candidate_examples.extend(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from querylens.pipeline.context import SchemaContext, estimate_tokens
+from querylens.pipeline.context import ContextBudgetError, SchemaContext, estimate_tokens
 from querylens.pipeline.errors import ClassifiedError
 
 
@@ -55,8 +55,7 @@ def assemble_repair_context(
     # Check token bound
     tokens = estimate_tokens(prompt)
     if tokens > max_tokens:
-        # Truncate prompt deterministically if over budget
-        prompt = prompt.encode("utf-8")[:max_tokens].decode("utf-8", errors="ignore")
+        raise ContextBudgetError("Required repair context exceeds the input budget; narrow the request or reduce inherited context")
 
     return RepairContext(
         question=question,

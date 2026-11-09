@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ParameterDefinitionEditor } from './ParameterDefinitionEditor.tsx';
 import { api, ApiError } from '../../api/client.ts';
 import {
   ParameterDefinition,
@@ -21,10 +22,12 @@ export function SavedQuestionsModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [parametersValid, setParametersValid] = useState(true);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [chartPreference, setChartPreference] = useState('');
   const [parameters, setParameters] = useState<ParameterDefinition[]>([]);
+  const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let aborted = false;
@@ -32,6 +35,7 @@ export function SavedQuestionsModal({
       .then((disc) => {
         if (aborted) return;
         setParameters(disc.definitions);
+        setSelectedSlots(new Set(disc.definitions.map((definition) => definition.slot_id)));
       })
       .catch((err: unknown) => {
         if (aborted) return;
@@ -57,7 +61,7 @@ export function SavedQuestionsModal({
         title: title.trim(),
         description: description.trim() || null,
         chart_preference: chartPreference || null,
-        parameters,
+        parameters: parameters.filter((parameter) => selectedSlots.has(parameter.slot_id)),
       });
       onSaved?.(res);
       onClose();
@@ -66,14 +70,6 @@ export function SavedQuestionsModal({
     } finally {
       setSaving(false);
     }
-  };
-
-  const updateParamLabel = (index: number, label: string) => {
-    setParameters((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], label };
-      return next;
-    });
   };
 
   return (
@@ -166,40 +162,8 @@ export function SavedQuestionsModal({
                   Configure consumer-facing labels and choices for discovered parameters.
                 </p>
 
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {parameters.map((p, idx) => (
-                    <div key={p.slot_id} className="p-3 bg-slate-50 border rounded text-xs space-y-1">
-                      <div className="flex items-center justify-between font-mono text-[11px] text-slate-600">
-                        <span>Slot: {p.name} ({p.param_type})</span>
-                        {p.target && (
-                          <span className="text-slate-400">
-                            {p.target.table_name}.{p.target.column_name}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <label
-                          htmlFor={`param-label-${p.slot_id}`}
-                          className="block text-[11px] font-medium text-slate-600"
-                        >
-                          Display Label
-                        </label>
-                        <input
-                          id={`param-label-${p.slot_id}`}
-                          type="text"
-                          value={p.label}
-                          onChange={(e) => updateParamLabel(idx, e.target.value)}
-                          className="w-full px-2 py-1 border rounded text-xs mt-0.5 bg-white"
-                        />
-                      </div>
-                      {p.param_type === 'date_range' && (
-                        <p className="text-[10px] text-indigo-600 pt-0.5">
-                          Resolves with inclusive end-date UTC calendar boundaries.
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <ParameterDefinitionEditor parameters={parameters} onChange={setParameters}
+                  selectedSlots={selectedSlots} onSelectionChange={setSelectedSlots} onValidityChange={setParametersValid} />
               </div>
             )}
 
@@ -213,7 +177,7 @@ export function SavedQuestionsModal({
               </button>
               <button
                 type="submit"
-                disabled={saving || !title.trim()}
+                disabled={saving || !title.trim() || !parametersValid}
                 className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Question'}

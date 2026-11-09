@@ -78,6 +78,10 @@ class RunServices:
                     or connection["semantic_version"] != context.semantic_version
                 ):
                     raise ExecutionSecurityError("Connection policy or semantics changed")
+                current = QueryRunRepository(conn).get(self.query_id, self.user_id)
+                if current["status"] in TERMINAL_STATES:
+                    cache.evict(self.query_id)
+                    return False
                 cache.put(
                     self.query_id, context.snapshot_hash, result.columns, result.rows, connection_id=self.connection_id
                 )

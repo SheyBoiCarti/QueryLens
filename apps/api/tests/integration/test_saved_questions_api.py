@@ -232,8 +232,93 @@ def test_saved_question_review_required_on_catalog_drift(analytics_env, complete
     rerun_res = env.client.post(
         f"/api/v1/saved-questions/{saved_id}/run",
         headers=env.headers,
-        json={"parameters": {"country": "USA"}},
+        json={"parameters": {"country": "USA"}, "expected_revision": 1},
     )
     assert rerun_res.status_code == 409
     data = rerun_res.json()
     assert data.get("detail", {}).get("error_code") == "SAVED_QUESTION_REVIEW_REQUIRED" or "REVIEW_REQUIRED" in str(data)
+
+
+def test_invalid_saved_parameters_rejected_before_admission(analytics_env, completed_run):
+    import sqlalchemy as sa
+    from querylens.persistence.tables import query_runs
+
+    env = analytics_env
+    source = completed_run(sql="SELECT id FROM public.customers WHERE country = 'USA'")
+    definitions = env.client.get(f"/api/v1/queries/{source['id']}/parameters").json()["definitions"]
+    category = next(item for item in definitions if item["param_type"] == "category")
+    category["allowed_values"] = ["USA", "UK"]
+    saved = env.client.post("/api/v1/saved-questions", headers=env.headers,
+                            json={"source_query_id": source["id"], "title": "Strict", "parameters": [category]}).json()
+    for payload in ({"parameters": {}},
+                    {"expected_revision": 1, "parameters": {"unknown": 3}},
+                    {"expected_revision": 1, "parameters": {"country": 3}},
+                    {"expected_revision": 1, "parameters": {"country": "FR"}}):
+        response = env.client.post(f"/api/v1/saved-questions/{saved['id']}/run", headers=env.headers, json=payload)
+        assert response.status_code == 422, response.text
+    with env.engine.connect() as conn:
+        assert conn.execute(sa.select(sa.func.count()).select_from(query_runs)).scalar_one() == 1
+
+
+def test_saved_physical_type_and_namespace_drift_require_review(analytics_env):
+    import json
+    from querylens.domain.schema import ColumnMetadata, TableMetadata
+    from querylens.semantics.saved_questions import SavedQuestionReviewRequired, validate_saved_dependencies
+    from querylens.semantics.versions import load_semantic_context
+
+    env = analytics_env
+    semantics = load_semantic_context(env.owner_id, env.snapshot)
+    definition = {"referenced_objects_json": json.dumps([
+        {"namespace": "public", "table_name": "customers", "column_name": "id",
+         "canonical_type": "integer", "db_type": "bigint"}
+    ])}
+    with pytest.raises(SavedQuestionReviewRequired, match="physical type"):
+        validate_saved_dependencies(definition, env.snapshot, semantics)
+    snapshot = env.snapshot.model_copy(deep=True)
+    snapshot.tables = [TableMetadata(namespace="other", name="customers", columns=[
+        ColumnMetadata(name="id", canonical_type="integer", db_type="bigint")])]
+    with pytest.raises(SavedQuestionReviewRequired, match="table"):
+        validate_saved_dependencies(definition, snapshot, semantics)
+
+
+def test_presentation_uses_accepted_saved_revision_preference(analytics_env, completed_run, monkeypatch):
+    env = analytics_env
+    source = completed_run(sql="SELECT country, id FROM public.customers")
+    saved = env.client.post("/api/v1/saved-questions", headers=env.headers, json={
+        "source_query_id": source["id"], "title": "Table preference", "chart_preference": "table",
+    }).json()
+    monkeypatch.setattr(SafeExecutor, "execute", lambda *args, **kwargs: QueryResult(
+        [{"name": "country", "type": "string", "db_type": "text"},
+         {"name": "id", "type": "integer", "db_type": "integer"}],
+        [{"country": "USA", "id": "12"}], 1, False, 1,
+    ))
+    accepted = env.client.post(f"/api/v1/saved-questions/{saved['id']}/run", headers=env.headers,
+                               json={"expected_revision": 1, "parameters": {}})
+    assert accepted.status_code == 202, accepted.text
+    run = wait_terminal(env, accepted.json()["query_id"])
+    assert run["presentation"]["chart_type"] == "table"
+    updated = env.client.patch(f"/api/v1/saved-questions/{saved['id']}", headers=env.headers,
+                               json={"expected_revision": 1, "chart_preference": "bar"})
+    assert updated.status_code == 200, updated.text
+    historical = env.client.get(f"/api/v1/queries/{run['query_id']}").json()
+    assert historical["presentation"]["chart_type"] == "table"
+
+
+def test_save_and_update_verify_server_discovered_targets(analytics_env, completed_run):
+    env = analytics_env
+    valid = completed_run(sql="SELECT id FROM public.customers WHERE country = 'USA'")
+    category = next(item for item in env.client.get(f"/api/v1/queries/{valid['id']}/parameters").json()["definitions"]
+                    if item["param_type"] == "category")
+    unsupported = completed_run(sql="SELECT id FROM public.customers WHERE country = 'USA' OR id = 1")
+    forged_save = env.client.post("/api/v1/saved-questions", headers=env.headers, json={
+        "source_query_id": unsupported["id"], "title": "Forged OR", "parameters": [category],
+    })
+    assert forged_save.status_code == 422, forged_save.text
+    saved = env.client.post("/api/v1/saved-questions", headers=env.headers, json={
+        "source_query_id": valid["id"], "title": "Verified", "parameters": [category],
+    }).json()
+    category["target"]["predicate_path"] = "where.99"
+    forged_update = env.client.patch(f"/api/v1/saved-questions/{saved['id']}", headers=env.headers,
+                                     json={"expected_revision": 1, "parameters": [category]})
+    assert forged_update.status_code == 422, forged_update.text
+    assert env.client.get(f"/api/v1/saved-questions/{saved['id']}").json()["revision"] == 1

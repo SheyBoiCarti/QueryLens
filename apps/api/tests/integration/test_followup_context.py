@@ -154,3 +154,32 @@ def test_followup_rejects_stale_parent_drift(analytics_env, completed_run):
     assert res_stale.status_code == 409
     data = res_stale.json()
     assert data.get("detail", {}).get("error_code") == "FOLLOWUP_CONTEXT_STALE" or "FOLLOWUP_CONTEXT_STALE" in str(data)
+
+
+def test_required_parent_schema_and_repair_are_never_truncated(analytics_env):
+    from types import SimpleNamespace
+    from querylens.domain.analytics import ObjectReference
+    from querylens.domain.schema import ColumnMetadata
+    from querylens.pipeline.context import ContextBudgetError, build_query_context
+    from querylens.pipeline.repair_context import assemble_repair_context
+    from querylens.pipeline.errors import ClassifiedError
+    from querylens.semantics.versions import load_semantic_context
+
+    env = analytics_env
+    snapshot = env.snapshot.model_copy(deep=True)
+    snapshot.tables[0].columns.extend(
+        ColumnMetadata(name=f"required_column_{index}", canonical_type="string", db_type="text")
+        for index in range(200)
+    )
+    inherited = SimpleNamespace(
+        required_references=(ObjectReference(namespace="public", table_name="customers"),),
+        formatted_text="Essential inherited scope", estimated_tokens=25,
+    )
+    semantics = load_semantic_context(env.owner_id, env.snapshot)
+    with pytest.raises(ContextBudgetError, match="follow-up table"):
+        build_query_context(snapshot, "total", 4000, semantics, inherited)
+    context = build_query_context(snapshot, "total", 16000, semantics, inherited)
+    assert "required_column_199" in context and "Essential inherited scope" in context
+    error = ClassifiedError(category="syntax", code="SYNTAX_ERROR", safe_message="Invalid syntax", repairable=True)
+    with pytest.raises(ContextBudgetError, match="Required repair context"):
+        assemble_repair_context("total", "postgresql", context, "SELECT broken", error, max_tokens=1000)

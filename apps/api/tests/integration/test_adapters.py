@@ -4,7 +4,6 @@ import pytest
 import sqlalchemy as sa
 
 from querylens.auth.service import AuthService
-from querylens.config import get_settings
 from querylens.connections.models import ConnectionCreate, ConnectionUpdate
 from querylens.connections.mysql import MySQLAdapter
 from querylens.connections.postgres import PostgresAdapter
@@ -108,34 +107,14 @@ def test_mysql_adapter_rejects_mariadb(monkeypatch):
     assert "MariaDB is explicitly rejected" in msg
 
 
-def test_live_aiven_database_connections():
-    """Test real live PostgreSQL 18 and MySQL 8.4 instances configured in .env."""
-    settings = get_settings()
-
-    # 1. Live PostgreSQL (Aiven)
-    if settings.postgres_host and settings.postgres_password:
-        success, version, msg = PostgresAdapter.test_connection(
-            host=settings.postgres_host,
-            port=int(settings.postgres_port or 28173),
-            database=settings.postgres_db or "defaultdb",
-            username=settings.postgres_user or "avnadmin",
-            password=settings.postgres_password,
-            tls_enabled=True,
-            timeout_sec=10.0,
-        )
-        assert success is True, f"PostgreSQL live test failed: {msg}"
-        assert "PostgreSQL 18" in version
-
-    # 2. Live MySQL (Aiven)
-    if settings.mysql_host and settings.mysql_password:
-        success, version, msg = MySQLAdapter.test_connection(
-            host=settings.mysql_host,
-            port=int(settings.mysql_port or 28173),
-            database=settings.mysql_db or "defaultdb",
-            username=settings.mysql_user or "avnadmin",
-            password=settings.mysql_password,
-            tls_enabled=True,
-            timeout_sec=10.0,
-        )
-        assert success is True, f"MySQL live test failed: {msg}"
-        assert "MySQL 8.4" in version
+def test_live_database_connections(analytics_source):
+    """Required source fixtures exercise both real adapters without ambient credentials."""
+    kind, engine = analytics_source
+    url = engine.url
+    adapter = PostgresAdapter if kind == "postgresql" else MySQLAdapter
+    success, version, message = adapter.test_connection(
+        host=url.host, port=url.port or (5432 if kind == "postgresql" else 3306),
+        database=url.database, username=url.username, password=url.password or "", tls_enabled=False,
+    )
+    assert success, message
+    assert ("PostgreSQL" if kind == "postgresql" else "MySQL") in version

@@ -3,9 +3,6 @@
 import pytest
 import sqlalchemy as sa
 
-from querylens.config import get_settings
-from querylens.connections.mysql import MySQLAdapter
-from querylens.connections.postgres import PostgresAdapter
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine
 from querylens.schema.inspector import SchemaInspector
 
@@ -72,31 +69,14 @@ def test_visibility_policy_filters_forbidden_tables_and_columns():
     assert "ssn" not in col_names
 
 
-def test_live_table_discovery():
-    """Discover candidate tables on live Aiven database without sampling rows."""
-    settings = get_settings()
-    if settings.postgres_host and settings.postgres_password:
-        pool = PostgresAdapter.create_pool(
-            host=settings.postgres_host,
-            port=int(settings.postgres_port or 28173),
-            database=settings.postgres_db or "defaultdb",
-            username=settings.postgres_user or "avnadmin",
-            password=settings.postgres_password,
-            tls_enabled=True,
-        )
-        tables = SchemaInspector.discover_candidate_tables(pool, "postgresql")
-        assert isinstance(tables, list)
-        pool.dispose()
-
-    if settings.mysql_host and settings.mysql_password:
-        my_pool = MySQLAdapter.create_pool(
-            host=settings.mysql_host,
-            port=int(settings.mysql_port or 28173),
-            database=settings.mysql_db or "defaultdb",
-            username=settings.mysql_user or "avnadmin",
-            password=settings.mysql_password,
-            tls_enabled=True,
-        )
-        my_tables = SchemaInspector.discover_candidate_tables(my_pool, "mysql")
-        assert isinstance(my_tables, list)
-        my_pool.dispose()
+def test_live_table_discovery(analytics_source):
+    """Discover real source tables and reflect only the requested columns."""
+    kind, engine = analytics_source
+    tables = SchemaInspector.discover_candidate_tables(engine, kind)
+    assert any(table.endswith(".ql_analytics_gate") for table in tables)
+    namespace = "public" if kind == "postgresql" else engine.url.database
+    snapshot = SchemaInspector.reflect_visible_catalog(
+        "fixture", engine, kind, {f"{namespace}.ql_analytics_gate": ["id", "day"]},
+    )
+    assert len(snapshot.tables) == 1
+    assert {column.name for column in snapshot.tables[0].columns} == {"id", "day"}

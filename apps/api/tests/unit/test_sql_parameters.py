@@ -11,8 +11,6 @@ from querylens.sql.parameters import (
     DateRangeThisMonth,
     DateRangeThisYear,
     ParameterCompilationError,
-    ParameterDefinition,
-    ParameterTarget,
     compile_parameterized_query,
     extract_eligible_parameters,
 )
@@ -141,25 +139,11 @@ def test_compile_parameterized_query_values_absent_from_sql(catalog_snapshot):
 
 def test_compile_category_allowed_values_membership(catalog_snapshot):
     """Category values must strictly match declared allowed_values with exact types."""
-    target = ParameterTarget(
-        scope="root",
-        predicate_path="where.0",
-        namespace="public",
-        table_name="orders",
-        column_name="status",
-        operator="=",
-    )
-    param_def = ParameterDefinition(
-        slot_id="slot_status",
-        name="status",
-        label="Status",
-        param_type="category",
-        source_type="string",
-        target=target,
-        allowed_values=("active", "inactive"),
-        default_value="active",
-    )
     sql = "SELECT id, status FROM orders WHERE status = 'active';"
+    discovered = extract_eligible_parameters(sql, catalog_snapshot, "postgresql", None)
+    param_def = next(item for item in discovered if item.param_type == "category").model_copy(
+        update={"allowed_values": ("active", "inactive")}
+    )
     now = dt.datetime(2026, 11, 8, 12, 0, 0, tzinfo=dt.timezone.utc)
 
     # Disallowed value rejected
@@ -307,3 +291,74 @@ def test_input_mutation_does_not_affect_minted_token(catalog_snapshot):
     binding = next(b for b in artifact.token.bindings if b.scalar_type == "string")
     assert binding.value == "active"
     assert artifact.resolved_parameters.values["status"] == "active"
+
+
+@pytest.mark.parametrize("source", [
+    "SELECT id FROM orders WHERE status = 'active' OR status = 'inactive'",
+    "SELECT id FROM orders WHERE id IN (SELECT id FROM orders WHERE status = 'active')",
+])
+def test_forged_predicate_rejected_at_compilation(catalog_snapshot, source):
+    from querylens.sql.parameters import ParameterDefinition, ParameterTarget
+    forged = ParameterDefinition(
+        slot_id="category_status", name="status", label="Status", param_type="category", source_type="string",
+        target=ParameterTarget(predicate_path="where.0", namespace="public", table_name="orders",
+                               column_name="status", db_type="varchar(50)", operator="="), default_value="active",
+    )
+    with pytest.raises(ParameterCompilationError):
+        compile_parameterized_query(source, (forged,), {}, catalog_snapshot, "conn_1", "postgresql", 100, None,
+                                    dt.datetime.now(dt.UTC))
+
+
+def test_alias_discovery_preserves_physical_target(catalog_snapshot):
+    defs = extract_eligible_parameters("SELECT o.id FROM public.orders o WHERE o.status = 'pending'",
+                                       catalog_snapshot, "postgresql", None)
+    category = next(item for item in defs if item.param_type == "category")
+    assert category.target.table_name == "orders"
+    artifact = compile_parameterized_query("SELECT o.id FROM public.orders o WHERE o.status = 'pending'", tuple(defs),
+                                          {"status": "active"}, catalog_snapshot, "conn_1", "postgresql", 100, None,
+                                          dt.datetime.now(dt.UTC))
+    assert artifact.token.bindings[0].value == "active"
+
+
+@pytest.mark.parametrize("start,end", [(" > ", " < "), (" >= ", " <= ")])
+def test_unsupported_date_boundaries_are_not_exposed(catalog_snapshot, start, end):
+    defs = extract_eligible_parameters(f"SELECT id FROM orders WHERE order_date{start}'2026-01-01' AND order_date{end}'2026-02-01'",
+                                       catalog_snapshot, "postgresql", None)
+    assert all(item.param_type != "date_range" for item in defs)
+
+
+def test_limits_without_filters_and_limit_zero(catalog_snapshot, monkeypatch):
+    from querylens.config import get_settings
+    monkeypatch.setattr(get_settings(), "max_max_rows", 25)
+    artifact = compile_parameterized_query("SELECT id FROM orders", (), {}, catalog_snapshot, "conn_1", "postgresql",
+                                          100, None, dt.datetime.now(dt.UTC))
+    assert artifact.token.max_rows == 25
+    assert extract_eligible_parameters("SELECT id FROM orders LIMIT 0", catalog_snapshot, "postgresql", 0) == []
+    zero = compile_parameterized_query("SELECT id FROM orders LIMIT 0", (), {}, catalog_snapshot, "conn_1", "postgresql",
+                                      100, 0, dt.datetime.now(dt.UTC))
+    assert "LIMIT 0" in zero.token.canonical_sql
+
+
+def test_self_join_filter_targets_are_not_ambiguous(catalog_snapshot):
+    definitions = extract_eligible_parameters(
+        "SELECT a.id FROM orders a JOIN orders b ON a.id = b.id "
+        "WHERE a.order_date >= '2026-01-01' AND b.order_date < '2026-02-01'",
+        catalog_snapshot, "postgresql", None,
+    )
+    assert [item.param_type for item in definitions] == ["result_count"]
+
+
+def test_boolean_category_uses_boolean_ast_literal(catalog_snapshot):
+    catalog_snapshot.tables[0].columns.append(
+        ColumnMetadata(name="active", canonical_type="boolean", db_type="boolean")
+    )
+    catalog_snapshot.snapshot_hash = catalog_snapshot.compute_hash()
+    sql = "SELECT id FROM orders WHERE active = TRUE"
+    definitions = extract_eligible_parameters(sql, catalog_snapshot, "postgresql", None)
+    category = next(item for item in definitions if item.param_type == "category")
+    assert category.default_value is True
+    compiled = compile_parameterized_query(sql, tuple(definitions), {"active": False}, catalog_snapshot,
+                                           "conn_1", "postgresql", 100, None, dt.datetime.now(dt.UTC))
+    assert compiled.token.bindings[0].value is False
+    ambiguous = extract_eligible_parameters("SELECT id FROM orders WHERE active = 'true'", catalog_snapshot, "mysql", None)
+    assert all(item.param_type != "category" for item in ambiguous)

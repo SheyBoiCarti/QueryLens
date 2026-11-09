@@ -4,7 +4,7 @@ export interface SavedQuestionFiltersProps {
   parameters: ParameterDefinition[];
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
-  onRun: () => void;
+  onRun?: () => void;
   disabled?: boolean;
 }
 
@@ -15,17 +15,19 @@ export function SavedQuestionFilters({
   onRun,
   disabled = false,
 }: SavedQuestionFiltersProps): React.JSX.Element {
+  const fixedDate = (value: DateRangeInput): Extract<DateRangeInput, { mode: 'fixed' }> =>
+    value.mode === 'fixed' ? value : { mode: 'fixed', start_date: '2026-01-01', end_date_inclusive: '2026-01-31' };
   if (!parameters || parameters.length === 0) {
     return (
       <div className="flex justify-end pt-2">
-        <button
+        {onRun && <button
           type="button"
           onClick={onRun}
           disabled={disabled}
           className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           Run Saved Question
-        </button>
+        </button>}
       </div>
     );
   }
@@ -68,9 +70,7 @@ export function SavedQuestionFilters({
                       const mode = e.target.value as 'this_month' | 'this_year' | 'fixed';
                       if (mode === 'fixed') {
                         onChange(param.name, {
-                          mode: 'fixed',
-                          start_date: (dateVal as any).start_date || '2026-01-01',
-                          end_date_inclusive: (dateVal as any).end_date_inclusive || '2026-01-31',
+                          ...fixedDate(dateVal),
                         });
                       } else {
                         onChange(param.name, { mode });
@@ -88,11 +88,11 @@ export function SavedQuestionFilters({
                       <input
                         type="date"
                         aria-label={`${param.label} Start Date`}
-                        value={(dateVal as any).start_date || ''}
+                        value={dateVal.mode === 'fixed' ? dateVal.start_date : ''}
                         disabled={disabled}
                         onChange={(e) =>
                           onChange(param.name, {
-                            ...(dateVal as any),
+                            ...fixedDate(dateVal),
                             mode: 'fixed',
                             start_date: e.target.value,
                           })
@@ -103,11 +103,11 @@ export function SavedQuestionFilters({
                       <input
                         type="date"
                         aria-label={`${param.label} End Date`}
-                        value={(dateVal as any).end_date_inclusive || ''}
+                        value={dateVal.mode === 'fixed' ? dateVal.end_date_inclusive : ''}
                         disabled={disabled}
                         onChange={(e) =>
                           onChange(param.name, {
-                            ...(dateVal as any),
+                            ...fixedDate(dateVal),
                             mode: 'fixed',
                             end_date_inclusive: e.target.value,
                           })
@@ -143,7 +143,10 @@ export function SavedQuestionFilters({
                   max={1000}
                   value={countVal}
                   disabled={disabled}
-                  onChange={(e) => onChange(param.name, Math.max(1, Math.min(1000, Number(e.target.value) || 1)))}
+                  onChange={(e) => {
+                    const number = Number(e.target.value);
+                    if (e.target.value && Number.isSafeInteger(number) && number >= 1 && number <= 1000) onChange(param.name, number);
+                  }}
                   className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                 />
                 <span className="text-[11px] text-slate-500 block">
@@ -155,6 +158,8 @@ export function SavedQuestionFilters({
 
           // Category parameter
           const choices = param.allowed_values;
+          const numeric = param.source_type === 'integer' || param.source_type === 'float' || param.source_type === 'decimal';
+          const boolean = param.source_type === 'boolean';
           return (
             <div key={param.slot_id} className="space-y-1">
               <label
@@ -175,9 +180,20 @@ export function SavedQuestionFilters({
                   disabled={disabled}
                   onChange={(e) => {
                     const rawVal = e.target.value;
-                    // Preserve original types (numbers as numbers, booleans as booleans)
-                    const originalChoice = choices.find((c) => String(c) === rawVal);
-                    onChange(param.name, originalChoice !== undefined ? originalChoice : rawVal);
+                    const originalChoice = choices.find((choice) => String(choice) === rawVal && (
+                      (param.source_type === 'string' && typeof choice === 'string')
+                      || (param.source_type === 'integer' && typeof choice === 'number' && Number.isInteger(choice))
+                      || ((param.source_type === 'float' || param.source_type === 'decimal') && typeof choice === 'number')
+                      || (param.source_type === 'boolean' && typeof choice === 'boolean')
+                    ));
+                    if (originalChoice !== undefined) {
+                      onChange(param.name, originalChoice);
+                    } else if (param.source_type === 'string') {
+                      onChange(param.name, rawVal);
+                    } else if (numeric) {
+                      const parsed = Number(rawVal);
+                      if (Number.isFinite(parsed) && (param.source_type !== 'integer' || Number.isInteger(parsed))) onChange(param.name, parsed);
+                    }
                   }}
                   className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                 >
@@ -187,6 +203,31 @@ export function SavedQuestionFilters({
                     </option>
                   ))}
                 </select>
+              ) : boolean ? (
+                <select
+                  id={`param-${param.name}`}
+                  value={typeof val === 'boolean' ? String(val) : String(param.default_value ?? true)}
+                  disabled={disabled}
+                  onChange={(e) => onChange(param.name, e.target.value === 'true')}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                >
+                  <option value="true">True</option><option value="false">False</option>
+                </select>
+              ) : numeric ? (
+                <input
+                  id={`param-${param.name}`}
+                  type="number"
+                  step={param.source_type === 'integer' ? 1 : 'any'}
+                  value={typeof val === 'number' ? val : (typeof param.default_value === 'number' ? param.default_value : '')}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+                    const number = Number(value);
+                    if (Number.isFinite(number) && (param.source_type !== 'integer' || Number.isSafeInteger(number))) onChange(param.name, number);
+                  }}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                />
               ) : (
                 <input
                   id={`param-${param.name}`}
@@ -202,7 +243,7 @@ export function SavedQuestionFilters({
         })}
       </div>
 
-      <div className="flex justify-end pt-2 border-t border-slate-200">
+      {onRun && <div className="flex justify-end pt-2 border-t border-slate-200">
         <button
           type="button"
           onClick={onRun}
@@ -211,7 +252,7 @@ export function SavedQuestionFilters({
         >
           Run with Filters
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

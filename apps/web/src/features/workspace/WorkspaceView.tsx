@@ -52,6 +52,43 @@ export function WorkspaceView({
   const loadedRunsRef = useRef(loadedRuns);
   loadedRunsRef.current = loadedRuns;
 
+  useEffect(() => {
+    const now = Date.now();
+    const expiredIds = Object.values(loadedRuns).flatMap((run) =>
+      run.status === 'completed' && run.results_available && run.results_expires_at
+        && new Date(run.results_expires_at).getTime() <= now ? [run.query_id] : []
+    );
+    if (expiredIds.length) {
+      setLoadedRuns((previous) => {
+        const next = { ...previous };
+        for (const id of expiredIds) {
+          const run = next[id];
+          if (run?.status === 'completed') next[id] = { ...run, results_available: false, rows: undefined, presentation: undefined };
+        }
+        return next;
+      });
+    }
+    const nextExpiry = Object.values(loadedRuns)
+      .flatMap((run) => run.status === 'completed' && run.results_available && run.results_expires_at
+        ? [new Date(run.results_expires_at).getTime()] : [])
+      .filter((expiry) => expiry > now)
+      .sort((left, right) => left - right)[0];
+    if (!nextExpiry) return;
+    const timer = window.setTimeout(() => {
+      setLoadedRuns((previous) => {
+        const next = { ...previous };
+        for (const [id, run] of Object.entries(next)) {
+          if (run.status === 'completed' && run.results_available && run.results_expires_at
+              && new Date(run.results_expires_at).getTime() <= Date.now()) {
+            next[id] = { ...run, results_available: false, rows: undefined, presentation: undefined };
+          }
+        }
+        return next;
+      });
+    }, Math.max(0, nextExpiry - now));
+    return () => window.clearTimeout(timer);
+  }, [loadedRuns]);
+
   const isDraftDirty = (runId: string | null): boolean => {
     if (!runId) return false;
     const draft = draftsRef.current[runId];
@@ -167,7 +204,7 @@ export function WorkspaceView({
                 setLoadedRuns((prev) => {
                   const current = prev[targetId];
                   if (current && current.status === 'completed') {
-                    return { ...prev, [targetId]: { ...current, results_available: false, rows: undefined } };
+                    return { ...prev, [targetId]: { ...current, results_available: false, rows: undefined, presentation: undefined } };
                   }
                   return prev;
                 });
@@ -177,7 +214,7 @@ export function WorkspaceView({
               setLoadedRuns((prev) => {
                 const current = prev[targetId];
                 if (current && current.status === 'completed') {
-                  return { ...prev, [targetId]: { ...current, results_available: false, rows: undefined } };
+                  return { ...prev, [targetId]: { ...current, results_available: false, rows: undefined, presentation: undefined } };
                 }
                 return prev;
               });
@@ -294,6 +331,7 @@ export function WorkspaceView({
       } else {
         setPollError(err instanceof Error ? err.message : 'Failed to submit follow-up query');
       }
+      throw err;
     }
   };
 
@@ -321,7 +359,11 @@ export function WorkspaceView({
     });
   };
 
-  const selectedRun = selectedRunId ? loadedRuns[selectedRunId] || null : null;
+  const retainedRun = selectedRunId ? loadedRuns[selectedRunId] || null : null;
+  const selectedRun = retainedRun?.status === 'completed' && retainedRun.results_expires_at
+      && new Date(retainedRun.results_expires_at).getTime() <= Date.now()
+    ? { ...retainedRun, results_available: false, rows: undefined, presentation: undefined }
+    : retainedRun;
   const running = Boolean(inFlightRunId || (selectedRun && !terminal.has(selectedRun.status)));
 
   return (
@@ -348,6 +390,10 @@ export function WorkspaceView({
               onRunAccepted={(id) => {
                 submitted(id);
                 setShowSavedManager(false);
+              }}
+              onAskVariation={(question) => {
+                setShowSavedManager(false);
+                void handleAskStandalone(question);
               }}
               onClose={() => setShowSavedManager(false)}
             />
@@ -483,18 +529,28 @@ export function WorkspaceView({
 
           <AnswerPresentation
             run={selectedRun as PublicRunCompleted}
+            draftValue={drafts[selectedRun.query_id]}
             onRunSql={handleRunSql}
             onDraftChange={(draft) => {
               setDrafts((prev) => ({ ...prev, [selectedRun.query_id]: draft }));
             }}
             disabled={running}
             onRerun={() => {
-              if (selectedRun.origin === 'manual_sql' && selectedRun.sql) {
+              const resolved = selectedRun.context?.resolved_parameters;
+              const maxRows = resolved?.max_rows ?? selectedRun.max_rows ?? 100;
+              if (selectedRun.origin === 'saved_question' && selectedRun.saved_question_id) {
+                api.post<{ query_id: string }>(`/api/v1/saved-questions/${selectedRun.saved_question_id}/run`, {
+                  parameters: resolved?.values ?? {},
+                  expected_revision: selectedRun.saved_question_version,
+                })
+                  .then((res) => submitted(res.query_id))
+                  .catch(() => setPollError('Saved question rerun failed'));
+              } else if (selectedRun.origin === 'manual_sql' && selectedRun.sql) {
                 api.post<{ query_id: string }>('/api/v1/queries/sql', {
                   connection_id: selectedRun.connection_id,
                   sql: selectedRun.sql,
                   source_query_id: selectedRun.query_id,
-                  max_rows: 100,
+                  max_rows: maxRows,
                 })
                   .then((res) => submitted(res.query_id))
                   .catch(() => setPollError('Rerun failed'));
@@ -502,6 +558,8 @@ export function WorkspaceView({
                 api.post<{ query_id: string }>('/api/v1/queries', {
                   connection_id: selectedRun.connection_id,
                   question: selectedRun.question,
+                  parent_query_id: selectedRun.origin === 'follow_up' ? selectedRun.parent_query_id : undefined,
+                  max_rows: maxRows,
                 })
                   .then((res) => submitted(res.query_id))
                   .catch(() => setPollError('Rerun failed'));

@@ -188,6 +188,7 @@ class RunContext(FrozenMetadata):
     snapshot_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
     policy_version: Version
     semantic_version: Version
+    resolved_parameters: ResolvedParameters | None = None
 
     @model_validator(mode="after")
     def bounded_context(self) -> Self:

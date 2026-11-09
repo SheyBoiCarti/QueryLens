@@ -81,3 +81,30 @@ npm run build --prefix apps/web
 ```powershell
 pwsh scripts/verify.ps1
 ```
+
+### Everyday analytics source gates
+
+Source tests use isolated fixtures instead of credentials from `.env`. PostgreSQL
+server binaries (`initdb`, `pg_ctl`) must be installed; the fixture creates a
+fresh local cluster on an available port. Put a desired PostgreSQL version's
+`bin` directory first in `PATH` to test that version.
+
+For MySQL, supply `QUERYLENS_TEST_MYSQL_URL` as a SQLAlchemy `mysql+pymysql://`
+URL pointing to a disposable Oracle MySQL database. Optionally supply
+`QUERYLENS_TEST_POSTGRESQL_URL` (`postgresql+psycopg://`) for a disposable
+PostgreSQL source. Source fixtures create and remove `ql_analytics_gate` in
+these databases. They never use the application database credentials.
+
+Run the complete required source gate with both engines available:
+
+```bash
+export QUERYLENS_REQUIRE_SOURCES=1
+.venv/bin/python -m pytest apps/api/tests/integration/test_source_analytics_gate.py apps/api/tests/integration/test_adapters.py apps/api/tests/integration/test_execution.py apps/api/tests/integration/test_schema_reflection.py apps/api/tests/integration/test_vertical_slice.py -q
+```
+
+Missing MySQL fixtures fail this gate. Without `QUERYLENS_REQUIRE_SOURCES`, local
+runs explicitly skip unconfigured MySQL cases. PostgreSQL fixture binaries are
+always required. CI provisions PostgreSQL 17 with Oracle MySQL 8.0 and PostgreSQL
+18 with Oracle MySQL 8.4, requiring every source case. The full PowerShell gate
+also requires both engines and checks schema, backend, and frontend commands
+independently.

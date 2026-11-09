@@ -78,8 +78,12 @@ def test_complete_synonym_and_label_context(analytics_env):
     assert dsl.model_dump_json() in context
     assert "public.z_ledger" in context and "Receipts" in context and "Proceeds" in context
     assert snapshot.compute_hash() == snapshot.snapshot_hash
+    # Optional labels may be omitted to retain the complete metric/schema.
+    compact = build_query_context(snapshot, "Takings", 3000, semantic_context=semantic)
+    assert dsl.model_dump_json() in compact
+    assert len(compact.encode("utf-8")) <= 3000 - 2200 - len("Takings")
     with pytest.raises(ValueError):
-        build_query_context(snapshot, "Takings", 3000, semantic_context=semantic)
+        build_query_context(snapshot, "Takings", 2700, semantic_context=semantic)
 
 
 def test_metric_qualified_references_preserve_visibility_and_spelling(analytics_env):

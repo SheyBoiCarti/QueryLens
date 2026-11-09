@@ -65,16 +65,20 @@ async function request<T>(
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
 
     try {
-      const errorJson = (await response.json()) as any;
-      if (errorJson?.error) {
-        errorCode = errorJson.error.code;
-        errorMessage = errorJson.error.message;
-      } else if (errorJson?.detail) {
-        if (typeof errorJson.detail === 'object') {
-          errorCode = errorJson.detail.error_code || errorCode;
-          errorMessage = errorJson.detail.message || JSON.stringify(errorJson.detail);
-        } else {
-          errorMessage = String(errorJson.detail);
+      const errorJson: unknown = await response.json();
+      if (errorJson && typeof errorJson === 'object') {
+        const body = errorJson as { error?: { code?: string; message?: string }; detail?: unknown };
+        if (body.error) {
+          errorCode = body.error.code || errorCode;
+          errorMessage = body.error.message || errorMessage;
+        } else if (body.detail !== undefined) {
+          if (body.detail && typeof body.detail === 'object') {
+            const detail = body.detail as { error_code?: string; message?: string };
+            errorCode = detail.error_code || errorCode;
+            errorMessage = detail.message || JSON.stringify(body.detail);
+          } else {
+            errorMessage = String(body.detail);
+          }
         }
       }
     } catch {

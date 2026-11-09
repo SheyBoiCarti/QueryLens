@@ -262,3 +262,11 @@ def test_positional_relation_alias_columns_rejected_before_context_minting():
     sql = "SELECT SUM(s.amount) FROM public.sales AS s (cost, day, region, amount)"
     with pytest.raises(IdentifierPolicyError, match="Positional|positional|alias"):
         validate_query_artifact(sql, "c", "postgresql", s)
+
+
+def test_saved_chart_preference_requires_compatible_rows():
+    columns = [col("region", "string"), col("total", "integer")]
+    rows = [{"region": "EMEA", "total": "12"}]
+    assert presentation(columns, rows).chart_type == "bar"
+    assert presentation(columns, rows, chart_preference="table").chart_type == "table"
+    assert presentation(columns, [{"region": "EMEA", "total": "unsafe"}], chart_preference="bar").chart_type == "table"

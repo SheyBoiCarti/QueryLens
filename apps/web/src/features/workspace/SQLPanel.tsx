@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RunOrigin } from '../../api/generated/schema.ts';
 
 export interface SQLPanelProps {
@@ -7,6 +7,7 @@ export interface SQLPanelProps {
   assumptions?: string[];
   origin?: RunOrigin;
   runId?: string;
+  draftValue?: string;
   onRunSql?: (draft: string) => Promise<void>;
   onDraftChange?: (draft: string) => void;
   disabled?: boolean;
@@ -18,18 +19,27 @@ export function SQLPanel({
   assumptions = [],
   origin,
   runId,
+  draftValue,
   onRunSql,
   onDraftChange,
   disabled = false,
 }: SQLPanelProps): React.JSX.Element {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(sql);
+  const [draft, setDraft] = useState(draftValue ?? sql);
+  const identity = `${runId ?? ''}:${sql}`;
+  const previousIdentity = useRef(identity);
 
   useEffect(() => {
-    setDraft(sql);
+    if (previousIdentity.current === identity) return;
+    previousIdentity.current = identity;
+    setDraft(draftValue ?? sql);
     setIsEditing(false);
   }, [sql, runId]);
+
+  useEffect(() => {
+    if (draftValue !== undefined) setDraft(draftValue);
+  }, [draftValue]);
 
   const updateDraft = (newDraft: string) => {
     setDraft(newDraft);

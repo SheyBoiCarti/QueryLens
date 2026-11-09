@@ -31,23 +31,29 @@ def validate_saved_dependencies(
         except Exception:
             ref_objects = []
 
-        table_map = {t.name.lower(): t for t in snapshot.tables}
+        table_map = {(t.namespace, t.name): t for t in snapshot.tables}
 
         for obj in ref_objects:
-            t_name = obj.get("table_name", "").lower()
-            if t_name not in table_map:
+            t_name = obj.get("table_name", "")
+            namespace = obj.get("namespace", "")
+            table = table_map.get((namespace, t_name))
+            if table is None:
                 raise SavedQuestionReviewRequired(f"Referenced table '{obj.get('table_name')}' no longer exists")
-            table = table_map[t_name]
 
             col_name = obj.get("column_name")
             if col_name:
-                col = next((c for c in table.columns if c.name.lower() == col_name.lower()), None)
+                col = next((c for c in table.columns if c.name == col_name), None)
                 if col is None:
                     raise SavedQuestionReviewRequired(f"Referenced column '{col_name}' no longer exists")
                 expected_type = obj.get("canonical_type")
                 if expected_type and col.canonical_type != expected_type:
                     raise SavedQuestionReviewRequired(
                         f"Referenced column '{col_name}' type changed from {expected_type} to {col.canonical_type}"
+                    )
+                expected_db_type = obj.get("db_type")
+                if expected_db_type and col.db_type != expected_db_type:
+                    raise SavedQuestionReviewRequired(
+                        f"Referenced column '{col_name}' physical type changed from {expected_db_type} to {col.db_type}"
                     )
 
     # 2. Parameter targets check
@@ -58,22 +64,28 @@ def validate_saved_dependencies(
         except Exception:
             param_defs = []
 
-        table_map = {t.name.lower(): t for t in snapshot.tables}
+        table_map = {(t.namespace, t.name): t for t in snapshot.tables}
         for p in param_defs:
             target = p.get("target")
             if target:
-                t_name = target.get("table_name", "").lower()
-                if t_name not in table_map:
+                t_name = target.get("table_name", "")
+                namespace = target.get("namespace", "")
+                table = table_map.get((namespace, t_name))
+                if table is None:
                     raise SavedQuestionReviewRequired(f"Parameter target table '{target.get('table_name')}' no longer exists")
-                table = table_map[t_name]
-                c_name = target.get("column_name", "").lower()
-                col = next((c for c in table.columns if c.name.lower() == c_name), None)
+                c_name = target.get("column_name", "")
+                col = next((c for c in table.columns if c.name == c_name), None)
                 if col is None:
                     raise SavedQuestionReviewRequired(f"Parameter target column '{target.get('column_name')}' no longer exists")
                 expected_type = p.get("source_type")
                 if expected_type and col.canonical_type != expected_type:
                     raise SavedQuestionReviewRequired(
                         f"Parameter target column '{c_name}' type changed from {expected_type} to {col.canonical_type}"
+                    )
+                expected_db_type = target.get("db_type") or p.get("source_db_type")
+                if expected_db_type and col.db_type != expected_db_type:
+                    raise SavedQuestionReviewRequired(
+                        f"Parameter target column '{c_name}' physical type changed from {expected_db_type} to {col.db_type}"
                     )
 
     # 3. Metric references check

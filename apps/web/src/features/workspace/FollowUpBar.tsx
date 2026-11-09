@@ -24,7 +24,9 @@ export function FollowUpBar({
     setSubmitting(true);
     try {
       await onSubmit(trimmed, parent.query_id);
-      setQuestion('');
+      // Keep submitted text available if execution later fails.
+    } catch {
+      // The workspace displays the error; retain the draft.
     } finally {
       setSubmitting(false);
     }

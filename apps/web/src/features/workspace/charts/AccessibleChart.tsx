@@ -5,7 +5,7 @@ import { plotValues } from './plotValues.ts';
 export interface AccessibleChartProps {
   presentation?: PresentationMetadata | null;
   columns: ColumnMeta[];
-  rows: Record<string, any>[];
+  rows: Record<string, unknown>[];
   className?: string;
 }
 
@@ -45,8 +45,15 @@ export function AccessibleChart({
     return paddingTop + innerHeight - ((val - minY) / yRange) * innerHeight;
   };
 
+  const temporal = points.length > 0 && typeof points[0].x === 'number';
+  const temporalValues = temporal ? points.map((point) => point.x as number) : [];
+  const temporalMin = Math.min(...temporalValues);
+  const temporalMax = Math.max(...temporalValues);
   const scaleX = (idx: number) => {
     if (points.length === 1) return paddingLeft + innerWidth / 2;
+    if (temporal && temporalMax > temporalMin) {
+      return paddingLeft + (((points[idx].x as number) - temporalMin) / (temporalMax - temporalMin)) * innerWidth;
+    }
     return paddingLeft + (idx / (points.length - 1)) * innerWidth;
   };
 

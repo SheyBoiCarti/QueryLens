@@ -179,7 +179,7 @@ def test_everyday_analytics_saved_question_journey(analytics_env, completed_run,
 
     run_res = env.client.post(
         f"/api/v1/saved-questions/{saved['id']}/run",
-        json={"parameters": {country_def["name"]: "UK"}},
+        json={"expected_revision": saved["revision"], "parameters": {country_def["name"]: "UK"}},
         headers=env.headers,
     )
     assert run_res.status_code == 202, run_res.text

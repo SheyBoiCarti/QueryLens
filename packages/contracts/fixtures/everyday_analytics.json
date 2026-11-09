@@ -38,7 +38,11 @@
             "operator": "="
           },
           "default_value": "EMEA",
-          "allowed_values": ["EMEA", "APAC", "AMER"]
+          "allowed_values": [
+            "EMEA",
+            "APAC",
+            "AMER"
+          ]
         }
       ]
     },
@@ -49,7 +53,8 @@
           "mode": "this_year"
         },
         "limit_count": 50
-      }
+      },
+      "expected_revision": 1
     }
   },
   "runs": {
@@ -64,19 +69,35 @@
       "updated_at": "2026-11-08T12:00:05Z",
       "dialect": "postgresql",
       "sql": "SELECT region, SUM(amount) AS total FROM sales GROUP BY region LIMIT 101;",
-      "assumptions": ["Aggregated sales amount by region."],
+      "assumptions": [
+        "Aggregated sales amount by region."
+      ],
       "warnings": [],
       "columns": [
-        { "name": "region", "type": "string", "db_type": "text" },
-        { "name": "total", "type": "decimal", "db_type": "numeric" }
+        {
+          "name": "region",
+          "type": "string",
+          "db_type": "text"
+        },
+        {
+          "name": "total",
+          "type": "decimal",
+          "db_type": "numeric"
+        }
       ],
       "row_count": 2,
       "truncated": false,
       "results_available": true,
       "results_expires_at": "2026-11-08T13:00:00Z",
       "rows": [
-        { "region": "EMEA", "total": 1500.5 },
-        { "region": "APAC", "total": 2300.0 }
+        {
+          "region": "EMEA",
+          "total": 1500.5
+        },
+        {
+          "region": "APAC",
+          "total": 2300.0
+        }
       ],
       "context": {
         "effective_question": "Total sales by region for 2026",
@@ -86,8 +107,20 @@
         "semantic_version": 1,
         "author_limit": null,
         "referenced_objects": [
-          { "namespace": "public", "table_name": "sales", "column_name": "region", "canonical_type": "string", "db_type": "text" },
-          { "namespace": "public", "table_name": "sales", "column_name": "amount", "canonical_type": "decimal", "db_type": "numeric" }
+          {
+            "namespace": "public",
+            "table_name": "sales",
+            "column_name": "region",
+            "canonical_type": "string",
+            "db_type": "text"
+          },
+          {
+            "namespace": "public",
+            "table_name": "sales",
+            "column_name": "amount",
+            "canonical_type": "decimal",
+            "db_type": "numeric"
+          }
         ],
         "applied_filters": [],
         "metric_references": []
@@ -151,7 +184,11 @@
         "operator": "="
       },
       "default_value": "EMEA",
-      "allowed_values": ["EMEA", "APAC", "AMER"]
+      "allowed_values": [
+        "EMEA",
+        "APAC",
+        "AMER"
+      ]
     },
     "date_range": {
       "slot_id": "order_date",
@@ -243,7 +280,11 @@
           "operator": "="
         },
         "default_value": "EMEA",
-        "allowed_values": ["EMEA", "APAC", "AMER"]
+        "allowed_values": [
+          "EMEA",
+          "APAC",
+          "AMER"
+        ]
       }
     ],
     "referenced_objects": [

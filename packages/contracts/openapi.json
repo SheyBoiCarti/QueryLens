@@ -76,6 +76,61 @@
         "title": "AppliedFilter",
         "type": "object"
       },
+      "BoundParameter": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,99}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "scalar_type": {
+            "enum": [
+              "integer",
+              "decimal",
+              "float",
+              "string",
+              "boolean",
+              "date",
+              "datetime"
+            ],
+            "title": "Scalar Type",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "scalar_type",
+          "value"
+        ],
+        "title": "BoundParameter",
+        "type": "object"
+      },
       "CatalogLabelInput": {
         "additionalProperties": false,
         "properties": {
@@ -929,6 +984,7 @@
         "title": "IndexMetadata",
         "type": "object"
       },
+      "JsonValue": {},
       "LabelReference": {
         "additionalProperties": false,
         "properties": {
@@ -1466,6 +1522,19 @@
             "title": "Column Name",
             "type": "string"
           },
+          "db_type": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Type"
+          },
           "namespace": {
             "maxLength": 255,
             "minLength": 1,
@@ -1694,6 +1763,11 @@
             "title": "Created At",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
           "origin": {
             "default": "natural_language",
             "enum": [
@@ -1802,6 +1876,11 @@
           "created_at": {
             "title": "Created At",
             "type": "string"
+          },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
           },
           "origin": {
             "default": "natural_language",
@@ -1935,6 +2014,11 @@
             ],
             "title": "Dialect",
             "type": "string"
+          },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
           },
           "origin": {
             "default": "natural_language",
@@ -2122,6 +2206,11 @@
             "title": "Error Code",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
           "origin": {
             "default": "natural_language",
             "enum": [
@@ -2231,6 +2320,11 @@
           "created_at": {
             "title": "Created At",
             "type": "string"
+          },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
           },
           "origin": {
             "default": "natural_language",
@@ -2436,6 +2530,89 @@
         "title": "ReplaceLabelsRequest",
         "type": "object"
       },
+      "ResolvedDateRange": {
+        "additionalProperties": false,
+        "properties": {
+          "end_exclusive": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "End Exclusive"
+          },
+          "slot_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "Start"
+          }
+        },
+        "required": [
+          "slot_id",
+          "start",
+          "end_exclusive"
+        ],
+        "title": "ResolvedDateRange",
+        "type": "object"
+      },
+      "ResolvedParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "bindings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BoundParameter"
+            },
+            "maxItems": 100,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "max_rows": {
+            "default": 100,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "resolved_dates": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDateRange"
+            },
+            "maxItems": 100,
+            "title": "Resolved Dates",
+            "type": "array"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "ResolvedParameters",
+        "type": "object"
+      },
       "RunContext": {
         "additionalProperties": false,
         "properties": {
@@ -2503,6 +2680,16 @@
             "maxItems": 200,
             "title": "Referenced Objects",
             "type": "array"
+          },
+          "resolved_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "semantic_version": {
             "minimum": 1.0,
@@ -2728,15 +2915,8 @@
         "additionalProperties": false,
         "properties": {
           "expected_revision": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Revision"
+            "title": "Expected Revision",
+            "type": "integer"
           },
           "parameters": {
             "additionalProperties": true,
@@ -2745,6 +2925,9 @@
             "type": "object"
           }
         },
+        "required": [
+          "expected_revision"
+        ],
         "title": "SavedQuestionRunRequest",
         "type": "object"
       },

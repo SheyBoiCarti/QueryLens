@@ -281,3 +281,119 @@ describe('SavedQuestionsManager (Task 11)', () => {
     expect(await screen.findByText(/table public\.customers was modified; review required/i)).toBeInTheDocument();
   });
 });
+
+describe('Saved question review regressions', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  it('authors a subset of slots with typed defaults and category choices over HTTP', async () => {
+    let savedBody: any;
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, options: RequestInit = {}) => {
+      if (options.method === 'POST') {
+        savedBody = JSON.parse(String(options.body));
+        return json(sampleDetail, 201);
+      }
+      return json({ definitions: sampleDefinitions, template_fingerprint: 'fp' });
+    }));
+    const close = vi.fn();
+    render(<SavedQuestionsModal sourceQueryId="q-1" onClose={close} />);
+    await screen.findByDisplayValue('Customer Country');
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Authored' } });
+    fireEvent.click(screen.getByLabelText('Expose order_date filter'));
+    fireEvent.change(screen.getByLabelText('country allowed choices'), { target: { value: 'USA\nUK' } });
+    fireEvent.change(screen.getByLabelText('Result Limit'), { target: { value: '200' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Question' }));
+    await waitFor(() => expect(close).toHaveBeenCalled());
+    expect(savedBody.parameters.map((p: ParameterDefinition) => p.name)).toEqual(['country', 'result_count']);
+    expect(savedBody.parameters[0].allowed_values).toEqual(['USA', 'UK']);
+    expect(savedBody.parameters[1].default_value).toBe(200);
+  });
+
+  it('edits definitions, explicitly replaces a revision, and asks for a variation', async () => {
+    const patches: any[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options: RequestInit = {}) => {
+      if (options.method === 'PATCH') {
+        patches.push(JSON.parse(String(options.body)));
+        return json({ ...sampleDetail, revision: 2 + patches.length });
+      }
+      return json(url.includes('?') ? { items: [sampleDetail], next_cursor: null } : sampleDetail);
+    }));
+    const variation = vi.fn();
+    render(<SavedQuestionsManager connectionId="conn-1" onRunAccepted={vi.fn()} onAskVariation={variation} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View or Run' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit definition' }));
+    fireEvent.change(screen.getByLabelText('Saved question title'), { target: { value: 'Updated' } });
+    fireEvent.change(screen.getByLabelText('country display label'), { target: { value: 'Country' } });
+    fireEvent.click(screen.getByLabelText('Expose order_date filter'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save definition' }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].expected_revision).toBe(2);
+    expect(patches[0].parameters).toHaveLength(2);
+    expect(patches[0].parameters[0].label).toBe('Country');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit definition' }));
+    fireEvent.change(screen.getByLabelText('Successful replacement run'), { target: { value: 'completed-42' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Replace stored SQL from run' }));
+    await waitFor(() => expect(patches).toHaveLength(2));
+    expect(patches[1]).toEqual({ expected_revision: 3, replacement_query_id: 'completed-42' });
+    await screen.findByRole('button', { name: 'Ask for a variation' });
+    fireEvent.change(screen.getByLabelText('Variation request'), { target: { value: 'Show only UK' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a variation' }));
+    expect(variation).toHaveBeenCalledWith(expect.stringContaining(sampleDetail.effective_question));
+  });
+
+  it('uses search and cursor pagination and ignores delayed connection responses', async () => {
+    const urls: string[] = [];
+    let resolveOld: (response: Response) => void = () => {};
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      urls.push(url);
+      if (url.includes('connection_id=old')) return new Promise<Response>((resolve) => { resolveOld = resolve; });
+      if (url.includes('cursor=')) return Promise.resolve(json({ items: [{ ...sampleDetail, id: 'next', title: 'Next page' }], next_cursor: null }));
+      return Promise.resolve(json({ items: [sampleDetail], next_cursor: 'cursor-2' }));
+    }));
+    const { rerender } = render(<SavedQuestionsManager connectionId="old" onRunAccepted={vi.fn()} />);
+    rerender(<SavedQuestionsManager connectionId="conn-1" onRunAccepted={vi.fn()} />);
+    await screen.findByText(sampleDetail.title);
+    resolveOld(json({ items: [{ ...sampleDetail, title: 'Stale connection' }], next_cursor: null }));
+    fireEvent.change(screen.getByPlaceholderText('Search saved questions...'), { target: { value: 'monthly' } });
+    await waitFor(() => expect(urls.some((url) => url.includes('search=monthly'))).toBe(true));
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more saved questions' }));
+    await screen.findByText('Next page');
+    expect(urls.some((url) => url.includes('cursor=cursor-2') && url.includes('search=monthly'))).toBe(true);
+    expect(screen.queryByText('Stale connection')).not.toBeInTheDocument();
+  });
+
+  it('keeps integer category entry numeric and rejects fractional entries', () => {
+    const onChange = vi.fn();
+    render(<SavedQuestionFilters parameters={[{ ...sampleDefinitions[0], source_type: 'integer', default_value: 1, allowed_values: null }]}
+      values={{ country: 1 }} onChange={onChange} />);
+    const input = screen.getByLabelText('Customer Country');
+    fireEvent.change(input, { target: { value: '2' } });
+    expect(onChange).toHaveBeenCalledWith('country', 2);
+    onChange.mockClear();
+    fireEvent.change(input, { target: { value: '2.5' } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+it('submits reviewed SQL as a new manual run without updating the saved definition', async () => {
+  const writes: { url: string; body: any }[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options: RequestInit = {}) => {
+    if (options.method === 'POST' || options.method === 'PATCH') {
+      writes.push({ url, body: JSON.parse(String(options.body)) });
+      return new Response(JSON.stringify({ query_id: 'reviewed-run', status: 'queued' }), { status: 202 });
+    }
+    return new Response(JSON.stringify(url.includes('?') ? { items: [sampleDetail], next_cursor: null } : sampleDetail));
+  }));
+  const accepted = vi.fn();
+  try {
+    render(<SavedQuestionsManager connectionId="conn-1" onRunAccepted={accepted} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View or Run' }));
+    const editor = await screen.findByLabelText('SQL for saved question review');
+    fireEvent.change(editor, { target: { value: 'SELECT id FROM public.customers WHERE id > 2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run SQL for review' }));
+    await waitFor(() => expect(accepted).toHaveBeenCalledWith('reviewed-run'));
+    expect(writes).toEqual([{ url: '/api/v1/queries/sql', body: {
+      connection_id: 'conn-1', sql: 'SELECT id FROM public.customers WHERE id > 2', max_rows: 100,
+    } }]);
+  } finally { vi.unstubAllGlobals(); }
+});

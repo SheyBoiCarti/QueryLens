@@ -101,7 +101,7 @@ async def create_query(
         snapshot = await run_db(CatalogService().get_catalog, user_id, payload.connection_id)
         semantics = await run_db(load_semantic_context, user_id, snapshot)
         try:
-            await run_db(
+            followup = await run_db(
                 resolve_followup_context,
                 payload.parent_query_id,
                 user_id,
@@ -110,6 +110,11 @@ async def create_query(
                 semantics,
                 payload.question,
             )
+            from querylens.pipeline.context import ContextBudgetError, build_query_context
+            try:
+                await run_db(build_query_context, snapshot, payload.question, get_settings().max_input_tokens, semantics, followup)
+            except ContextBudgetError as exc:
+                raise FollowUpContextOversized(str(exc)) from exc
         except FollowUpContextStale as exc:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
@@ -179,6 +184,7 @@ def get_query(
         },
         "state_version": run["state_version"],
         "question": run["question"],
+        "max_rows": run["max_rows"],
         "created_at": run["created_at"].isoformat()
         if hasattr(run["created_at"], "isoformat")
         else str(run["created_at"]),
@@ -233,6 +239,8 @@ def get_query(
                 }
             )
             base_response["context"] = context
+            if context.resolved_parameters:
+                last_sql = context.canonical_sql_template
 
         cached = (entry.columns, entry.rows) if entry is not None else None
 
@@ -241,6 +249,12 @@ def get_query(
             cols, rows = cached
             base_response["results_expires_at"] = entry.results_expires_at.isoformat()
             if context is not None:
+                chart_preference = None
+                if run.get("saved_definition_json"):
+                    try:
+                        chart_preference = json.loads(run["saved_definition_json"]).get("chart_preference")
+                    except (TypeError, ValueError):
+                        chart_preference = None
                 base_response["presentation"] = derive_presentation(
                     cols,
                     rows,
@@ -248,6 +262,7 @@ def get_query(
                     base_response["origin"],
                     bool(run.get("truncated")),
                     semantics=semantics,
+                    chart_preference=chart_preference,
                 )
             base_response.update(
                 {
@@ -352,10 +367,7 @@ def get_query_parameters(
             pass
 
     definitions = extract_eligible_parameters(
-        template_sql,
-        snapshot,
-        snapshot.engine,
-        author_limit,
+        template_sql, snapshot, snapshot.engine, author_limit,
         default_max_rows=run.get("max_rows", 100),
     )
     template_fingerprint = hashlib.sha256(template_sql.strip().encode("utf-8")).hexdigest()
