@@ -362,3 +362,25 @@ def test_boolean_category_uses_boolean_ast_literal(catalog_snapshot):
     assert compiled.token.bindings[0].value is False
     ambiguous = extract_eligible_parameters("SELECT id FROM orders WHERE active = 'true'", catalog_snapshot, "mysql", None)
     assert all(item.param_type != "category" for item in ambiguous)
+
+
+@pytest.mark.parametrize("predicate,name,default,path", [
+    ("'pending' = status AND id = 2", "status", "pending", "where.0"),
+    ("order_date = '2026-01-01' AND status = 'pending'", "status", "pending", "where.1"),
+    ("status = TRUE AND id = 2", "id", 2, "where.1"),
+])
+def test_discovery_keeps_first_eligible_category_and_its_predicate_path(catalog_snapshot, predicate, name, default, path):
+    sql = f"SELECT id FROM orders WHERE {predicate}"
+    definitions = extract_eligible_parameters(sql, catalog_snapshot, "postgresql", None)
+    categories = [item for item in definitions if item.param_type == "category"]
+    assert len(categories) == 1
+    category = categories[0]
+    assert category.name == name
+    assert category.default_value == default
+    assert category.target.predicate_path == path
+
+    compiled = compile_parameterized_query(
+        sql, tuple(definitions), {}, catalog_snapshot, "conn_1", "postgresql", 100, None,
+        dt.datetime.now(dt.UTC),
+    )
+    assert compiled.token.bindings[0].value == default

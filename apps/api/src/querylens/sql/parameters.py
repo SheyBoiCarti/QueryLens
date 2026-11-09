@@ -146,14 +146,14 @@ def extract_eligible_parameters(
 
     # Only a single root SELECT is supported. Resolve aliases to visible
     # physical catalog objects before exposing any predicate as a slot.
-    if isinstance(ast, exp.Select):
-        # Reject if HAVING is present
-        if ast.args.get("having") is None and len(list(ast.find_all(exp.Select))) == 1:
-            where_node = ast.args.get("where")
-            if where_node is not None:
-                # If there are any OR nodes in WHERE, reject WHERE predicates
-                if not where_node.find(exp.Or):
-                    _extract_where_predicates(ast, where_node.this, snapshot, definitions)
+    if (
+        isinstance(ast, exp.Select)
+        and ast.args.get("having") is None
+        and len(list(ast.find_all(exp.Select))) == 1
+    ):
+        where_node = ast.args.get("where")
+        if where_node is not None and not where_node.find(exp.Or):
+            _extract_where_predicates(ast, where_node.this, snapshot, definitions)
 
     # Result count is server-owned and always included
     if author_limit != 0:
@@ -179,17 +179,7 @@ def _extract_where_predicates(
     snapshot: CatalogSnapshot,
     definitions: list[ParameterDefinition],
 ) -> None:
-    # Flatten conjunctive ANDs
-    conjuncts: list[exp.Expression] = []
-
-    def _collect_and(node: Any) -> None:
-        if isinstance(node, exp.And):
-            _collect_and(node.left)
-            _collect_and(node.right)
-        else:
-            conjuncts.append(node)
-
-    _collect_and(where_expr)
+    conjuncts = _conjuncts(where_expr)
 
     # Find table lookup helper
     table_lookup: dict[str, Any] = {}
@@ -224,76 +214,44 @@ def _extract_where_predicates(
     for idx, c in enumerate(conjuncts):
         # 1. Equality predicate (category candidate)
         if isinstance(c, exp.EQ) and not category_added:
-            col_node = c.left if isinstance(c.left, exp.Column) else (c.right if isinstance(c.right, exp.Column) else None)
-            lit_node = c.right if isinstance(c.right, (exp.Literal, exp.Boolean)) else (c.left if isinstance(c.left, (exp.Literal, exp.Boolean)) else None)
-            if col_node and lit_node:
-                col_name = col_node.name
-                table_meta = _resolve_column_table(col_node, table_lookup, snapshot)
-                if table_meta:
-                    col_meta = next((cm for cm in table_meta.columns if cm.name == col_name), None)
-                    if col_meta and col_meta.canonical_type in ("string", "integer", "float", "boolean"):
-                        if isinstance(lit_node, exp.Boolean) and col_meta.canonical_type != "boolean":
-                            continue
-                        if col_meta.canonical_type == "boolean" and not isinstance(lit_node, exp.Boolean):
-                            continue  # String-to-boolean coercion differs across source engines.
-                        default_val: Any = lit_node.this
-                        if col_meta.canonical_type == "integer":
-                            try:
-                                default_val = int(lit_node.this)
-                            except ValueError:
-                                pass
-                        elif col_meta.canonical_type in ("float", "decimal"):
-                            try:
-                                default_val = float(lit_node.this)
-                            except ValueError:
-                                pass
-                        elif col_meta.canonical_type == "boolean":
-                            default_val = str(lit_node.this).lower() in ("true", "1")
-
-                        definitions.append(
-                            ParameterDefinition(
-                                slot_id=f"category_{col_name}",
-                                name=col_name,
-                                label=col_name.replace("_", " ").title(),
-                                param_type="category",
-                                source_type=col_meta.canonical_type,
-                                target=ParameterTarget(
-                                    scope="root",
-                                    predicate_path=f"where.{idx}",
-                                    namespace=table_meta.namespace or "public",
-                                    table_name=table_meta.name,
-                                    column_name=col_meta.name,
-                                    db_type=col_meta.db_type,
-                                    operator="=",
-                                ),
-                                default_value=default_val,
-                            )
-                        )
-                        category_added = True
-                        continue
+            category = _extract_category_parameter(c, idx, table_lookup, snapshot)
+            if category is not None:
+                definitions.append(category)
+                category_added = True
+                continue
 
         # 2. Date comparisons (GTE, GT, LTE, LT)
-        if isinstance(c, (exp.GTE, exp.GT, exp.LTE, exp.LT)):
-            col_node = c.left if isinstance(c.left, exp.Column) else None
-            lit_node = c.right if isinstance(c.right, exp.Literal) else None
-            if col_node and lit_node:
-                col_name = col_node.name
-                table_meta = _resolve_column_table(col_node, table_lookup, snapshot)
-                if table_meta:
-                    col_meta = next((cm for cm in table_meta.columns if cm.name == col_name), None)
-                    if col_meta and col_meta.canonical_type in ("date", "datetime"):
-                        op_name = ">=" if isinstance(c, exp.GTE) else (">" if isinstance(c, exp.GT) else ("<=" if isinstance(c, exp.LTE) else "<"))
-                        key = (table_meta.namespace, table_meta.name, col_name)
-                        entry = date_candidates.setdefault(key, {
-                            "col_meta": col_meta,
-                            "table_meta": table_meta,
-                            "ops": {},
-                        })
-                        if len(lit_node.this) != 10:
-                            continue
-                        if op_name in entry["ops"]:
-                            entry["ops"]["duplicate"] = True
-                        entry["ops"][op_name] = (idx, lit_node.this)
+        if not isinstance(c, (exp.GTE, exp.GT, exp.LTE, exp.LT)):
+            continue
+        if not isinstance(c.left, exp.Column) or not isinstance(c.right, exp.Literal):
+            continue
+        col_node, lit_node = c.left, c.right
+        table_meta = _resolve_column_table(col_node, table_lookup, snapshot)
+        if table_meta is None:
+            continue
+        col_meta = next((cm for cm in table_meta.columns if cm.name == col_node.name), None)
+        if col_meta is None or col_meta.canonical_type not in ("date", "datetime"):
+            continue
+
+        if isinstance(c, exp.GTE):
+            op_name = ">="
+        elif isinstance(c, exp.GT):
+            op_name = ">"
+        elif isinstance(c, exp.LTE):
+            op_name = "<="
+        else:
+            op_name = "<"
+        key = (table_meta.namespace, table_meta.name, col_node.name)
+        entry = date_candidates.setdefault(key, {
+            "col_meta": col_meta,
+            "table_meta": table_meta,
+            "ops": {},
+        })
+        if len(lit_node.this) != 10:
+            continue
+        if op_name in entry["ops"]:
+            entry["ops"]["duplicate"] = True
+        entry["ops"][op_name] = (idx, lit_node.this)
 
     # Process date candidates into date_range parameters
     for identity, info in date_candidates.items():
@@ -349,6 +307,69 @@ def _extract_where_predicates(
                     },
                 )
             )
+
+
+def _extract_category_parameter(
+    predicate: exp.EQ,
+    index: int,
+    table_lookup: dict[str, Any],
+    snapshot: CatalogSnapshot,
+) -> ParameterDefinition | None:
+    if isinstance(predicate.left, exp.Column):
+        column = predicate.left
+    elif isinstance(predicate.right, exp.Column):
+        column = predicate.right
+    else:
+        return None
+
+    if isinstance(predicate.right, (exp.Literal, exp.Boolean)):
+        literal = predicate.right
+    elif isinstance(predicate.left, (exp.Literal, exp.Boolean)):
+        literal = predicate.left
+    else:
+        return None
+
+    table = _resolve_column_table(column, table_lookup, snapshot)
+    if table is None:
+        return None
+    metadata = next((item for item in table.columns if item.name == column.name), None)
+    if metadata is None or metadata.canonical_type not in ("string", "integer", "float", "boolean"):
+        return None
+    # String-to-boolean coercion differs across source engines.
+    if isinstance(literal, exp.Boolean) != (metadata.canonical_type == "boolean"):
+        return None
+
+    default_value: Any = literal.this
+    if metadata.canonical_type == "integer":
+        try:
+            default_value = int(literal.this)
+        except ValueError:
+            pass
+    elif metadata.canonical_type in ("float", "decimal"):
+        try:
+            default_value = float(literal.this)
+        except ValueError:
+            pass
+    elif metadata.canonical_type == "boolean":
+        default_value = str(literal.this).lower() in ("true", "1")
+
+    return ParameterDefinition(
+        slot_id=f"category_{column.name}",
+        name=column.name,
+        label=column.name.replace("_", " ").title(),
+        param_type="category",
+        source_type=metadata.canonical_type,
+        target=ParameterTarget(
+            scope="root",
+            predicate_path=f"where.{index}",
+            namespace=table.namespace or "public",
+            table_name=table.name,
+            column_name=metadata.name,
+            db_type=metadata.db_type,
+            operator="=",
+        ),
+        default_value=default_value,
+    )
 
 
 def _resolve_column_table(

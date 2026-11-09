@@ -242,11 +242,21 @@ def get_query(
             if context.resolved_parameters:
                 last_sql = context.canonical_sql_template
 
-        cached = (entry.columns, entry.rows) if entry is not None else None
+        base_response.update(
+            {
+                "dialect": catalog.engine,
+                "sql": last_sql,
+                "assumptions": json.loads(run.get("assumptions") or "[]"),
+                "warnings": json.loads(run.get("warnings") or "[]"),
+                "columns": [],
+                "row_count": 0,
+                "truncated": False,
+                "results_available": False,
+            }
+        )
 
-        if cached is not None:
-            assert entry is not None
-            cols, rows = cached
+        if entry is not None:
+            cols, rows = entry.columns, entry.rows
             base_response["results_expires_at"] = entry.results_expires_at.isoformat()
             if context is not None:
                 chart_preference = None
@@ -266,28 +276,11 @@ def get_query(
                 )
             base_response.update(
                 {
-                    "dialect": catalog.engine,
-                    "sql": last_sql,
-                    "assumptions": json.loads(run.get("assumptions") or "[]"),
-                    "warnings": json.loads(run.get("warnings") or "[]"),
                     "columns": cols,
                     "row_count": len(rows),
                     "truncated": bool(run.get("truncated")),
                     "results_available": True,
                     "rows": rows,
-                }
-            )
-        else:
-            base_response.update(
-                {
-                    "dialect": catalog.engine,
-                    "sql": last_sql,
-                    "assumptions": json.loads(run.get("assumptions") or "[]"),
-                    "warnings": json.loads(run.get("warnings") or "[]"),
-                    "columns": [],
-                    "row_count": 0,
-                    "truncated": False,
-                    "results_available": False,
                 }
             )
 

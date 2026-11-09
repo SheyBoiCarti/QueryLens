@@ -322,3 +322,53 @@ def test_save_and_update_verify_server_discovered_targets(analytics_env, complet
                                      json={"expected_revision": 1, "parameters": [category]})
     assert forged_update.status_code == 422, forged_update.text
     assert env.client.get(f"/api/v1/saved-questions/{saved['id']}").json()["revision"] == 1
+
+
+@pytest.mark.parametrize("context_kind", ["current", "missing", "malformed"])
+def test_replacement_preserves_the_same_provenance_as_a_fresh_save(analytics_env, completed_run, context_kind):
+    import json
+    from querylens.persistence.repositories.saved_questions import SavedQuestionRepository
+    from querylens.persistence.tables import query_runs
+
+    env = analytics_env
+    original = completed_run()
+    saved = env.client.post("/api/v1/saved-questions", headers=env.headers, json={
+        "source_query_id": original["id"], "title": "Replace me",
+    }).json()
+    source = completed_run(sql="SELECT id FROM public.customers LIMIT 0", max_rows=37)
+    context = json.loads(source["run_context_json"])
+    context["author_limit"] = 0
+    context["semantic_version"] = 5
+    raw_context = {"current": json.dumps(context), "missing": None, "malformed": "{"}[context_kind]
+    with env.engine.begin() as conn:
+        conn.execute(query_runs.update().where(query_runs.c.id == source["id"]).values(run_context_json=raw_context))
+
+    replaced = env.client.patch(f"/api/v1/saved-questions/{saved['id']}", headers=env.headers, json={
+        "expected_revision": 1, "replacement_query_id": source["id"], "parameters": [],
+    })
+    assert replaced.status_code == 200, replaced.text
+    fresh = env.client.post("/api/v1/saved-questions", headers=env.headers, json={
+        "source_query_id": source["id"], "title": "Fresh save",
+    })
+    assert fresh.status_code == 201, fresh.text
+
+    repo = SavedQuestionRepository()
+    replaced_record = repo.get(saved["id"], env.owner_id)
+    fresh_record = repo.get(fresh.json()["id"], env.owner_id)
+    for field in (
+        "canonical_sql_template", "effective_question", "referenced_objects_json", "metric_references_json",
+        "label_references_json", "snapshot_hash", "policy_version", "semantic_version", "author_limit", "default_max_rows",
+    ):
+        assert replaced_record[field] == fresh_record[field], field
+    assert replaced_record["default_max_rows"] == 37
+    assert replaced_record["snapshot_hash"] == env.snapshot.snapshot_hash
+    if context_kind == "current":
+        assert replaced_record["canonical_sql_template"] == context["canonical_sql_template"]
+        assert replaced_record["author_limit"] == 0
+        assert replaced_record["semantic_version"] == 5
+        assert json.loads(replaced_record["referenced_objects_json"]) == context["referenced_objects"]
+    else:
+        assert replaced_record["canonical_sql_template"] == source["canonical_sql"]
+        assert replaced_record["author_limit"] is None
+        assert replaced_record["semantic_version"] == 1
+        assert json.loads(replaced_record["referenced_objects_json"]) == []

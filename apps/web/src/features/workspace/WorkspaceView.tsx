@@ -28,11 +28,8 @@ export function WorkspaceView({
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
   const [loadingConnections, setLoadingConnections] = useState(true);
 
-  // Separated selection and execution state (Task 10)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialQueryId || null);
   const [inFlightRunId, setInFlightRunId] = useState<string | null>(null);
-  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
-  void selectedParentId;
   const [lastSuccessfulRunId, setLastSuccessfulRunId] = useState<string | null>(null);
   const [loadedRuns, setLoadedRuns] = useState<Record<string, PublicRun>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -164,22 +161,12 @@ export function WorkspaceView({
           return { ...previous, [targetId]: run };
         });
 
-        if (run.status === 'completed') {
-          if (run.results_available) {
-            setLastSuccessfulRunId(run.query_id);
-          }
-          if (run.parent_query_id) {
-            setSelectedParentId(run.parent_query_id);
-          }
-          if (inFlightRunId === targetId) {
-            setSelectedRunId(targetId);
-            setInFlightRunId(null);
-          }
-        } else if (terminal.has(run.status)) {
-          if (inFlightRunId === targetId) {
-            setSelectedRunId(targetId);
-            setInFlightRunId(null);
-          }
+        if (run.status === 'completed' && run.results_available) {
+          setLastSuccessfulRunId(run.query_id);
+        }
+        if (terminal.has(run.status) && inFlightRunId === targetId) {
+          setSelectedRunId(targetId);
+          setInFlightRunId(null);
         }
 
         setPollError(null);
@@ -353,11 +340,43 @@ export function WorkspaceView({
     confirmDiscardIfDirty(() => {
       setSelectedRunId(null);
       setInFlightRunId(null);
-      setSelectedParentId(null);
       onActiveQueryChange?.(null);
       setFollowUpError(null);
     });
   };
+
+  async function handleRerun(run: PublicRunCompleted): Promise<void> {
+    const resolved = run.context?.resolved_parameters;
+    const maxRows = resolved?.max_rows ?? run.max_rows ?? 100;
+    const savedQuestion = run.origin === 'saved_question' && run.saved_question_id;
+
+    try {
+      let response: { query_id: string };
+      if (savedQuestion) {
+        response = await api.post(`/api/v1/saved-questions/${run.saved_question_id}/run`, {
+          parameters: resolved?.values ?? {},
+          expected_revision: run.saved_question_version,
+        });
+      } else if (run.origin === 'manual_sql' && run.sql) {
+        response = await api.post('/api/v1/queries/sql', {
+          connection_id: run.connection_id,
+          sql: run.sql,
+          source_query_id: run.query_id,
+          max_rows: maxRows,
+        });
+      } else {
+        response = await api.post('/api/v1/queries', {
+          connection_id: run.connection_id,
+          question: run.question,
+          parent_query_id: run.origin === 'follow_up' ? run.parent_query_id : undefined,
+          max_rows: maxRows,
+        });
+      }
+      submitted(response.query_id);
+    } catch {
+      setPollError(savedQuestion ? 'Saved question rerun failed' : 'Rerun failed');
+    }
+  }
 
   const retainedRun = selectedRunId ? loadedRuns[selectedRunId] || null : null;
   const selectedRun = retainedRun?.status === 'completed' && retainedRun.results_expires_at
@@ -528,47 +547,18 @@ export function WorkspaceView({
           )}
 
           <AnswerPresentation
-            run={selectedRun as PublicRunCompleted}
+            run={selectedRun}
             draftValue={drafts[selectedRun.query_id]}
             onRunSql={handleRunSql}
             onDraftChange={(draft) => {
               setDrafts((prev) => ({ ...prev, [selectedRun.query_id]: draft }));
             }}
             disabled={running}
-            onRerun={() => {
-              const resolved = selectedRun.context?.resolved_parameters;
-              const maxRows = resolved?.max_rows ?? selectedRun.max_rows ?? 100;
-              if (selectedRun.origin === 'saved_question' && selectedRun.saved_question_id) {
-                api.post<{ query_id: string }>(`/api/v1/saved-questions/${selectedRun.saved_question_id}/run`, {
-                  parameters: resolved?.values ?? {},
-                  expected_revision: selectedRun.saved_question_version,
-                })
-                  .then((res) => submitted(res.query_id))
-                  .catch(() => setPollError('Saved question rerun failed'));
-              } else if (selectedRun.origin === 'manual_sql' && selectedRun.sql) {
-                api.post<{ query_id: string }>('/api/v1/queries/sql', {
-                  connection_id: selectedRun.connection_id,
-                  sql: selectedRun.sql,
-                  source_query_id: selectedRun.query_id,
-                  max_rows: maxRows,
-                })
-                  .then((res) => submitted(res.query_id))
-                  .catch(() => setPollError('Rerun failed'));
-              } else {
-                api.post<{ query_id: string }>('/api/v1/queries', {
-                  connection_id: selectedRun.connection_id,
-                  question: selectedRun.question,
-                  parent_query_id: selectedRun.origin === 'follow_up' ? selectedRun.parent_query_id : undefined,
-                  max_rows: maxRows,
-                })
-                  .then((res) => submitted(res.query_id))
-                  .catch(() => setPollError('Rerun failed'));
-              }
-            }}
+            onRerun={() => void handleRerun(selectedRun)}
           />
 
           <FollowUpBar
-            parent={selectedRun as PublicRunCompleted}
+            parent={selectedRun}
             onSubmit={handleFollowUpSubmit}
             onStartNewQuestion={handleStartNewQuestion}
             disabled={running}

@@ -42,17 +42,10 @@ from querylens.sql.parameters import (
 router = APIRouter(prefix="/saved-questions", tags=["saved_questions"])
 
 
-def _format_detail(saved: dict[str, Any]) -> SavedQuestionDetail:
-    raw_defs = json.loads(saved.get("parameter_definitions_json") or "[]")
-    parameters = [ParameterDefinition.model_validate(d) for d in raw_defs]
-
-    ref_objects = json.loads(saved.get("referenced_objects_json") or "[]")
-    ref_metrics = json.loads(saved.get("metric_references_json") or "[]")
-
-    c_at = saved["created_at"]
-    u_at = saved["updated_at"]
-
-    return SavedQuestionDetail(
+def _format_summary(saved: dict[str, Any]) -> SavedQuestionSummary:
+    created_at = saved["created_at"]
+    updated_at = saved["updated_at"]
+    return SavedQuestionSummary(
         id=saved["id"],
         connection_id=saved["connection_id"],
         title=saved["title"],
@@ -60,14 +53,44 @@ def _format_detail(saved: dict[str, Any]) -> SavedQuestionDetail:
         chart_preference=saved.get("chart_preference"),
         default_max_rows=saved.get("default_max_rows", 100),
         revision=saved.get("revision", 1),
-        created_at=c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at),
-        updated_at=u_at.isoformat() if hasattr(u_at, "isoformat") else str(u_at),
+        created_at=created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+        updated_at=updated_at.isoformat() if hasattr(updated_at, "isoformat") else str(updated_at),
+    )
+
+
+def _format_detail(saved: dict[str, Any]) -> SavedQuestionDetail:
+    raw_defs = json.loads(saved.get("parameter_definitions_json") or "[]")
+    return SavedQuestionDetail(
+        **_format_summary(saved).model_dump(),
         canonical_sql_template=saved["canonical_sql_template"],
         effective_question=saved["effective_question"],
-        parameters=parameters,
-        referenced_objects=ref_objects,
-        metric_references=ref_metrics,
+        parameters=[ParameterDefinition.model_validate(d) for d in raw_defs],
+        referenced_objects=json.loads(saved.get("referenced_objects_json") or "[]"),
+        metric_references=json.loads(saved.get("metric_references_json") or "[]"),
     )
+
+
+def _definition_from_run(run: dict[str, Any]) -> dict[str, Any]:
+    """Copy completed-run provenance, retaining fallbacks for legacy runs."""
+    context: dict[str, Any] = {}
+    if run.get("run_context_json"):
+        try:
+            context = json.loads(run["run_context_json"])
+        except Exception:
+            pass
+
+    return {
+        "canonical_sql_template": context.get("canonical_sql_template") or run.get("canonical_sql") or "",
+        "effective_question": context.get("effective_question") or run.get("question") or "",
+        "referenced_objects_json": json.dumps(context.get("referenced_objects") or []),
+        "metric_references_json": json.dumps(context.get("metric_references") or []),
+        "label_references_json": json.dumps(context.get("label_references") or []),
+        "snapshot_hash": context.get("snapshot_hash") or run.get("snapshot_hash") or "",
+        "policy_version": context.get("policy_version") or run.get("policy_version") or 1,
+        "semantic_version": context.get("semantic_version") or 1,
+        "author_limit": context.get("author_limit"),
+        "default_max_rows": run.get("max_rows", 100),
+    }
 
 
 @router.post("", response_model=SavedQuestionDetail, status_code=status.HTTP_201_CREATED)
@@ -87,27 +110,11 @@ def create_saved_question(
 
     verify_connection_ownership(run["connection_id"], user_id)
 
-    ctx: dict[str, Any] = {}
-    if run.get("run_context_json"):
-        try:
-            ctx = json.loads(run["run_context_json"])
-        except Exception:
-            pass
-
-    template_sql = ctx.get("canonical_sql_template") or run.get("canonical_sql") or ""
-    effective_question = ctx.get("effective_question") or run.get("question") or ""
-    ref_objects = ctx.get("referenced_objects") or []
-    ref_metrics = ctx.get("metric_references") or []
-    ref_labels = ctx.get("label_references") or []
-    snapshot_hash = ctx.get("snapshot_hash") or run.get("snapshot_hash") or ""
-    policy_version = ctx.get("policy_version") or run.get("policy_version") or 1
-    semantic_version = ctx.get("semantic_version") or 1
-    author_limit = ctx.get("author_limit")
-
+    definition = _definition_from_run(run)
     snapshot = CatalogService().get_catalog(user_id, run["connection_id"])
     discovered = extract_eligible_parameters(
-        template_sql, snapshot, snapshot.engine, author_limit,
-        default_max_rows=int(run.get("max_rows", 100)),
+        definition["canonical_sql_template"], snapshot, snapshot.engine, definition["author_limit"],
+        default_max_rows=int(definition["default_max_rows"]),
     )
     try:
         verify_parameter_definitions(tuple(payload.parameters), discovered)
@@ -125,19 +132,10 @@ def create_saved_question(
         "user_id": user_id,
         "title": payload.title,
         "description": payload.description,
-        "canonical_sql_template": template_sql,
-        "effective_question": effective_question,
+        **definition,
         "parameter_definitions_json": param_defs_json,
         "parameter_defaults_json": param_defaults_json,
-        "default_max_rows": run.get("max_rows", 100),
         "chart_preference": payload.chart_preference,
-        "referenced_objects_json": json.dumps(ref_objects),
-        "metric_references_json": json.dumps(ref_metrics),
-        "label_references_json": json.dumps(ref_labels),
-        "snapshot_hash": snapshot_hash,
-        "policy_version": policy_version,
-        "semantic_version": semantic_version,
-        "author_limit": author_limit,
         "revision": 1,
         "created_at": now,
         "updated_at": now,
@@ -167,25 +165,7 @@ def list_saved_questions(
         limit=limit,
     )
 
-    summaries = []
-    for item in items:
-        c_at = item["created_at"]
-        u_at = item["updated_at"]
-        summaries.append(
-            SavedQuestionSummary(
-                id=item["id"],
-                connection_id=item["connection_id"],
-                title=item["title"],
-                description=item.get("description"),
-                chart_preference=item.get("chart_preference"),
-                default_max_rows=item.get("default_max_rows", 100),
-                revision=item.get("revision", 1),
-                created_at=c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at),
-                updated_at=u_at.isoformat() if hasattr(u_at, "isoformat") else str(u_at),
-            )
-        )
-
-    return SavedQuestionListResponse(items=summaries, next_cursor=next_cursor)
+    return SavedQuestionListResponse(items=[_format_summary(item) for item in items], next_cursor=next_cursor)
 
 
 @router.get("/{saved_question_id}", response_model=SavedQuestionDetail)
@@ -230,23 +210,7 @@ def update_saved_question(
         if run["status"] != "completed" or run["connection_id"] != existing["connection_id"]:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Replacement must be a completed run on same connection")
 
-        ctx: dict[str, Any] = {}
-        if run.get("run_context_json"):
-            try:
-                ctx = json.loads(run["run_context_json"])
-            except Exception:
-                pass
-
-        changes["canonical_sql_template"] = ctx.get("canonical_sql_template") or run.get("canonical_sql") or ""
-        changes["effective_question"] = ctx.get("effective_question") or run.get("question") or ""
-        changes["referenced_objects_json"] = json.dumps(ctx.get("referenced_objects") or [])
-        changes["metric_references_json"] = json.dumps(ctx.get("metric_references") or [])
-        changes["label_references_json"] = json.dumps(ctx.get("label_references") or [])
-        changes["snapshot_hash"] = ctx.get("snapshot_hash") or run.get("snapshot_hash") or ""
-        changes["policy_version"] = ctx.get("policy_version") or run.get("policy_version") or 1
-        changes["semantic_version"] = ctx.get("semantic_version") or 1
-        changes["author_limit"] = ctx.get("author_limit")
-        changes["default_max_rows"] = run.get("max_rows", 100)
+        changes.update(_definition_from_run(run))
 
     if payload.parameters is not None or payload.replacement_query_id is not None:
         snapshot = CatalogService().get_catalog(user_id, existing["connection_id"])
