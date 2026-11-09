@@ -148,3 +148,26 @@ For operational runbooks, backup/restore procedures, and key rotation details, s
 ## License
 
 Proprietary and confidential. All rights reserved.
+
+### Connecting a database
+
+In **Connections**, add or edit a connection, paste the MySQL or PostgreSQL link
+from your provider into **Connection link**, and select **Use connection link**.
+QueryLens fills in the details, including the encryption setting. Save the connection
+and test it before selecting tables.
+
+Links using `sslmode=require` (PostgreSQL) or `ssl-mode=REQUIRED` (MySQL) use TLS
+without verifying the server certificate, matching the provider's requested mode.
+Links using `verify-ca`, `verify-full`, or MySQL `VERIFY_IDENTITY` retain certificate
+verification. Links without an SSL mode default to verifying the server identity.
+QueryLens never retries a verified connection with weaker security automatically.
+Existing connections retain their verification settings until edited.
+
+Most providers need no certificate file for verification. If your provider uses a
+private certificate authority, select its downloaded CA file under **Provider
+certificate**. For Aiven, download `ca.pem` from the service Overview page. Certificate
+files referenced by paths in a connection link cannot be read from your computer;
+use the file picker instead. Unsupported URL options are reported rather than ignored.
+
+Development startup applies the TLS settings migration automatically. For production,
+run the normal `alembic upgrade head` migration before starting the updated API.

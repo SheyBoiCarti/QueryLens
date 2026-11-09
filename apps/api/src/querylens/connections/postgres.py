@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from querylens.connections.models import TLSMode
+
 import re
 import psycopg
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 from querylens.connections.network import validate_destination_address
-from querylens.connections.tls import postgres_ca_file
+from querylens.connections.tls import certificate_failure_hint, postgres_ca_file
 from querylens.config import get_settings
 
 SUPPORTED_PG_VERSIONS = {16, 17, 18}
@@ -27,11 +29,12 @@ class PostgresAdapter:
         tls_enabled: bool = True,
         ca_cert: str | None = None,
         timeout_sec: float = 5.0,
+        tls_mode: TLSMode = "verify-full",
     ) -> tuple[bool, str, str]:
         """Test direct connection, server identity, and version capability check."""
         try:
             with PostgresAdapter.connect(
-                host, port, database, username, password, tls_enabled, ca_cert, timeout_sec
+                host, port, database, username, password, tls_enabled, ca_cert, timeout_sec, tls_mode=tls_mode
             ) as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT version();")
@@ -57,7 +60,7 @@ class PostgresAdapter:
             msg = str(e)
             if password and password in msg:
                 msg = msg.replace(password, "[REDACTED]")
-            return False, "", f"PostgreSQL connection test failed: {msg}"
+            return False, "", f"PostgreSQL connection test failed: {msg}{certificate_failure_hint(msg)}"
 
     @staticmethod
     def connect(
@@ -69,12 +72,13 @@ class PostgresAdapter:
         tls_enabled: bool = True,
         ca_cert: str | None = None,
         timeout_sec: float | None = None,
+        tls_mode: TLSMode = "verify-full",
     ):
         settings = get_settings()
         if settings.environment == "production" and not tls_enabled:
             raise ValueError("Production source connections require TLS")
         pinned_ip = validate_destination_address(host, port)
-        with postgres_ca_file(ca_cert) as ca_path:
+        with postgres_ca_file(ca_cert, tls_mode) as ca_path:
             return psycopg.connect(
                 host=host,
                 hostaddr=pinned_ip,
@@ -82,7 +86,7 @@ class PostgresAdapter:
                 dbname=database,
                 user=username,
                 password=password,
-                sslmode="verify-full" if tls_enabled else "disable",
+                sslmode=tls_mode if tls_enabled else "disable",
                 sslrootcert=ca_path,
                 connect_timeout=max(1, int(timeout_sec or settings.connect_timeout_sec)),
             )
@@ -96,11 +100,14 @@ class PostgresAdapter:
         password: str,
         tls_enabled: bool = True,
         ca_cert: str | None = None,
+        tls_mode: TLSMode = "verify-full",
     ) -> Engine:
         settings = get_settings()
         return create_engine(
             "postgresql+psycopg://",
-            creator=lambda: PostgresAdapter.connect(host, port, database, username, password, tls_enabled, ca_cert),
+            creator=lambda: PostgresAdapter.connect(
+                host, port, database, username, password, tls_enabled, ca_cert, tls_mode=tls_mode
+            ),
             pool_size=settings.per_source_active_jobs,
             max_overflow=0,
             pool_timeout=settings.pool_acquire_timeout_sec,

@@ -347,6 +347,16 @@
             "title": "Tls Enabled",
             "type": "boolean"
           },
+          "tls_mode": {
+            "default": "verify-full",
+            "enum": [
+              "require",
+              "verify-ca",
+              "verify-full"
+            ],
+            "title": "Tls Mode",
+            "type": "string"
+          },
           "username": {
             "maxLength": 100,
             "minLength": 1,
@@ -415,6 +425,16 @@
           "tls_enabled": {
             "title": "Tls Enabled",
             "type": "boolean"
+          },
+          "tls_mode": {
+            "default": "verify-full",
+            "enum": [
+              "require",
+              "verify-ca",
+              "verify-full"
+            ],
+            "title": "Tls Mode",
+            "type": "string"
           },
           "updated_at": {
             "format": "date-time",
@@ -592,6 +612,22 @@
               }
             ],
             "title": "Tls Enabled"
+          },
+          "tls_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "require",
+                  "verify-ca",
+                  "verify-full"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls Mode"
           },
           "username": {
             "anyOf": [

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from querylens.connections.models import TLSMode
+
 from sqlalchemy.engine import Engine
 
 from querylens.connections.mysql import MySQLAdapter
@@ -18,6 +20,7 @@ def dispatch_test_connection(
     tls_enabled: bool = True,
     ca_cert: str | None = None,
     timeout_sec: float = 5.0,
+    tls_mode: TLSMode = "verify-full",
 ) -> tuple[bool, str, str]:
     """Dispatch connection test to target engine adapter."""
     if engine_name == "postgresql":
@@ -29,6 +32,7 @@ def dispatch_test_connection(
             password=password,
             tls_enabled=tls_enabled,
             ca_cert=ca_cert,
+            tls_mode=tls_mode,
             timeout_sec=timeout_sec,
         )
     elif engine_name == "mysql":
@@ -40,6 +44,7 @@ def dispatch_test_connection(
             password=password,
             tls_enabled=tls_enabled,
             ca_cert=ca_cert,
+            tls_mode=tls_mode,
             timeout_sec=timeout_sec,
         )
     else:
@@ -55,6 +60,7 @@ def create_engine_pool(
     password: str,
     tls_enabled: bool = True,
     ca_cert: str | None = None,
+    tls_mode: TLSMode = "verify-full",
 ) -> Engine:
     """Create bounded engine pool for target engine."""
     if engine_name == "postgresql":
@@ -66,6 +72,7 @@ def create_engine_pool(
             password=password,
             tls_enabled=tls_enabled,
             ca_cert=ca_cert,
+            tls_mode=tls_mode,
         )
     elif engine_name == "mysql":
         return MySQLAdapter.create_pool(
@@ -76,6 +83,7 @@ def create_engine_pool(
             password=password,
             tls_enabled=tls_enabled,
             ca_cert=ca_cert,
+            tls_mode=tls_mode,
         )
     else:
         raise ValueError(f"Unsupported engine: {engine_name}")

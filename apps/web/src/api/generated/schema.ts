@@ -27,6 +27,7 @@ export interface ConnectionCreate {
   username: string;
   password?: string;
   tls_enabled?: boolean;
+  tls_mode?: 'require' | 'verify-ca' | 'verify-full';
   ca_cert?: string;
   allowed_tables?: Record<string, string[]>;
 }
@@ -41,6 +42,7 @@ export interface ConnectionResponse {
   database: string;
   username: string;
   tls_enabled: boolean;
+  tls_mode?: 'require' | 'verify-ca' | 'verify-full';
   allowed_tables?: Record<string, string[]>;
   created_at: string;
   updated_at: string;

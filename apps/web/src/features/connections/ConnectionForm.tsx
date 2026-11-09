@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parseConnectionString } from './connectionString.ts';
 import { api, ApiError } from '../../api/client.ts';
 import { ConnectionCreate, ConnectionResponse } from '../../api/generated/schema.ts';
 
@@ -18,6 +19,9 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
   const [password, setPassword] = useState('');
   const [caCert, setCaCert] = useState<string | null>(null);
   const [tlsEnabled, setTlsEnabled] = useState(connection?.tls_enabled ?? true);
+  const [connectionString, setConnectionString] = useState('');
+  const [tlsMode, setTlsMode] = useState<'require' | 'verify-ca' | 'verify-full'>(connection?.tls_mode ?? 'verify-full');
+  const [certificateName, setCertificateName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,12 +46,13 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
         username,
         password,
         tls_enabled: tlsEnabled,
+        tls_mode: tlsMode,
         ...(caCert !== null ? { ca_cert: caCert } : {}),
       };
 
       const res = connection
         ? await api.patch<ConnectionResponse>(`/api/v1/connections/${connection.id}`, {
-            name, host, port: Number(port), database, username, tls_enabled: tlsEnabled,
+            name, host, port: Number(port), database, username, tls_enabled: tlsEnabled, tls_mode: tlsMode,
             ...(caCert !== null ? { ca_cert: caCert } : {}),
             ...(password ? { password } : {}),
           })
@@ -75,11 +80,26 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block text-sm font-medium">Custom CA certificate (optional)
-          <textarea aria-label="Custom CA certificate" value={caCert ?? ''} onChange={(event) => setCaCert(event.target.value)}
-            placeholder={connection ? 'Leave untouched to retain the current CA; enter a replacement PEM certificate' : 'PEM certificate; leave empty for public certificate authorities'}
-            className="mt-1 w-full border rounded p-2 font-mono text-xs" />
-        </label>
+        <div className="rounded border border-slate-200 p-3 space-y-2">
+          <label htmlFor="connection-link" className="block text-sm font-medium">Connection link</label>
+          <input id="connection-link" type="password" autoComplete="off" value={connectionString}
+            onChange={(event) => setConnectionString(event.target.value)}
+            placeholder="Paste the connection link from your database provider"
+            className="w-full border rounded p-2 text-sm" />
+          <button type="button" className="text-sm text-indigo-700" onClick={() => {
+            try {
+              const imported = parseConnectionString(connectionString);
+              if (connection && imported.engine !== connection.engine) {
+                throw new Error('This link uses a different database type. Add a new connection instead.');
+              }
+              setEngine(imported.engine); setHost(imported.host); setPort(imported.port!);
+              setDatabase(imported.database); setUsername(imported.username); setPassword(imported.password!);
+              setTlsEnabled(imported.tls_enabled!); setTlsMode(imported.tls_mode!);
+              setConnectionString(''); setError(null);
+            } catch (err) { setError(err instanceof Error ? err.message : 'Unable to read connection link.'); }
+          }}>Use connection link</button>
+          <p className="text-xs text-slate-500">Fills in your details and uses the encryption setting in the link.</p>
+        </div>
         <div>
           <label htmlFor="conn-name" className="block text-sm font-medium text-slate-700 mb-1">
             Connection Name
@@ -193,9 +213,45 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           />
           <label htmlFor="tls-checkbox" className="text-sm font-medium text-slate-700">
-            Enable TLS / SSL Verification
+            Encrypt connection
           </label>
         </div>
+
+        {tlsEnabled && <div className="space-y-2">
+          <label htmlFor="connection-security" className="block text-sm font-medium">Connection security</label>
+          <select id="connection-security" value={tlsMode}
+            onChange={(event) => setTlsMode(event.target.value as typeof tlsMode)} className="w-full border rounded p-2 text-sm">
+            <option value="verify-full">Encrypt and verify server identity (recommended)</option>
+            <option value="verify-ca">Encrypt and verify provider certificate</option>
+            <option value="require">Encrypt using provider's required mode</option>
+          </select>
+          {tlsMode === 'require' ? <p className="text-xs text-slate-500">
+            Matches require / REQUIRED in your provider's link. Data is encrypted; the server's identity is not verified.
+          </p> : <>
+            <label htmlFor="certificate-file" className="block text-sm font-medium">Provider certificate (if needed)</label>
+            <p className="text-xs text-slate-500">Most providers need no extra file. For Aiven, download ca.pem from your service Overview page and select it here.</p>
+            <input id="certificate-file" type="file" accept=".pem,.crt,.cer" onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try {
+                if (file.size > 262144) throw new Error('Choose a certificate file smaller than 256 KB.');
+                const contents = await file.text();
+                if (!contents.includes('-----BEGIN CERTIFICATE-----') || !contents.includes('-----END CERTIFICATE-----') || contents.includes('PRIVATE KEY')) {
+                  throw new Error('Choose the CA certificate downloaded from your provider (a PEM file).');
+                }
+                setCaCert(contents); setCertificateName(file.name); setError(null);
+              } catch (err) { setError(err instanceof Error ? err.message : 'Unable to read certificate file.'); }
+            }} />
+            {certificateName && <p role="status" className="text-xs text-slate-600">Certificate selected: {certificateName}</p>}
+            <details><summary className="text-sm cursor-pointer">Paste a certificate instead</summary>
+              <label className="block text-sm">Custom CA certificate
+                <textarea aria-label="Custom CA certificate" value={caCert ?? ''} onChange={(event) => setCaCert(event.target.value)}
+                  placeholder={connection ? 'Leave untouched to keep your saved certificate' : 'Paste your provider certificate'}
+                  className="mt-1 w-full border rounded p-2 font-mono text-xs" />
+              </label>
+            </details>
+          </>}
+        </div>}
 
         <div className="flex justify-end space-x-3 pt-4 border-t">
           {onCancel && (

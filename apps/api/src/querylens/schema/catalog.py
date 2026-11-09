@@ -29,6 +29,7 @@ class CatalogService:
             password=pwd,
             tls_enabled=conn_dict["tls_enabled"],
             ca_cert=conn_dict["ca_cert"],
+            tls_mode=conn_dict.get("tls_mode", "verify-full"),
         )
 
         return SchemaInspector.discover_candidate_tables(engine, conn_dict["engine"])
@@ -46,6 +47,7 @@ class CatalogService:
             password=password,
             tls_enabled=connection["tls_enabled"],
             ca_cert=connection["ca_cert"],
+            tls_mode=connection.get("tls_mode", "verify-full"),
         )
         return SchemaInspector.discover_columns(engine, connection["engine"])
 
@@ -72,6 +74,7 @@ class CatalogService:
             password=pwd,
             tls_enabled=conn_dict["tls_enabled"],
             ca_cert=conn_dict["ca_cert"],
+            tls_mode=conn_dict.get("tls_mode", "verify-full"),
         )
 
         allowed_tables = json.loads(conn_dict["allowed_tables"]) if conn_dict["allowed_tables"] else {}

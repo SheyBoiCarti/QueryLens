@@ -51,7 +51,7 @@ describe('ConnectionManager Component (Task 08.02)', () => {
     render(<ConnectionForm onSuccess={vi.fn()} />);
 
     expect(screen.getByLabelText(/connection name/i)).toBeInTheDocument();
-    const tlsCheckbox = screen.getByLabelText(/enable tls/i) as HTMLInputElement;
+    const tlsCheckbox = screen.getByLabelText(/encrypt connection/i) as HTMLInputElement;
     expect(tlsCheckbox.checked).toBe(true);
   });
 

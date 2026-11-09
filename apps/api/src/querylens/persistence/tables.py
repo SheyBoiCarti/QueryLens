@@ -63,6 +63,7 @@ connections = Table(
     Column("username", String(100), nullable=False),
     Column("encrypted_password", Text, nullable=False),
     Column("tls_enabled", Boolean, nullable=False, server_default=sa.true()),
+    Column("tls_mode", String(20), nullable=False, server_default="verify-full"),
     Column("ca_cert", Text, nullable=True),
     Column("allowed_tables", Text, nullable=True),  # JSON-encoded list/map of visible tables/columns
     Column("policy_version", Integer, nullable=False, server_default="1"),

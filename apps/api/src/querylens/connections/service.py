@@ -58,6 +58,7 @@ class ConnectionService:
             username=data.username,
             encrypted_password=encrypted_pw,
             tls_enabled=data.tls_enabled,
+            tls_mode=data.tls_mode,
             ca_cert=data.ca_cert,
             allowed_tables=allowed_tables_json,
             created_at=now,
@@ -80,6 +81,7 @@ class ConnectionService:
             database=data.database,
             username=data.username,
             tls_enabled=data.tls_enabled,
+            tls_mode=data.tls_mode,
             allowed_tables=data.allowed_tables,
             created_at=now,
             updated_at=now,
@@ -111,6 +113,7 @@ class ConnectionService:
                     database=m["database"],
                     username=m["username"],
                     tls_enabled=m["tls_enabled"],
+                    tls_mode=m["tls_mode"],
                     allowed_tables=allowed,
                     created_at=m["created_at"],
                     updated_at=m["updated_at"],
@@ -145,6 +148,7 @@ class ConnectionService:
             database=m["database"],
             username=m["username"],
             tls_enabled=m["tls_enabled"],
+            tls_mode=m["tls_mode"],
             allowed_tables=allowed,
             created_at=m["created_at"],
             updated_at=m["updated_at"],
@@ -179,6 +183,8 @@ class ConnectionService:
             updates["username"] = data.username
         if data.tls_enabled is not None:
             updates["tls_enabled"] = data.tls_enabled
+        if data.tls_mode is not None:
+            updates["tls_mode"] = data.tls_mode
         if data.ca_cert is not None:
             updates["ca_cert"] = data.ca_cert
         if data.allowed_tables is not None:
@@ -269,6 +275,7 @@ class ConnectionService:
             username=m["username"],
             password=plaintext_pw,
             tls_enabled=m["tls_enabled"],
+            tls_mode=m["tls_mode"],
             ca_cert=m["ca_cert"],
         )
 

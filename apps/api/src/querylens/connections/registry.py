@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from querylens.connections.models import TLSMode
+
 import time
 import hashlib
 import threading
@@ -36,11 +38,12 @@ class ConnectionRegistry:
         password: str,
         tls_enabled: bool = True,
         ca_cert: str | None = None,
+        tls_mode: TLSMode = "verify-full",
     ) -> Engine:
         """Get existing pool or create new bounded engine pool."""
         with self._lock:
             signature = hashlib.sha256(
-                repr((engine_name, host, port, database, username, password, tls_enabled, ca_cert)).encode()
+                repr((engine_name, host, port, database, username, password, tls_enabled, ca_cert, tls_mode)).encode()
             ).hexdigest()
             now = time.time()
             if connection_id in self._pools and self._pools[connection_id].signature != signature:
@@ -64,6 +67,7 @@ class ConnectionRegistry:
                 password=password,
                 tls_enabled=tls_enabled,
                 ca_cert=ca_cert,
+                tls_mode=tls_mode,
             )
             self._pools[connection_id] = PoolEntry(engine=engine, last_used=now, signature=signature)
             return engine

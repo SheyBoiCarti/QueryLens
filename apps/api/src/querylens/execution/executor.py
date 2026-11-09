@@ -106,6 +106,7 @@ class SafeExecutor:
                 password=pwd,
                 tls_enabled=conn_dict["tls_enabled"],
                 ca_cert=conn_dict["ca_cert"],
+                tls_mode=conn_dict.get("tls_mode", "verify-full"),
             )
 
             # 5. Dispatch to restricted engine

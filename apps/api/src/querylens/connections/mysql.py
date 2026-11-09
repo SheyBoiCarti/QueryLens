@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from querylens.connections.models import TLSMode
+
 import re
 import socket
 import ssl
@@ -10,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 from querylens.connections.network import validate_destination_address
-from querylens.connections.tls import mysql_tls_context
+from querylens.connections.tls import certificate_failure_hint, mysql_tls_context
 from querylens.config import get_settings
 
 
@@ -49,11 +51,12 @@ class MySQLAdapter:
         tls_enabled: bool = True,
         ca_cert: str | None = None,
         timeout_sec: float = 5.0,
+        tls_mode: TLSMode = "verify-full",
     ) -> tuple[bool, str, str]:
         """Test direct connection, verify server identity (reject MariaDB), and version capability."""
         try:
             with MySQLAdapter.connect(
-                host, port, database, username, password, tls_enabled, ca_cert, timeout_sec
+                host, port, database, username, password, tls_enabled, ca_cert, timeout_sec, tls_mode=tls_mode
             ) as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT version();")
@@ -79,7 +82,7 @@ class MySQLAdapter:
             msg = str(e)
             if password and password in msg:
                 msg = msg.replace(password, "[REDACTED]")
-            return False, "", f"MySQL connection test failed: {msg}"
+            return False, "", f"MySQL connection test failed: {msg}{certificate_failure_hint(msg)}"
 
     @staticmethod
     def connect(
@@ -95,6 +98,7 @@ class MySQLAdapter:
         pinned_ip: str | None = None,
         tls_context: ssl.SSLContext | None = None,
         io_timeout: float | None = None,
+        tls_mode: TLSMode = "verify-full",
     ):
         settings = get_settings()
         if settings.environment == "production" and not tls_enabled:
@@ -112,7 +116,7 @@ class MySQLAdapter:
             connect_timeout=max(1, int(timeout)),
             read_timeout=io_timeout or settings.statement_timeout_sec + settings.cleanup_timeout_sec,
             write_timeout=io_timeout or settings.statement_timeout_sec + settings.cleanup_timeout_sec,
-            ssl=(tls_context or mysql_tls_context(ca_cert)) if tls_enabled else None,
+            ssl=(tls_context or mysql_tls_context(ca_cert, tls_mode)) if tls_enabled else None,
             ssl_disabled=not tls_enabled,
             defer_connect=True,
             local_infile=False,
@@ -136,11 +140,14 @@ class MySQLAdapter:
         password: str,
         tls_enabled: bool = True,
         ca_cert: str | None = None,
+        tls_mode: TLSMode = "verify-full",
     ) -> Engine:
         settings = get_settings()
         return create_engine(
             "mysql+pymysql://",
-            creator=lambda: MySQLAdapter.connect(host, port, database, username, password, tls_enabled, ca_cert),
+            creator=lambda: MySQLAdapter.connect(
+                host, port, database, username, password, tls_enabled, ca_cert, tls_mode=tls_mode
+            ),
             pool_size=settings.per_source_active_jobs,
             max_overflow=0,
             pool_timeout=settings.pool_acquire_timeout_sec,

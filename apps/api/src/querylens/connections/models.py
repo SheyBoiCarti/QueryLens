@@ -11,6 +11,9 @@ class StrictBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+TLSMode = Literal["require", "verify-ca", "verify-full"]
+
+
 SupportedEngine = Literal["postgresql", "mysql"]
 
 
@@ -32,6 +35,7 @@ class ConnectionCreate(StrictBaseModel):
     username: str = Field(..., min_length=1, max_length=100)
     password: SecretStr = Field(..., description="Database user password")
     tls_enabled: bool = Field(default=True)
+    tls_mode: TLSMode = "verify-full"
     ca_cert: str | None = Field(default=None)
     allowed_tables: dict[str, list[str]] = Field(default_factory=dict)
 
@@ -51,6 +55,7 @@ class ConnectionUpdate(StrictBaseModel):
     username: str | None = Field(default=None, min_length=1, max_length=100)
     password: SecretStr | None = Field(default=None)
     tls_enabled: bool | None = Field(default=None)
+    tls_mode: TLSMode | None = None
     ca_cert: str | None = Field(default=None)
     allowed_tables: dict[str, list[str]] | None = Field(default=None)
 
@@ -72,6 +77,7 @@ class ConnectionResponse(StrictBaseModel):
     database: str
     username: str
     tls_enabled: bool
+    tls_mode: TLSMode = "verify-full"
     allowed_tables: dict[str, list[str]]
     created_at: datetime.datetime
     updated_at: datetime.datetime
