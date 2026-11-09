@@ -35,8 +35,7 @@ export function ConnectionManager(): React.JSX.Element {
     setIsEditing(true);
   };
 
-  const handleFormSuccess = (saved: ConnectionResponse) => {
-    setConfiguring(saved);
+  const handleFormSuccess = () => {
     setIsEditing(false);
     setSelectedConnection(null);
     fetchConnections();

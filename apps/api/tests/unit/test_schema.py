@@ -115,3 +115,46 @@ def test_schema_graph_join_paths():
     status_disc, path_disc = graph.resolve_join_path("users", "logs")
     assert status_disc == "disconnected"
     assert path_disc is None
+
+
+def test_mysql_discovery_stays_in_connected_database(monkeypatch):
+    from unittest.mock import Mock
+    from querylens.schema.inspector import SchemaInspector
+
+    inspector = Mock(default_schema_name="analytics")
+    inspector.get_schema_names.side_effect = AssertionError("Must not scan unrelated databases")
+    inspector.get_table_names.return_value = ["customers"]
+    inspector.get_columns.return_value = [{"name": "id"}]
+    monkeypatch.setattr("querylens.schema.inspector.sa.inspect", lambda engine: inspector)
+    assert SchemaInspector.discover_candidate_tables(Mock(), "mysql") == ["analytics.customers"]
+    assert SchemaInspector.discover_columns(Mock(), "mysql") == {"analytics.customers": ["id"]}
+    inspector.get_columns.assert_called_once_with("customers", schema="analytics")
+
+
+async def test_schema_discovery_errors_are_actionable_and_sanitized():
+    import pytest
+    import sqlalchemy as sa
+    from querylens.api.errors import AppError
+    from querylens.api.schema import run_schema_operation
+
+    def fail():
+        raise sa.exc.OperationalError("secret SQL", {}, Exception("secret password"))
+
+    with pytest.raises(AppError, match="metadata permissions") as error:
+        await run_schema_operation(fail)
+    assert error.value.status_code == 422
+    assert "secret" not in str(error.value)
+
+
+async def test_schema_discovery_timeout_has_retry_message(monkeypatch):
+    import pytest
+    from querylens.api.errors import AppError
+    from querylens.api.schema import run_schema_operation
+
+    async def timeout(*args, **kwargs):
+        raise TimeoutError()
+
+    monkeypatch.setattr("querylens.api.schema.run_db", timeout)
+    with pytest.raises(AppError, match="try again") as error:
+        await run_schema_operation(lambda: None)
+    assert error.value.status_code == 504

@@ -11,11 +11,16 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
   const [discovered, setDiscovered] = useState<Record<string, string[]>>({});
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
+  const [discoveryFailed, setDiscoveryFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const abort = new AbortController();
+    setDiscoveryFailed(false);
+    setLoading(true);
+    setError(null);
     api.get<Record<string, string[]>>(`/api/v1/connections/${connection.id}/schema/discover/columns`, { signal: abort.signal })
       .then((tables) => {
         setDiscovered(tables);
@@ -26,10 +31,15 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
         }
         setSelected(policy);
       })
-      .catch((err: unknown) => { if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Discovery failed'); })
+      .catch((err: unknown) => {
+        if (!abort.signal.aborted) {
+          setDiscoveryFailed(true);
+          setError(err instanceof Error ? err.message : 'Discovery failed');
+        }
+      })
       .finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return () => abort.abort();
-  }, [connection]);
+  }, [connection, attempt]);
 
   const toggleTable = (table: string) => setSelected((current) => {
     const next = { ...current };
@@ -65,6 +75,7 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
     <h2 className="text-lg font-semibold">Select tables and columns for {connection.name}</h2>
     <p className="text-sm text-slate-600">Only selected columns are available to analytics. Leaving every table unchecked disables analytics for this connection.</p>
     {error && <p role="alert" className="text-red-700">{error}</p>}
+    {!loading && discoveryFailed && <button onClick={() => setAttempt((value) => value + 1)}>Retry discovery</button>}
     {loading ? <p role="status">Discovering table and column names...</p> : (
       <fieldset disabled={saving} className="space-y-3 max-h-[32rem] overflow-y-auto">
         {Object.entries(discovered).map(([table, columns]) => <div key={table} className="border rounded p-3">
@@ -75,11 +86,11 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
             </label>)}
           </div>
         </div>)}
-        {!Object.keys(discovered).length && <p>No selectable tables were found.</p>}
+        {!error && !Object.keys(discovered).length && <p>No selectable tables were found.</p>}
       </fieldset>
     )}
     <div className="flex gap-4">
-      <button disabled={loading || saving} onClick={() => void save()} className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">{saving ? 'Saving...' : 'Save selections'}</button>
+      <button disabled={loading || saving || discoveryFailed} onClick={() => void save()} className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">{saving ? 'Saving...' : 'Save selections'}</button>
       <button disabled={saving} onClick={onDone}>Close</button>
     </div>
   </section>;

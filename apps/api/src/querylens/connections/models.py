@@ -27,6 +27,7 @@ class VisibilityPolicy(StrictBaseModel):
 
 
 class ConnectionCreate(StrictBaseModel):
+    import_schema: bool = Field(default=False, description="Verify connection and import accessible schema on creation")
     name: str = Field(..., min_length=1, max_length=100)
     engine: SupportedEngine = Field(..., description="Target engine: postgresql or mysql")
     host: str = Field(..., min_length=1, max_length=255)

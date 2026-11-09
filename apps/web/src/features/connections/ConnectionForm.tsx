@@ -38,6 +38,7 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
 
     try {
       const payload: ConnectionCreate = {
+        import_schema: true,
         name,
         engine,
         host,
@@ -79,6 +80,7 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
         </div>
       )}
 
+      {!connection && <p className="mb-4 text-sm text-slate-600">Saving verifies your connection and imports accessible tables and columns automatically. You can adjust table access afterward.</p>}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded border border-slate-200 p-3 space-y-2">
           <label htmlFor="connection-link" className="block text-sm font-medium">Connection link</label>

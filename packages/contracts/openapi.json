@@ -323,6 +323,12 @@
             "title": "Host",
             "type": "string"
           },
+          "import_schema": {
+            "default": false,
+            "description": "Verify connection and import accessible schema on creation",
+            "title": "Import Schema",
+            "type": "boolean"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,

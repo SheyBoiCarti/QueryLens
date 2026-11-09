@@ -19,6 +19,7 @@ export interface ErrorEnvelope {
 
 // Connection interfaces for Phase 02
 export interface ConnectionCreate {
+  import_schema?: boolean;
   name: string;
   engine: 'postgresql' | 'mysql';
   host: string;

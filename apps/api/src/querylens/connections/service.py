@@ -9,7 +9,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from querylens.api.errors import NotFoundError
+from querylens.api.errors import AppError, NotFoundError
 from querylens.connections.adapters import dispatch_test_connection
 from querylens.connections.crypto import decrypt_credential, encrypt_credential
 from querylens.connections.models import (
@@ -45,7 +45,38 @@ class ConnectionService:
             connection_id=conn_id,
         )
 
-        allowed_tables_json = json.dumps(data.allowed_tables)
+        allowed_tables = data.allowed_tables
+        snapshot = None
+        if data.import_schema:
+            from querylens.schema.inspector import SchemaInspector
+
+            source_args: dict[str, Any] = dict(
+                engine_name=data.engine, host=data.host, port=data.port,
+                database=data.database, username=data.username,
+                password=data.password.get_secret_value(), tls_enabled=data.tls_enabled,
+                ca_cert=data.ca_cert, tls_mode=data.tls_mode,
+            )
+            success, _, message = dispatch_test_connection(**source_args)
+            if not success:
+                raise AppError("CONNECTION_FAILED", message)
+            try:
+                engine = get_registry().get_or_create(connection_id=conn_id, **source_args)
+                # An explicit policy, including {}, always takes precedence.
+                if "allowed_tables" not in data.model_fields_set:
+                    allowed_tables = SchemaInspector.discover_columns(engine, data.engine)
+                snapshot = SchemaInspector.reflect_visible_catalog(
+                    conn_id, engine, data.engine, allowed_tables,
+                )
+            except Exception as exc:
+                raise AppError(
+                    "SCHEMA_DISCOVERY_FAILED",
+                    "Connected, but could not import the schema. Check that this database user can read table metadata and try again.",
+                    422,
+                ) from exc
+            finally:
+                get_registry().dispose(conn_id)
+
+        allowed_tables_json = json.dumps(allowed_tables)
 
         stmt = connections.insert().values(
             id=conn_id,
@@ -65,11 +96,17 @@ class ConnectionService:
             updated_at=now,
         )
 
+        from querylens.schema.snapshots import save_snapshot
+
         if self._conn:
             self._conn.execute(stmt)
+            if snapshot is not None:
+                save_snapshot(snapshot, self._conn)
         else:
             with get_db_connection() as c:
                 c.execute(stmt)
+                if snapshot is not None:
+                    save_snapshot(snapshot, c)
 
         return ConnectionResponse(
             id=conn_id,
@@ -82,7 +119,7 @@ class ConnectionService:
             username=data.username,
             tls_enabled=data.tls_enabled,
             tls_mode=data.tls_mode,
-            allowed_tables=data.allowed_tables,
+            allowed_tables=allowed_tables,
             created_at=now,
             updated_at=now,
         )

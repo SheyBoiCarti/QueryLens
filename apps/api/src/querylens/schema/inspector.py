@@ -40,9 +40,9 @@ class SchemaInspector:
         inspector = sa.inspect(engine)
         discovered: list[str] = []
 
-        schemas = inspector.get_schema_names()
+        schemas = [inspector.default_schema_name] if engine_name == "mysql" else inspector.get_schema_names()
         for s in schemas:
-            if is_system_schema(engine_name, s):
+            if not s or is_system_schema(engine_name, s):
                 continue
             tables = inspector.get_table_names(schema=s)
             for t in tables:
@@ -55,8 +55,9 @@ class SchemaInspector:
         """Discover selectable identifiers, never row values or SQL expressions."""
         inspector = sa.inspect(engine)
         result: dict[str, list[str]] = {}
-        for namespace in inspector.get_schema_names():
-            if is_system_schema(engine_name, namespace):
+        namespaces = [inspector.default_schema_name] if engine_name == "mysql" else inspector.get_schema_names()
+        for namespace in namespaces:
+            if not namespace or is_system_schema(engine_name, namespace):
                 continue
             for table in inspector.get_table_names(schema=namespace):
                 result[f"{namespace}.{table}"] = [col["name"] for col in inspector.get_columns(table, schema=namespace)]
@@ -89,7 +90,7 @@ class SchemaInspector:
             namespace, separator, name = table_name.partition(".")
             if not separator:
                 namespace, name = inspector.default_schema_name or "public", table_name
-            if is_system_schema(engine_name, namespace):
+            if not namespace or is_system_schema(engine_name, namespace):
                 continue
             # Get columns
             try:
