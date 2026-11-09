@@ -68,7 +68,7 @@ const sampleDetail: SavedQuestionDetail = {
   metric_references: [],
 };
 
-describe('Saved Questions Modal (Task 11)', () => {
+describe('Saved questions Modal (Task 11)', () => {
   let fetchMock: any;
 
   beforeEach(() => {
@@ -302,7 +302,7 @@ describe('Saved question review regressions', () => {
     fireEvent.click(screen.getByLabelText('Expose order_date filter'));
     fireEvent.change(screen.getByLabelText('country allowed choices'), { target: { value: 'USA\nUK' } });
     fireEvent.change(screen.getByLabelText('Result Limit'), { target: { value: '200' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Question' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save question' }));
     await waitFor(() => expect(close).toHaveBeenCalled());
     expect(savedBody.parameters.map((p: ParameterDefinition) => p.name)).toEqual(['country', 'result_count']);
     expect(savedBody.parameters[0].allowed_values).toEqual(['USA', 'UK']);
@@ -320,7 +320,7 @@ describe('Saved question review regressions', () => {
     }));
     const variation = vi.fn();
     render(<SavedQuestionsManager connectionId="conn-1" onRunAccepted={vi.fn()} onAskVariation={variation} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'View or Run' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'View or run' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Edit definition' }));
     fireEvent.change(screen.getByLabelText('Saved question title'), { target: { value: 'Updated' } });
     fireEvent.change(screen.getByLabelText('country display label'), { target: { value: 'Country' } });
@@ -387,7 +387,7 @@ it('submits reviewed SQL as a new manual run without updating the saved definiti
   const accepted = vi.fn();
   try {
     render(<SavedQuestionsManager connectionId="conn-1" onRunAccepted={accepted} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'View or Run' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'View or run' }));
     const editor = await screen.findByLabelText('SQL for saved question review');
     fireEvent.change(editor, { target: { value: 'SELECT id FROM public.customers WHERE id > 2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run SQL for review' }));

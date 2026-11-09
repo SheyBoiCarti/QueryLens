@@ -56,90 +56,82 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
 
   return (
     <div className="space-y-4" data-testid="history-view">
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Query History</h2>
-          <p className="text-xs text-slate-500">
-            Durable record of previous queries, attempt diagnostics, and volatile cache availability (7-day retention).
+          <h1 className="page-title">History</h1>
+          <p className="page-subtitle">
+            Review previous questions, inspect runs, and manage cached results.
           </p>
         </div>
 
         <button
           onClick={() => fetchHistory()}
           disabled={loading}
-          className="px-3 py-1.5 border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="border rounded-md font-medium text-text"
         >
           {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 
       {error && (
-        <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-md">
+        <div role="alert" className="bg-surface border border-danger-border text-danger text-xs p-3 rounded-md">
           {error}
         </div>
       )}
 
       {loading && items.length === 0 ? (
-        <div className="text-center py-10 text-slate-400 text-sm">Loading history...</div>
+        <div className="text-center py-10 text-dim text-sm">Loading history...</div>
       ) : items.length === 0 ? (
-        <div className="text-center py-12 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-sm">
+        <div className="text-center py-12 bg-subtle border border-border rounded-lg text-muted text-sm">
           No query runs recorded yet.
         </div>
       ) : (
-        <div className="border border-slate-200 rounded-lg shadow-sm overflow-hidden bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
+        <div className="card table-card">
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="Query history"><table className="history-table">
+            <thead className="bg-subtle text-xs font-semibold text-muted">
               <tr>
-                <th className="px-4 py-3 text-left">Question</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Cache</th>
-                <th className="px-4 py-3 text-left">Created At</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th scope="col" className="text-left">Question</th>
+                <th scope="col" className="text-left">Status</th>
+                <th scope="col" className="text-left">Cache</th>
+                <th scope="col" className="text-left">Created at</th>
+                <th scope="col" className="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-border">
               {items.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-slate-900 max-w-xs truncate">
+                <tr key={item.id} className="hover:bg-subtle transition-colors">
+                  <td className="font-medium text-text max-w-xs truncate" title={item.question}>
                     {item.question}
                   </td>
-                  <td className="px-4 py-3">
+                  <td >
                     <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${
-                        item.status === 'completed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : item.status === 'rejected'
-                          ? 'bg-rose-100 text-rose-800'
-                          : item.status === 'clarification_required'
-                          ? 'bg-indigo-100 text-indigo-800'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
+                      className={`badge ${item.status === 'completed' ? 'badge-success' : ['rejected', 'failed'].includes(item.status) ? 'badge-danger' : ''}`}
                     >
-                      {item.status}
+                      {item.status.charAt(0).toUpperCase() + item.status.slice(1).replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs">
+                  <td className="text-xs">
                     {item.results_available ? (
-                      <span className="text-emerald-600 font-medium">Cached (Available)</span>
+                      <span className="text-accent font-medium">Cached (available)</span>
                     ) : (
-                      <span className="text-slate-400 italic">Expired / None</span>
+                      <span className="text-dim italic">Expired / none</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">
+                  <td className="text-xs text-muted font-mono whitespace-nowrap">
                     {new Date(item.created_at).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-right space-x-2">
+                  <td className="text-right space-x-3 whitespace-nowrap">
                     {onSelectRun && (
                       <button
                         onClick={() => onSelectRun(item.id)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                        className="btn-link"
                       >
                         Inspect
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="text-xs text-rose-600 hover:text-rose-800 font-medium"
+                      className="btn-link btn-link-danger"
                       aria-label={`Delete query ${item.id}`}
                     >
                       Delete
@@ -148,16 +140,16 @@ export function History({ onSelectRun }: HistoryProps): React.JSX.Element {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           {nextCursor && (
-            <div className="p-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="p-3 border-t border-border bg-subtle flex justify-end">
               <button
                 onClick={() => fetchHistory(nextCursor)}
                 disabled={loading}
-                className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-100"
+                className="border rounded font-medium text-text"
               >
-                Load Next Page â†’
+                Load next page →
               </button>
             </div>
           )}

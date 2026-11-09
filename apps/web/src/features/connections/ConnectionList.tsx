@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Database, Plus } from 'lucide-react';
 import { api, ApiError } from '../../api/client.ts';
 import { ConnectionResponse } from '../../api/generated/schema.ts';
 
@@ -50,70 +51,41 @@ export function ConnectionList({ connections, onRefresh, onAddNew, onEdit, onCon
   };
 
   return (
-    <div className="bg-white rounded-lg shadow border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div>
+      <div className="page-header">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">Configured Database Sources</h3>
-          <p className="text-sm text-slate-500">Connected analytics databases (PostgreSQL &amp; MySQL)</p>
+          <h1 className="page-title">Connections</h1>
+          <p className="page-subtitle">Manage the databases available to your workspace.</p>
         </div>
-        <button
-          onClick={onAddNew}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700"
-        >
-          Add Connection
-        </button>
+        <button onClick={onAddNew} className="btn-primary"><Plus size={16} aria-hidden="true" />Add connection</button>
       </div>
-
       {connections.length === 0 ? (
-        <div className="text-center py-12 text-slate-500 border-2 border-dashed rounded-lg">
-          No database connections configured yet.
-        </div>
+        <div className="card text-center py-12 text-muted">No database connections configured yet.</div>
       ) : (
-        <div className="divide-y divide-slate-200">
+        <div className="space-y-3">
           {connections.map((c) => (
-            <div key={c.id} className="py-4 flex items-center justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-slate-900">{c.name}</span>
-                  <span className="text-xs uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">
-                    {c.engine}
-                  </span>
-                  {c.tls_enabled && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                      TLS
-                    </span>
-                  )}
+            <div key={c.id} className="card connection-row">
+              <div className="icon-tile"><Database size={20} strokeWidth={1.5} aria-hidden="true" /></div>
+              <div className="connection-info">
+                <div className="actions">
+                  <h2 className="section-title">{c.name}</h2>
+                  <span className="badge">{c.engine === 'postgresql' ? 'PostgreSQL' : 'MySQL'}</span>
+                  {c.tls_enabled && <span className="badge badge-success">TLS</span>}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {c.username}@{c.host}:{c.port}/{c.database}
-                </div>
+                <p className="connection-address">{c.username}@{c.host}:{c.port}/{c.database}</p>
                 {testResult && testResult.id === c.id && (
-                  <div
-                    className={`mt-2 text-xs p-2 rounded ${
-                      testResult.success ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'
-                    }`}
-                  >
+                  <p role={testResult.success ? 'status' : 'alert'} className={`mt-2 text-xs ${testResult.success ? 'text-accent' : 'text-danger'}`}>
                     {testResult.msg}
-                  </div>
+                  </p>
                 )}
               </div>
-
-              <div className="flex items-center space-x-2">
-                {onEdit && <button onClick={() => onEdit(c)} className="text-indigo-700 text-sm">Edit</button>}
-                {onConfigure && <button onClick={() => onConfigure(c)} className="text-indigo-700 text-sm">Select tables</button>}
-                <button
-                  onClick={() => handleTest(c.id)}
-                  disabled={testingId === c.id}
-                  className="px-3 py-1.5 border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  {testingId === c.id ? 'Testing...' : 'Test Connection'}
+              <div className="actions">
+                {onEdit && <button onClick={() => onEdit(c)}>Edit</button>}
+                {onConfigure && <button onClick={() => onConfigure(c)}>Select tables</button>}
+                <button onClick={() => handleTest(c.id)} disabled={testingId === c.id}>
+                  {testingId === c.id ? 'Testing...' : 'Test connection'}
                 </button>
-                <button
-                  onClick={() => handleDelete(c.id)}
-                  className="px-3 py-1.5 border border-red-200 text-red-600 rounded text-xs font-medium hover:bg-red-50"
-                >
-                  Delete
-                </button>
+                <button onClick={() => handleDelete(c.id)} className="btn-danger">Delete</button>
               </div>
             </div>
           ))}

@@ -108,9 +108,9 @@ function MetricForm({ connectionId, catalog, metric, onSaved, onCancel }: Metric
   };
   const inputClass = 'w-full px-3 py-2 border rounded-md text-sm';
   const columnOptions = (current: string) => <>{current && !columns.some((column) => column.name === current) && <option value={current}>{current}{validColumn(current) ? '' : ' (unavailable)'}</option>}{columns.map((column) => <option key={column.name} value={column.name}>{column.name} ({column.canonical_type})</option>)}</>;
-  return <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-    <h3 className="text-lg font-bold">{metric ? 'Edit Business Metric' : 'Define Business Metric'}</h3>
-    {error && <div role="alert" className="p-3 bg-red-50 text-red-700">{error}</div>}
+  return <div className="bg-surface rounded-lg border border-border p-6 space-y-4">
+    <h3 className="text-lg font-semibold">{metric ? 'Edit Business Metric' : 'Define Business Metric'}</h3>
+    {error && <div role="alert" className="p-3 bg-surface text-danger">{error}</div>}
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       <fieldset disabled={loading} className="space-y-4">
         <label className="block">Metric key<input aria-label="Metric key" required pattern="[a-z0-9_]+" maxLength={100} value={key} onChange={(event) => setKey(event.target.value)} className={inputClass} /></label>

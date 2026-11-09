@@ -222,21 +222,21 @@ export function SavedQuestionsManager({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-6" data-testid="saved-questions-manager">
+    <div className="bg-surface rounded-lg border border-border p-6 space-y-6" data-testid="saved-questions-manager">
       <div className="flex items-center justify-between border-b pb-4">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">Saved Questions</h3>
-          <p className="text-xs text-slate-500">Parameterized queries with direct database execution.</p>
+          <h3 className="text-lg font-semibold text-text">Saved questions</h3>
+          <p className="text-xs text-muted">Parameterized queries with direct database execution.</p>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">
+          <button type="button" onClick={onClose} aria-label="Close saved questions" className="text-dim hover:text-muted">
             &times;
           </button>
         )}
       </div>
 
       {error && (
-        <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
+        <div role="alert" className="p-3 bg-surface border border-danger-border text-danger text-xs rounded">
           {error}
         </div>
       )}
@@ -245,15 +245,16 @@ export function SavedQuestionsManager({
       <div className="flex space-x-2">
         <input
           type="search"
+          aria-label="Search saved questions"
           placeholder="Search saved questions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500"
+          className="flex-1 border rounded"
         />
         <button
           type="button"
           onClick={() => void fetchItems()}
-          className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded"
+          className="bg-subtle hover:bg-control text-text font-medium rounded"
         >
           Search
         </button>
@@ -261,54 +262,54 @@ export function SavedQuestionsManager({
 
       {/* Two Column Layout: List and Detail/Filters */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Saved Questions List */}
+        {/* Left: Saved questions List */}
         <div className="space-y-3">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+          <span className="text-xs font-semibold text-muted block">
             Questions ({items.length})
           </span>
 
           {loading ? (
-            <p role="status" className="text-sm text-slate-500 py-4">Loading questions...</p>
+            <p role="status" className="text-sm text-muted py-4">Loading questions...</p>
           ) : items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 italic">No saved questions found for this connection.</p>
+            <p className="text-sm text-dim py-4 italic">No saved questions found for this connection.</p>
           ) : (
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-96 overflow-y-auto">
+            <div className="divide-y divide-border border border-border rounded-lg max-h-96 overflow-y-auto">
               {items.filter((item) => item.connection_id === connectionId).map((item) => (
                 <div
                   key={item.id}
                   className={`p-3 space-y-1 transition-colors ${
-                    selectedId === item.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'hover:bg-slate-50'
+                    selectedId === item.id ? 'bg-subtle border border-border-control' : 'hover:bg-subtle'
                   }`}
                 >
                   <div className="flex items-start justify-between">
-                    <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
-                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                    <h4 className="text-sm font-semibold text-text">{item.title}</h4>
+                    <span className="text-[10px] font-mono text-dim bg-subtle px-1.5 py-0.5 rounded">
                       rev {item.revision}
                     </span>
                   </div>
                   {item.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2">{item.description}</p>
+                    <p className="text-xs text-muted line-clamp-2">{item.description}</p>
                   )}
                   <div className="flex items-center justify-between pt-2 text-xs">
                     <button
                       type="button"
                       onClick={() => loadDetail(item.id)}
-                      className="text-indigo-600 hover:text-indigo-800 font-medium underline"
+                      className="text-accent hover:text-accent font-medium underline btn-link"
                     >
-                      View or Run
+                      View or run
                     </button>
                     <div className="flex items-center space-x-2">
                       <button
                         type="button"
                         onClick={() => handleDuplicate(item.id, item.title)}
-                        className="text-slate-500 hover:text-slate-700 underline text-[11px]"
+                        className="text-muted hover:text-text underline text-[11px]"
                       >
                         Duplicate
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item.id)}
-                        className="text-rose-500 hover:text-rose-700 underline text-[11px]"
+                        className="text-danger hover:text-danger underline text-[11px]"
                       >
                         Delete
                       </button>
@@ -320,7 +321,7 @@ export function SavedQuestionsManager({
           )}
           {!loading && nextCursor && (
             <button type="button" onClick={() => void fetchItems(nextCursor, true)}
-              className="w-full py-2 text-sm text-indigo-700 underline">Load more saved questions</button>
+              className="w-full text-accent underline btn-link">Load more saved questions</button>
           )}
         </div>
 
@@ -331,30 +332,30 @@ export function SavedQuestionsManager({
               <div className="border-b pb-3">
                 {editing ? (
                   <div className="space-y-2">
-                    <input aria-label="Saved question title" value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className="w-full border rounded px-2 py-1" />
-                    <textarea aria-label="Saved question description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="w-full border rounded px-2 py-1" />
-                    <select aria-label="Saved chart preference" value={editPreference} onChange={(event) => setEditPreference(event.target.value)} className="border rounded px-2 py-1">
+                    <input aria-label="Saved question title" value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className="w-full border rounded" />
+                    <textarea aria-label="Saved question description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} className="w-full border rounded" />
+                    <select aria-label="Saved chart preference" value={editPreference} onChange={(event) => setEditPreference(event.target.value)} className="border rounded">
                       <option value="">Auto</option><option value="table">Table</option><option value="line">Line</option><option value="bar">Bar</option>
                     </select>
                     <ParameterDefinitionEditor parameters={editParameters} onChange={setEditParameters}
                       selectedSlots={editSlots} onSelectionChange={setEditSlots} onValidityChange={setParametersValid} />
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" disabled={!parametersValid} onClick={() => void saveDefinition()} className="text-indigo-700 underline">Save definition</button>
-                      <button type="button" onClick={() => setEditing(false)} className="text-slate-600 underline">Cancel edit</button>
+                      <button type="button" disabled={!parametersValid} onClick={() => void saveDefinition()} className="text-accent underline btn-link">Save definition</button>
+                      <button type="button" onClick={() => setEditing(false)} className="text-muted underline">Cancel edit</button>
                     </div>
                     <div className="border-t pt-2 space-y-1">
                       <label className="block text-xs">Replace from a successful run ID (explicit revision action)</label>
-                      <input aria-label="Successful replacement run" value={replacementRunId} onChange={(event) => setReplacementRunId(event.target.value)} className="w-full border rounded px-2 py-1" />
-                      <button type="button" disabled={!replacementRunId.trim()} onClick={() => void saveDefinition(true)} className="text-rose-700 underline disabled:opacity-50">Replace stored SQL from run</button>
+                      <input aria-label="Successful replacement run" value={replacementRunId} onChange={(event) => setReplacementRunId(event.target.value)} className="w-full border rounded" />
+                      <button type="button" disabled={!replacementRunId.trim()} onClick={() => void saveDefinition(true)} className="text-danger underline">Replace stored SQL from run</button>
                     </div>
                   </div>
                 ) : (
                   <>
-                <h4 className="text-base font-bold text-slate-900">{selectedDetail.title}</h4>
+                <h4 className="text-base font-semibold text-text">{selectedDetail.title}</h4>
                 {selectedDetail.description && (
-                  <p className="text-xs text-slate-600 mt-1">{selectedDetail.description}</p>
+                  <p className="text-xs text-muted mt-1">{selectedDetail.description}</p>
                 )}
-                <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                <span className="text-[10px] text-dim font-mono mt-1 block">
                   Revision: {selectedDetail.revision} | Created: {new Date(selectedDetail.created_at).toLocaleDateString()}
                 </span>
                   </>
@@ -362,15 +363,15 @@ export function SavedQuestionsManager({
               </div>
 
               {runError && (
-                <div role="alert" className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded">
+                <div role="alert" className="p-3 bg-surface border border-danger-border text-danger text-xs rounded">
                   {runError}
                 </div>
               )}
 
               <details><summary>Review stored SQL and revision {selectedDetail.revision}</summary>
-                <textarea aria-label="SQL for saved question review" className="w-full font-mono text-xs border rounded p-2" rows={6}
+                <textarea aria-label="SQL for saved question review" className="w-full font-mono border rounded" rows={6}
                   value={reviewSql ?? selectedDetail.canonical_sql_template} onChange={(event) => setReviewSql(event.target.value)} />
-                <button type="button" disabled={running} onClick={() => void runReview()} className="text-indigo-700 underline">Run SQL for review</button>
+                <button type="button" disabled={running} onClick={() => void runReview()} className="text-accent underline btn-link">Run SQL for review</button>
                 <p className="text-xs">Physical or metric changes require a successful run and an explicit replacement below.</p>
               </details>
               {!editing && <SavedQuestionFilters
@@ -381,15 +382,15 @@ export function SavedQuestionsManager({
                 disabled={running}
               />}
               {!editing && <div className="flex flex-wrap gap-3 text-xs">
-                <button type="button" onClick={beginEdit} className="text-indigo-700 underline">Edit definition</button>
+                <button type="button" onClick={beginEdit} className="text-accent underline btn-link">Edit definition</button>
                 {onAskVariation && <label>Variation request
-                  <input aria-label="Variation request" value={variation} onChange={(event) => setVariation(event.target.value)} className="border rounded p-1 mx-2" />
-                  <button type="button" disabled={!variation.trim()} onClick={() => onAskVariation(`${variation.trim()}\nOriginal scope: ${selectedDetail.effective_question}`)} className="text-indigo-700 underline disabled:opacity-50">Ask for a variation</button>
+                  <input aria-label="Variation request" value={variation} onChange={(event) => setVariation(event.target.value)} className="border rounded mx-2" />
+                  <button type="button" disabled={!variation.trim()} onClick={() => onAskVariation(`${variation.trim()}\nOriginal scope: ${selectedDetail.effective_question}`)} className="text-accent underline btn-link">Ask for a variation</button>
                 </label>}
               </div>}
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center p-8 border border-dashed rounded-lg text-slate-400 text-xs text-center">
+            <div className="h-full flex items-center justify-center p-8 border border-dashed rounded-lg text-dim text-xs text-center">
               Select a saved question on the left to configure filters and run.
             </div>
           )}

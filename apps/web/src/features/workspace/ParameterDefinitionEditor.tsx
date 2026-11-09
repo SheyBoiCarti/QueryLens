@@ -19,21 +19,21 @@ export function ParameterDefinitionEditor({ parameters, onChange, selectedSlots,
   return <div className="space-y-4">
     {parameters.map((parameter, index) => <fieldset key={parameter.slot_id} className="border rounded p-3 space-y-2">
       <legend>{parameter.label}</legend>
-      <label className="block text-sm">
+      <label className="block">
         <input type="checkbox" checked={selectedSlots.has(parameter.slot_id)} onChange={(event) => {
           const next = new Set(selectedSlots);
           if (event.target.checked) next.add(parameter.slot_id); else next.delete(parameter.slot_id);
           onSelectionChange(next);
         }} /> Expose {parameter.name} filter
       </label>
-      <label className="block text-sm">Display label
+      <label className="block">Display label
         <input aria-label={`${parameter.name} display label`} value={parameter.label}
-          onChange={(event) => update(index, { label: event.target.value })} className="w-full border rounded p-1" />
+          onChange={(event) => update(index, { label: event.target.value })} className="w-full border rounded" />
       </label>
       <p className="text-xs">Default selection</p>
       <SavedQuestionFilters parameters={[parameter]} values={{ [parameter.name]: parameter.default_value }}
         onChange={(_, value) => update(index, { default_value: value })} />
-      {parameter.param_type === 'category' && <label className="block text-sm">Allowed choices (one per line; blank allows typed entry)
+      {parameter.param_type === 'category' && <label className="block">Allowed choices (one per line; blank allows typed entry)
         <textarea aria-label={`${parameter.name} allowed choices`}
           value={choiceDrafts[parameter.slot_id] ?? parameter.allowed_values?.map(String).join('\n') ?? ''}
           onChange={(event) => {
@@ -60,7 +60,7 @@ export function ParameterDefinitionEditor({ parameters, onChange, selectedSlots,
             }
             setErrors(nextErrors);
             onValidityChange(Object.keys(nextErrors).length === 0);
-          }} className="w-full border rounded p-1" />
+          }} className="w-full border rounded" />
       </label>}
       {errors[parameter.slot_id] && <p role="alert">{errors[parameter.slot_id]}</p>}
     </fieldset>)}

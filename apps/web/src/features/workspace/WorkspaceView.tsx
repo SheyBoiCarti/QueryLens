@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useDatabaseBreadcrumb } from '../../components/AppShell.tsx';
 import { api, ApiError } from '../../api/client.ts';
 import { ConnectionResponse, PublicRun, PublicRunCompleted } from '../../api/generated/schema.ts';
 import { QuestionForm } from './QuestionForm.tsx';
@@ -34,14 +35,17 @@ export function WorkspaceView({
   const [loadedRuns, setLoadedRuns] = useState<Record<string, PublicRun>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  const [trace, setTrace] = useState<TraceData | null>(null);
   const [inspecting, setInspecting] = useState(false);
+  const [trace, setTrace] = useState<TraceData | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
   const [followUpError, setFollowUpError] = useState<{ message: string; code?: string; question: string } | null>(null);
   const [retry, setRetry] = useState(0);
   const [cancelling, setCancelling] = useState(false);
   const [showSavedManager, setShowSavedManager] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+
+  const activeConnection = connections.find((item) => item.id === connectionId);
+  useDatabaseBreadcrumb(activeConnection?.database, Object.keys(activeConnection?.allowed_tables ?? {})[0]?.split('.')[0]);
 
   // Track draft state for confirmation checks
   const draftsRef = useRef(drafts);
@@ -226,6 +230,7 @@ export function WorkspaceView({
           setSelectedRunId(null);
           setInFlightRunId(null);
           setTrace(null);
+          setInspecting(false);
           setCancelling(false);
           onActiveQueryChange?.(null);
           setPollError(err.statusCode === 404
@@ -399,22 +404,19 @@ export function WorkspaceView({
   const running = Boolean(inFlightRunId || (selectedRun && !terminal.has(selectedRun.status)));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="page-header">
+        <div><h1 className="page-title">Ask data</h1><p className="page-subtitle">Ask a question, explore the results, and follow the data.</p></div>
+        {!!connections.length && <button type="button" onClick={() => setShowSavedManager((value) => !value)}>
+          {showSavedManager ? 'Hide saved questions' : 'Browse saved questions'}
+        </button>}
+      </div>
       {loadingConnections ? (
         <p role="status">Loading connections...</p>
       ) : connectionsError ? (
-        <p role="alert" className="text-red-700">{connectionsError}</p>
+        <p role="alert" className="text-danger">{connectionsError}</p>
       ) : connections.length ? (
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowSavedManager((v) => !v)}
-              className="px-3 py-1.5 border border-slate-300 rounded text-xs bg-white hover:bg-slate-50 font-medium text-slate-700 shadow-sm"
-            >
-              {showSavedManager ? 'Hide Saved Questions' : 'Browse Saved Questions'}
-            </button>
-          </div>
 
           {showSavedManager && (
             <SavedQuestionsManager
@@ -455,16 +457,16 @@ export function WorkspaceView({
           />
         </div>
       ) : (
-        <div className="rounded-lg border bg-white p-6">
+        <div className="rounded-lg border bg-surface p-6">
           <p>Connect a database and select its allowed tables to start asking questions.</p>
-          <button onClick={onNavigateToConnections} className="mt-3 text-indigo-700 underline">
+          <button onClick={onNavigateToConnections} className="mt-3 text-accent underline btn-link">
             Add database connection
           </button>
         </div>
       )}
 
       {pollError && (
-        <div role="alert" className="rounded border border-red-200 bg-red-50 p-4">
+        <div role="alert" className="rounded border border-danger-border bg-surface p-4">
           {pollError}{' '}
           <button onClick={() => setRetry((value) => value + 1)} className="underline">
             Retry now
@@ -487,13 +489,13 @@ export function WorkspaceView({
       )}
 
       {followUpError && (
-        <div role="alert" className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 space-y-2">
+        <div role="alert" className="p-4 bg-subtle border border-border rounded-lg text-muted space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">{followUpError.message}</p>
             <button
               type="button"
               onClick={() => setFollowUpError(null)}
-              className="text-xs text-amber-700 hover:text-amber-900 underline"
+              className="text-muted hover:text-muted underline"
             >
               Dismiss
             </button>
@@ -502,21 +504,20 @@ export function WorkspaceView({
             <button
               type="button"
               onClick={() => handleAskStandalone(followUpError.question)}
-              className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded shadow-sm transition-colors"
+              className="bg-subtle text-white rounded transition-colors"
             >
               Ask as a standalone question
             </button>
-            <span className="text-xs text-amber-800">
+            <span className="text-xs text-muted">
               Starts a fresh question without inheriting previous context or schema assumptions.
             </span>
           </div>
         </div>
       )}
 
-      {selectedRun && <p className="font-semibold text-slate-800">{selectedRun.question}</p>}
-
       {targetId && (
         <QueryStatus
+          question={selectedRun?.question}
           status={cancelling ? 'cancelling' : selectedRun?.status || 'queued'}
           onCancel={() => void cancel()}
         />
@@ -528,18 +529,18 @@ export function WorkspaceView({
 
       {selectedRun && ['failed', 'rejected', 'interrupted', 'cancelled'].includes(selectedRun.status) && 'safe_message' in selectedRun && (
         <div className="space-y-3">
-          <p role="alert" className="rounded border bg-white p-4">
+          <p role="alert" className="rounded border bg-surface p-4">
             {selectedRun.safe_message}
           </p>
 
           {/* If manual execution failed, prior successful answer remains selectable */}
           {lastSuccessfulRunId && lastSuccessfulRunId !== selectedRunId && loadedRuns[lastSuccessfulRunId] && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between">
-              <span className="text-sm text-slate-700">Prior successful query is available.</span>
+            <div className="p-3 bg-subtle border border-border rounded-md flex items-center justify-between">
+              <span className="text-sm text-text">Prior successful query is available.</span>
               <button
                 type="button"
                 onClick={() => setSelectedRunId(lastSuccessfulRunId)}
-                className="text-sm text-indigo-700 hover:text-indigo-900 font-medium underline"
+                className="text-accent hover:text-accent font-medium underline btn-link"
               >
                 View previous successful answer
               </button>
@@ -550,16 +551,6 @@ export function WorkspaceView({
 
       {selectedRun?.status === 'completed' && (
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowSaveModal(true)}
-              className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-medium shadow-sm transition-colors"
-            >
-              Save as Question
-            </button>
-          </div>
-
           {showSaveModal && (
             <SavedQuestionsModal
               sourceQueryId={selectedRun.query_id}
@@ -569,6 +560,7 @@ export function WorkspaceView({
 
           <AnswerPresentation
             run={selectedRun}
+            onSaveQuestion={() => setShowSaveModal(true)}
             draftValue={drafts[selectedRun.query_id]}
             onRunSql={handleRunSql}
             onDraftChange={(draft) => {
@@ -576,27 +568,22 @@ export function WorkspaceView({
             }}
             disabled={running}
             onRerun={() => void handleRerun(selectedRun)}
-          />
-
-          <FollowUpBar
-            parent={selectedRun}
-            onSubmit={handleFollowUpSubmit}
-            onStartNewQuestion={handleStartNewQuestion}
-            disabled={running}
-          />
+          >
+            <FollowUpBar
+              parent={selectedRun}
+              onSubmit={handleFollowUpSubmit}
+              onStartNewQuestion={handleStartNewQuestion}
+              disabled={running}
+            />
+          </AnswerPresentation>
         </div>
       )}
 
       {trace && (
-        <div>
-          <button
-            onClick={() => setInspecting((value) => !value)}
-            className="text-indigo-700 underline"
-          >
-            {inspecting ? 'Hide diagnostics' : 'Show diagnostics'}
-          </button>
+        <details key={trace.query_id} className="disclosure" onToggle={(event) => setInspecting(event.currentTarget.open)}>
+          <summary>Show diagnostics</summary>
           {inspecting && <QueryInspector trace={trace} status={selectedRun?.status || trace.status} />}
-        </div>
+        </details>
       )}
     </div>
   );

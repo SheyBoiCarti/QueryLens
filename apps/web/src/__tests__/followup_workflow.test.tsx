@@ -228,7 +228,7 @@ describe('Follow-Up Selection, Branching, and Failure Recovery (Task 12)', () =>
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
-  it('Start New Question button clears parent and resets follow-up bar', async () => {
+  it('Start new question button clears parent and resets follow-up bar', async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url.includes('/api/v1/connections')) {
         return new Response(JSON.stringify([connectionItem]), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -246,7 +246,7 @@ describe('Follow-Up Selection, Branching, and Failure Recovery (Task 12)', () =>
 
     expect(await screen.findByText('Following up on: "Show all customers in USA"')).toBeInTheDocument();
 
-    // Click Start New Question
+    // Click Start new question
     fireEvent.click(screen.getByRole('button', { name: /start new question/i }));
 
     // Follow-up bar is cleared, workspace returns to clean state

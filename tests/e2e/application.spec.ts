@@ -11,12 +11,12 @@ async function navigate(page: Page, name: string) {
 
 async function addConnection(page: Page, name: string) {
   await navigate(page, 'Connections');
-  await page.getByRole('button', { name: 'Add Connection', exact: true }).click();
+  await page.getByRole('button', { name: 'Add connection', exact: true }).click();
   await page.getByLabel('Connection link', { exact: true }).fill(connectionString!);
   await page.getByRole('button', { name: 'Use connection link' }).click();
-  await page.getByLabel('Connection Name', { exact: true }).fill(name);
+  await page.getByLabel('Connection name', { exact: true }).fill(name);
   const pending = page.waitForResponse(r => r.url().endsWith('/api/v1/connections') && r.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Save Connection', exact: true }).click();
+  await page.getByRole('button', { name: 'Save connection', exact: true }).click();
   const response = await pending;
   expect(response.status()).toBe(201);
   const connection = await response.json();
@@ -49,7 +49,7 @@ async function waitForCompleted(page: Page, queryId: string) {
 async function submitQuestion(page: Page, question: string, followUp = false) {
   const pending = page.waitForResponse(r => r.url().endsWith('/api/v1/queries') && r.request().method() === 'POST');
   await page.getByRole('textbox', { name: followUp ? 'Ask a follow-up question' : 'Ask a natural-language question', exact: true }).fill(question);
-  await page.getByRole('button', { name: followUp ? 'Ask Follow-Up' : 'Run Query', exact: true }).click();
+  await page.getByRole('button', { name: followUp ? 'Ask follow-up' : 'Run query', exact: true }).click();
   const response = await pending;
   expect(response.status()).toBe(202);
   const { query_id } = await response.json();
@@ -73,12 +73,12 @@ test('live connection, schema, analytics, saved questions and replacement lifecy
   await page.goto('/');
   try {
     const connection = await addConnection(page, `${prefix} primary`);
-    const source = page.locator('div.py-4').filter({ hasText: `${prefix} primary` });
-    await source.getByRole('button', { name: 'Test Connection', exact: true }).click();
+    const source = page.locator('.connection-row').filter({ hasText: `${prefix} primary` });
+    await source.getByRole('button', { name: 'Test connection', exact: true }).click();
     await expect(source.getByText(/Connected: PostgreSQL/)).toBeVisible();
     await source.getByRole('button', { name: 'Edit', exact: true }).click();
-    await page.getByLabel('Connection Name', { exact: true }).fill(`${prefix} renamed`);
-    await page.getByRole('button', { name: 'Save Connection', exact: true }).click();
+    await page.getByLabel('Connection name', { exact: true }).fill(`${prefix} renamed`);
+    await page.getByRole('button', { name: 'Save connection', exact: true }).click();
     await expect(page.getByText(`${prefix} renamed`, { exact: true })).toBeVisible();
     const coldReads = await Promise.all(['schema', 'labels', 'metrics'].map(path =>
       page.request.get(`/api/v1/connections/${connection.id}/${path}`)));
@@ -86,11 +86,11 @@ test('live connection, schema, analytics, saved questions and replacement lifecy
 
     const table = Object.keys(connection.allowed_tables).find(name => name.endsWith('.customers'))!;
     expect(table).toBeTruthy();
-    await page.locator('div.py-4').filter({ hasText: `${prefix} renamed` }).getByRole('button', { name: 'Select tables' }).click();
+    await page.locator('.connection-row').filter({ hasText: `${prefix} renamed` }).getByRole('button', { name: 'Select tables' }).click();
     await expect(page.getByRole('button', { name: 'Save selections', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Save selections', exact: true }).click();
     await expect(page.getByText(`${prefix} renamed`, { exact: true })).toBeVisible();
-    await navigate(page, 'Explore Schema');
+    await navigate(page, 'Explore schema');
     await page.getByLabel('Schema database').selectOption(connection.id);
     await expect(page.getByRole('button', { name: table, exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Refresh schema', exact: true }).click();
@@ -122,45 +122,45 @@ test('live connection, schema, analytics, saved questions and replacement lifecy
     await page.getByRole('button', { name: 'Edit SQL', exact: true }).click();
     await page.getByRole('textbox', { name: 'SQL Editor', exact: true }).fill(`SELECT count(*) AS total FROM ${table}`);
     const editedResponse = page.waitForResponse(r => r.url().endsWith('/queries/sql') && r.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Run Edited SQL', exact: true }).click();
+    await page.getByRole('button', { name: 'Run edited SQL', exact: true }).click();
     const edited = await (await editedResponse).json();
     await waitForCompleted(page, edited.query_id);
     await expect(page.getByRole('link', { name: 'Download CSV', exact: true })).toHaveAttribute('href', `/api/v1/queries/${edited.query_id}/export?format=csv`);
-    await page.getByRole('button', { name: 'Save as Question', exact: true }).click();
+    await page.getByRole('button', { name: 'Save as question', exact: true }).click();
     await page.getByLabel('Title', { exact: false }).fill(`${prefix} saved count`);
-    await page.getByRole('button', { name: 'Save Question', exact: true }).click();
+    await page.getByRole('button', { name: 'Save question', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Browse Saved Questions', exact: true }).click();
-    await page.getByRole('button', { name: 'View or Run', exact: true }).click();
+    await page.getByRole('button', { name: 'Browse saved questions', exact: true }).click();
+    await page.getByRole('button', { name: 'View or run', exact: true }).click();
     const savedResponse = page.waitForResponse(r => /\/saved-questions\/[^/]+\/run$/.test(r.url()) && r.request().method() === 'POST');
     await page.getByRole('button', { name: /^(Run Saved Question|Run with Filters)$/ }).click();
     const saved = await (await savedResponse).json();
     await waitForCompleted(page, saved.query_id);
     await expect(page.getByRole('link', { name: 'Download CSV', exact: true })).toHaveAttribute('href', `/api/v1/queries/${saved.query_id}/export?format=csv`);
     await page.getByRole('button', { name: 'Show diagnostics', exact: true }).click();
-    await expect(page.getByText('Execution Attempts', { exact: false })).toBeVisible();
+    await expect(page.getByText('Execution attempts', { exact: false })).toBeVisible();
 
     // Keep a remembered schema selection and active run while deleting the source.
-    await navigate(page, 'Explore Schema');
+    await navigate(page, 'Explore schema');
     await page.getByLabel('Schema database').selectOption(connection.id);
     await navigate(page, 'Connections');
-    await page.locator('div.py-4').filter({ hasText: `${prefix} renamed` }).getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.locator('.connection-row').filter({ hasText: `${prefix} renamed` }).getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByText(`${prefix} renamed`, { exact: true })).toHaveCount(0);
     const replacement = await addConnection(page, `${prefix} replacement`);
-    await navigate(page, 'Explore Schema');
+    await navigate(page, 'Explore schema');
     await expect(page.getByLabel('Schema database')).not.toHaveValue(connection.id);
     await page.getByLabel('Schema database').selectOption(replacement.id);
     await expect(page.getByRole('button', { name: table, exact: true })).toBeVisible();
     await navigate(page, 'History');
-    await expect(page.getByRole('heading', { name: 'Query History' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await navigate(page, 'Ask Data');
-    await expect(page.getByLabel('Database Source')).not.toHaveValue(connection.id);
-    await expect(page.getByLabel('Database Source')).toBeEnabled();
+    await navigate(page, 'Ask data');
+    await expect(page.getByLabel('Database source')).not.toHaveValue(connection.id);
+    await expect(page.getByLabel('Database source')).toBeEnabled();
     await expect(page.getByRole('alert')).toHaveCount(0);
     const newRun = await runSql(page, replacement.id, `SELECT count(*) AS total FROM ${table}`);
     await inspect(page, newRun);
-    await expect(page.getByLabel('Database Source')).toHaveValue(replacement.id);
+    await expect(page.getByLabel('Database source')).toHaveValue(replacement.id);
     expect(errors).toEqual([]);
   } finally {
     for (const id of createdIds) await page.request.delete(`/api/v1/connections/${id}`, { headers });
@@ -177,15 +177,15 @@ test('live LLM questions, follow-ups, charts and saved question variations', asy
     const table = Object.keys(connection.allowed_tables).find(name => name.endsWith('.customers'))!;
     const baselineId = await runSql(page, connection.id, `SELECT count(*) AS total FROM ${table}`);
     const baseline = await waitForCompleted(page, baselineId);
-    await navigate(page, 'Ask Data');
-    await page.getByLabel('Database Source').selectOption(connection.id);
+    await navigate(page, 'Ask data');
+    await page.getByLabel('Database source').selectOption(connection.id);
     const count = await submitQuestion(page, 'How many customers are there? Return a single total customer count.');
     expect(count.rows).toHaveLength(1);
     expect(String(Object.values(count.rows[0])[0])).toBe(String(baseline.rows[0].total));
-    await expect(page.getByRole('button', { name: 'Save as Question', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Save as Question', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save as question', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Save as question', exact: true }).click();
     await page.getByLabel('Title', { exact: false }).fill(`${prefix} LLM customer count`);
-    await page.getByRole('button', { name: 'Save Question', exact: true }).click();
+    await page.getByRole('button', { name: 'Save question', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
     const filteredBaselineId = await runSql(page, connection.id, `SELECT count(*) AS total FROM ${table} WHERE tier = 'enterprise'`);
@@ -194,15 +194,15 @@ test('live LLM questions, follow-ups, charts and saved question variations', asy
     expect(followUp.origin).toBe('follow_up');
     expect(followUp.parent_query_id).toBe(count.query_id);
     expect(String(Object.values(followUp.rows[0])[0])).toBe(String(filteredBaseline.rows[0].total));
-    await page.getByRole('button', { name: 'Start New Question', exact: true }).click();
+    await page.getByRole('button', { name: 'Start new question', exact: true }).click();
     const grouped = await submitQuestion(page, 'Show the number of orders for each order status, ordered by status.');
     expect(grouped.rows.length).toBeGreaterThan(0);
     await expect(page.getByRole('tab', { name: 'Table', exact: true })).toBeVisible();
     await page.getByRole('tab', { name: 'Table', exact: true }).click();
     await expect(page.getByRole('table')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Browse Saved Questions', exact: true }).click();
-    await page.getByRole('button', { name: 'View or Run', exact: true }).click();
+    await page.getByRole('button', { name: 'Browse saved questions', exact: true }).click();
+    await page.getByRole('button', { name: 'View or run', exact: true }).click();
     await page.getByRole('button', { name: 'Edit definition', exact: true }).click();
     await page.getByLabel('Saved question title').fill(`${prefix} revised count`);
     await page.getByRole('button', { name: 'Save definition', exact: true }).click();
@@ -232,7 +232,7 @@ test('empty results, rejected SQL, cancellation, history deletion and revoked ta
     await page.getByRole('button', { name: 'Edit SQL', exact: true }).click();
     await page.getByRole('textbox', { name: 'SQL Editor', exact: true }).fill('SELECT id FROM nonexistent_qa_table');
     const rejectedResponse = page.waitForResponse(r => r.url().endsWith('/queries/sql') && r.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Run Edited SQL', exact: true }).click();
+    await page.getByRole('button', { name: 'Run edited SQL', exact: true }).click();
     const rejected = await (await rejectedResponse).json();
     await expect.poll(async () => (await (await page.request.get(`/api/v1/queries/${rejected.query_id}`)).json()).status).toBe('rejected');
     await page.getByRole('button', { name: 'View previous successful answer', exact: true }).click();
@@ -248,17 +248,17 @@ test('empty results, rejected SQL, cancellation, history deletion and revoked ta
     const cancelledRow = page.getByRole('row').filter({ has: page.getByRole('button', { name: `Delete query ${accepted.query_id}`, exact: true }) });
     await cancelledRow.getByRole('button', { name: 'Inspect', exact: true }).click();
     await expect(page.getByText('Query was cancelled.', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('Database Source')).toBeEnabled();
+    await expect(page.getByLabel('Database source')).toBeEnabled();
     await navigate(page, 'History');
     await page.getByRole('button', { name: `Delete query ${accepted.query_id}`, exact: true }).click();
     await expect(page.getByRole('button', { name: `Delete query ${accepted.query_id}`, exact: true })).toHaveCount(0);
 
     await navigate(page, 'Connections');
-    await page.locator('div.py-4').filter({ hasText: `${prefix} recovery` }).getByRole('button', { name: 'Select tables' }).click();
+    await page.locator('.connection-row').filter({ hasText: `${prefix} recovery` }).getByRole('button', { name: 'Select tables' }).click();
     for (const key of Object.keys(connection.allowed_tables)) await page.getByLabel(key, { exact: true }).uncheck();
     await page.getByRole('button', { name: 'Save selections', exact: true }).click();
     await expect(page.getByText(`${prefix} recovery`, { exact: true })).toBeVisible();
-    await navigate(page, 'Explore Schema');
+    await navigate(page, 'Explore schema');
     await page.getByLabel('Schema database').selectOption(connection.id);
     await expect(page.getByText('Select allowed tables and columns in Connections to enable analytics.')).toBeVisible();
     const revokedRun = await page.request.get(`/api/v1/queries/${emptyId}`);

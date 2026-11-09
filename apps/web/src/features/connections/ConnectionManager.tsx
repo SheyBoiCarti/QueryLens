@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useDatabaseBreadcrumb } from '../../components/AppShell.tsx';
 import { api } from '../../api/client.ts';
 import { ConnectionResponse } from '../../api/generated/schema.ts';
 import ConnectionForm from './ConnectionForm.tsx';
@@ -16,6 +17,9 @@ export function ConnectionManager({ onConnectionDeleted }: ConnectionManagerProp
   const [configuring, setConfiguring] = useState<ConnectionResponse | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState<ConnectionResponse | null>(null);
+
+  const breadcrumbConnection = selectedConnection ?? configuring ?? connections[0];
+  useDatabaseBreadcrumb(breadcrumbConnection?.database, Object.keys(breadcrumbConnection?.allowed_tables ?? {})[0]?.split('.')[0]);
 
   const fetchConnections = async () => {
     try {
@@ -52,8 +56,11 @@ export function ConnectionManager({ onConnectionDeleted }: ConnectionManagerProp
 
   return (
     <div className="space-y-6" data-testid="connection-manager">
+      {(isEditing || configuring) && <div className="page-header">
+        <div><h1 className="page-title">Connections</h1><p className="page-subtitle">Manage the databases available to your workspace.</p></div>
+      </div>}
       {error && (
-        <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-md">
+        <div role="alert" className="bg-surface border border-danger-border text-danger text-xs p-3 rounded-md">
           {error}
         </div>
       )}
@@ -61,22 +68,9 @@ export function ConnectionManager({ onConnectionDeleted }: ConnectionManagerProp
       {configuring ? (
         <VisibilityEditor connection={configuring} onDone={() => { setConfiguring(null); void fetchConnections(); }} />
       ) : loading && connections.length === 0 ? (
-        <div className="text-center py-10 text-slate-500 text-sm">Loading connections...</div>
+        <div className="text-center py-10 text-muted text-sm">Loading connections...</div>
       ) : isEditing ? (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-900">
-              {selectedConnection ? `Edit Connection: ${selectedConnection.name}` : 'New Database Connection'}
-            </h3>
-            <button
-              onClick={handleCancelForm}
-              className="text-xs text-slate-500 hover:text-slate-800"
-            >
-              Cancel
-            </button>
-          </div>
-          <ConnectionForm connection={selectedConnection} onSuccess={handleFormSuccess} onCancel={handleCancelForm} />
-        </div>
+        <ConnectionForm connection={selectedConnection} onSuccess={handleFormSuccess} onCancel={handleCancelForm} />
       ) : (
         <ConnectionList
           connections={connections}

@@ -65,10 +65,10 @@ export function AccessibleChart({
     .join(' ');
 
   return (
-    <div className={`bg-white rounded-lg border border-slate-200 p-4 ${className}`} data-testid="accessible-chart">
+    <div className={`bg-surface rounded-lg border border-border p-4 ${className}`} data-testid="accessible-chart">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-semibold text-slate-800">{title}</h4>
-        {units && <span className="text-xs text-slate-500 font-medium">Units: {units}</span>}
+        <h4 className="text-sm font-semibold text-text">{title}</h4>
+        {units && <span className="text-xs text-muted font-medium">Units: {units}</span>}
       </div>
 
       <div className="relative overflow-x-auto">
@@ -89,7 +89,7 @@ export function AccessibleChart({
             y1={scaleY(minY)}
             x2={width - paddingRight}
             y2={scaleY(minY)}
-            stroke="#e2e8f0"
+            stroke="#2E2E2E"
             strokeWidth="1"
           />
           <line
@@ -97,7 +97,7 @@ export function AccessibleChart({
             y1={scaleY(maxY)}
             x2={width - paddingRight}
             y2={scaleY(maxY)}
-            stroke="#e2e8f0"
+            stroke="#2E2E2E"
             strokeWidth="1"
             strokeDasharray="4 4"
           />
@@ -106,8 +106,8 @@ export function AccessibleChart({
             x={paddingLeft - 10}
             y={scaleY(maxY) + 4}
             textAnchor="end"
-            fontSize="10"
-            fill="#64748b"
+            fontSize="12"
+            fill="#A0A0A0"
             fontFamily="monospace"
           >
             {maxY}
@@ -116,8 +116,8 @@ export function AccessibleChart({
             x={paddingLeft - 10}
             y={scaleY(minY) + 4}
             textAnchor="end"
-            fontSize="10"
-            fill="#64748b"
+            fontSize="12"
+            fill="#A0A0A0"
             fontFamily="monospace"
           >
             {minY}
@@ -141,9 +141,9 @@ export function AccessibleChart({
                     y={yPos}
                     width={barWidth}
                     height={Math.max(2, barHeight)}
-                    fill="#6366f1"
+                    fill="#B4B4B4"
                     rx="2"
-                    className="hover:fill-indigo-700 focus:fill-indigo-700 transition-colors cursor-pointer outline-none"
+                    className="hover:fill-accent focus:fill-accent transition-colors cursor-pointer"
                   >
                     <title>{labelText}</title>
                   </rect>
@@ -151,8 +151,8 @@ export function AccessibleChart({
                     x={xPos + barWidth / 2}
                     y={height - paddingBottom + 16}
                     textAnchor="middle"
-                    fontSize="10"
-                    fill="#475569"
+                    fontSize="12"
+                    fill="#A0A0A0"
                     className="truncate"
                   >
                     {p.label.length > 10 ? `${p.label.slice(0, 8)}…` : p.label}
@@ -165,7 +165,7 @@ export function AccessibleChart({
               <path
                 d={linePath}
                 fill="none"
-                stroke="#6366f1"
+                stroke="#B4B4B4"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -184,10 +184,10 @@ export function AccessibleChart({
                       cx={cx}
                       cy={cy}
                       r="4.5"
-                      fill="#ffffff"
-                      stroke="#4f46e5"
+                      fill="#1C1C1C"
+                      stroke="#B4B4B4"
                       strokeWidth="2.5"
-                      className="hover:r-6 focus:r-6 transition-all cursor-pointer outline-none"
+                      className="hover:r-6 focus:r-6 transition-all cursor-pointer"
                     >
                       <title>{labelText}</title>
                     </circle>
@@ -195,8 +195,8 @@ export function AccessibleChart({
                       x={cx}
                       y={height - paddingBottom + 16}
                       textAnchor="middle"
-                      fontSize="10"
-                      fill="#475569"
+                      fontSize="12"
+                      fill="#A0A0A0"
                     >
                       {p.label.length > 10 ? `${p.label.slice(0, 8)}…` : p.label}
                     </text>

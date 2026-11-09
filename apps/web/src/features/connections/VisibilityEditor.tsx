@@ -83,17 +83,17 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
     }
   };
 
-  return <section className="space-y-4 rounded-lg border bg-white p-6">
+  return <section className="space-y-4 rounded-lg border bg-surface p-6">
     <h2 className="text-lg font-semibold">Select tables and columns for {connection.name}</h2>
-    <p className="text-sm text-slate-600">Only selected columns are available to analytics. Leaving every table unchecked disables analytics for this connection.</p>
-    {error && <p role="alert" className="text-red-700">{error}</p>}
+    <p className="text-sm text-muted">Only selected columns are available to analytics. Leaving every table unchecked disables analytics for this connection.</p>
+    {error && <p role="alert" className="text-danger">{error}</p>}
     {!loading && discoveryFailed && <button onClick={() => setAttempt((value) => value + 1)}>Retry discovery</button>}
     {loading ? <p role="status">Discovering table and column names...</p> : (
       <fieldset disabled={saving} className="space-y-3 max-h-[32rem] overflow-y-auto">
         {Object.entries(discovered).map(([table, columns]) => <div key={table} className="border rounded p-3">
-          <label className="font-semibold"><input type="checkbox" checked={table in selected} onChange={() => toggleTable(table)} /> {table}</label>
+          <label className=""><input type="checkbox" checked={table in selected} onChange={() => toggleTable(table)} /> {table}</label>
           <div className="flex flex-wrap gap-4 mt-2">
-            {columns.map((column) => <label key={column} className="text-sm">
+            {columns.map((column) => <label key={column} className="">
               <input type="checkbox" checked={selected[table]?.includes(column) ?? false} onChange={() => toggleColumn(table, column)} /> {column}
             </label>)}
           </div>
@@ -102,7 +102,7 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
       </fieldset>
     )}
     <div className="flex gap-4">
-      <button disabled={loading || saving || discoveryFailed} onClick={() => void save()} className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">{saving ? 'Saving...' : 'Save selections'}</button>
+      <button disabled={loading || saving || discoveryFailed} onClick={() => void save()} className="rounded btn-primary">{saving ? 'Saving...' : 'Save selections'}</button>
       <button disabled={saving} onClick={onDone}>Close</button>
     </div>
   </section>;

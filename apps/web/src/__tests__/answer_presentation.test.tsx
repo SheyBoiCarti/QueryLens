@@ -47,7 +47,7 @@ describe('AnswerPresentation and AccessibleChart (Task 9)', () => {
     render(<AnswerPresentation run={baseCompletedRun} />);
 
     // Title and explanation at top
-    expect(screen.getByRole('heading', { level: 3, name: 'Monthly Active Users' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Monthly Active Users' })).toBeInTheDocument();
     expect(screen.getByText('3 returned rows.')).toBeInTheDocument();
 
     // Warnings are visibly rendered
@@ -287,7 +287,7 @@ describe('WorkspaceView Expiry and Revalidation (Task 9)', () => {
     await vi.advanceTimersByTimeAsync(100);
 
     // Initial state: Chart or table is visible
-    expect(screen.getByRole('heading', { level: 3, name: 'Monthly Active Users' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Monthly Active Users' })).toBeInTheDocument();
     expect(screen.queryByText(/results have expired/i)).toBeNull();
 
     // Advance past expiry
@@ -383,13 +383,13 @@ describe('WorkspaceView Expiry and Revalidation (Task 9)', () => {
     render(<WorkspaceView onNavigateToConnections={vi.fn()} initialQueryId="q-100" />);
 
     await vi.advanceTimersByTimeAsync(100);
-    expect(screen.getByRole('heading', { level: 3, name: 'Monthly Active Users' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Monthly Active Users' })).toBeInTheDocument();
 
     // Trigger revalidation after 30s
     await vi.advanceTimersByTimeAsync(31000);
 
     // Protected title and chart are cleared
-    expect(screen.queryByRole('heading', { level: 3, name: 'Monthly Active Users' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Monthly Active Users' })).toBeNull();
     expect(screen.queryByRole('img', { name: /chart/i })).toBeNull();
 
     vi.useRealTimers();

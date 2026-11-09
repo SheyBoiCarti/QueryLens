@@ -10,29 +10,29 @@ interface ResultsTableProps {
 export function ResultsTable({ columns, rows, truncated = false }: ResultsTableProps): React.JSX.Element {
   if (rows.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center text-slate-500">
+      <div className="bg-surface rounded-lg border border-border p-8 text-center text-muted">
         Query completed with 0 rows returned.
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm space-y-2">
+    <div className="overflow-hidden">
       {truncated && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800 font-medium">
+        <div className="bg-subtle border-b border-border px-4 py-2 text-xs text-muted font-medium">
           Result set was truncated at requested row limit. Additional matching rows exist.
         </div>
       )}
 
-      <div className="overflow-x-auto max-h-[500px]">
-        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-          <thead className="bg-slate-50 sticky top-0 z-10">
+      <div className="overflow-x-auto max-h-[500px]" tabIndex={0} role="region" aria-label="Query result rows">
+        <table className="min-w-full divide-y divide-border text-left text-sm">
+          <thead className="bg-subtle sticky top-0 z-10">
             <tr>
               {columns.map((col) => (
-                <th key={col.name} className="py-2.5 px-4 font-semibold text-slate-700">
+                <th scope="col" key={col.name} className="font-medium">
                   <div className="flex items-center space-x-1">
-                    <span>{col.name}</span>
-                    <span className="text-[10px] uppercase font-mono text-slate-400 font-normal">
+                    <span className="font-mono text-xs">{col.name}</span>
+                    <span className="badge type-tag">
                       {col.type}
                     </span>
                   </div>
@@ -40,15 +40,15 @@ export function ResultsTable({ columns, rows, truncated = false }: ResultsTableP
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 font-mono text-xs">
+          <tbody className="divide-y divide-border font-mono text-xs">
             {rows.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-slate-50">
+              <tr key={rIdx} className="hover:bg-subtle">
                 {columns.map((col) => {
                   const val = row[col.name];
                   return (
-                    <td key={col.name} className="py-2 px-4 whitespace-nowrap text-slate-800">
+                    <td key={col.name} className="whitespace-nowrap text-text">
                       {val === null ? (
-                        <span className="text-slate-400 italic">null</span>
+                        <span className="text-dim italic">null</span>
                       ) : (
                         String(val)
                       )}
@@ -61,7 +61,7 @@ export function ResultsTable({ columns, rows, truncated = false }: ResultsTableP
         </table>
       </div>
 
-      <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+      <div className="table-card-footer">
         <span>Showing {rows.length} rows</span>
         <span>Results are temporarily cached</span>
       </div>

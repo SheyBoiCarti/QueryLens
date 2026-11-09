@@ -231,7 +231,7 @@ describe('schema and metric integration', () => {
     view.rerender(<SchemaExplorer connectionId="two" />);
     await screen.findByRole('button', { name: 'Purchases public.orders' });
     expect(screen.getByRole('heading', { name: 'orders' })).toBeInTheDocument();
-    expect(screen.getByText('Before tax')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Before tax')).toBeInTheDocument();
     expect(screen.getByText('amount', { selector: 'span' })).toBeInTheDocument();
     await act(async () => finishOld(response({ ...catalog, tables: [{ ...catalog.tables[0], name: 'stale_table' }] })));
     expect(screen.queryByRole('heading', { name: 'stale_table' })).toBeNull();
@@ -319,4 +319,35 @@ describe('metric conflict recovery', () => {
     expect(JSON.parse(patches[1][1].body).expected_version).toBe(4);
     await waitFor(() => expect(screen.queryByLabelText('Synonyms (one per line)')).toBeNull());
   });
+});
+
+it('retains drafts across table selection and saves labels for the entire connection', async () => {
+  const secondTable = { ...catalog.tables[0], name: 'customers' };
+  let savedBody: { labels: Array<{ table_name: string; display_name: string }> } | undefined;
+  fetchMock.mockImplementation(async (url: string, options: RequestInit) => {
+    if (url === '/api/v1/connections') return response([{ id: 'one', name: 'Analytics' }]);
+    if (url.endsWith('/schema')) return response({ ...catalog, tables: [...catalog.tables, secondTable] });
+    if (url.endsWith('/metrics')) return response([]);
+    if (options.method === 'PUT') {
+      savedBody = JSON.parse(options.body as string);
+      return response({ semantic_version: 2, labels: savedBody!.labels });
+    }
+    return response({ semantic_version: 1, labels: [] });
+  });
+  render(<SchemaExplorer connectionId="one" />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save labels' })).toBeEnabled());
+  change('public.orders display name', 'Purchases');
+  change('public.orders.amount display name', 'Revenue');
+  fireEvent.click(screen.getByRole('button', { name: 'public.customers' }));
+  change('public.customers display name', 'Customers');
+  fireEvent.click(screen.getByRole('button', { name: 'public.orders' }));
+  expect(screen.getByLabelText('public.orders display name')).toHaveValue('Purchases');
+  expect(screen.getByLabelText('public.orders.amount display name')).toHaveValue('Revenue');
+  fireEvent.click(screen.getByRole('button', { name: 'Save labels' }));
+  await screen.findByText('Labels saved.');
+  expect(savedBody?.labels).toEqual(expect.arrayContaining([
+    expect.objectContaining({ table_name: 'orders', display_name: 'Purchases' }),
+    expect.objectContaining({ table_name: 'orders', display_name: 'Revenue' }),
+    expect.objectContaining({ table_name: 'customers', display_name: 'Customers' }),
+  ]));
 });

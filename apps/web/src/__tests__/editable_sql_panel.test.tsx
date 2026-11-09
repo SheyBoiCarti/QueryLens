@@ -16,7 +16,7 @@ describe('Editable SQLPanel (Task 10)', () => {
     expect(textarea).toHaveValue(executedSql);
   });
 
-  it('calls onRunSql with modified draft when Run Edited SQL is clicked', async () => {
+  it('calls onRunSql with modified draft when Run edited SQL is clicked', async () => {
     const executedSql = 'SELECT id, name FROM users;';
     const onRunSql = vi.fn().mockResolvedValue(undefined);
 

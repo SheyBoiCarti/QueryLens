@@ -47,20 +47,20 @@ export function DataGrid({ columns, rows, truncated = false }: DataGridProps): R
       {truncated && (
         <div
           role="alert"
-          className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-md font-medium"
+          className="bg-subtle border border-border text-muted text-xs px-3 py-2 rounded-md font-medium"
         >
           Result set was truncated at server limit (showing first {rows.length} rows).
         </div>
       )}
 
       {rows.length === 0 ? (
-        <div className="text-center py-8 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-sm">
+        <div className="text-center py-8 bg-subtle border border-border rounded-lg text-muted text-sm">
           Query returned zero rows.
         </div>
       ) : (
-        <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <table className="min-w-full divide-y divide-border text-sm">
+            <thead className="bg-subtle">
               <tr>
                 {columns.map((col, idx) => {
                   const isSorted = sortCol === col.name;
@@ -75,16 +75,16 @@ export function DataGrid({ columns, rows, truncated = false }: DataGridProps): R
                       key={`${col.name}-${idx}`}
                       scope="col"
                       aria-sort={ariaSortValue}
-                      className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700 tracking-wider"
+                      className="px-4 py-2.5 text-left text-xs font-semibold text-text"
                     >
                       <button
                         onClick={() => handleSort(col.name)}
-                        className="flex items-center space-x-1 hover:text-slate-900 focus:outline-none focus:underline"
+                        className="btn-link text-muted"
                         aria-label={`Sort by ${col.name}`}
                       >
                         <span>{col.name}</span>
-                        <span className="text-slate-400 text-xs">
-                          {isSorted ? (sortDir === 'asc' ? 'â–²' : 'â–¼') : 'â†•'}
+                        <span className="text-dim text-xs" aria-hidden="true">
+                          {isSorted ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
                         </span>
                       </button>
                     </th>
@@ -92,16 +92,16 @@ export function DataGrid({ columns, rows, truncated = false }: DataGridProps): R
                 })}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-200">
+            <tbody className="bg-surface divide-y divide-border">
               {sortedRows.map((row, rIdx) => (
-                <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+                <tr key={rIdx} className="hover:bg-subtle transition-colors">
                   {columns.map((col, cIdx) => (
                     <td
                       key={`${rIdx}-${col.name}-${cIdx}`}
-                      className="px-4 py-2 text-slate-700 font-mono text-xs whitespace-nowrap"
+                      className="px-4 py-2 text-text font-mono text-xs whitespace-nowrap"
                     >
                       {row[col.name] === null || row[col.name] === undefined ? (
-                        <span className="text-slate-300 italic">null</span>
+                        <span className="text-dim italic">null</span>
                       ) : (
                         String(row[col.name])
                       )}

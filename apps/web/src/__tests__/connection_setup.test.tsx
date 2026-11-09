@@ -37,8 +37,8 @@ describe('provider connection links', () => {
     fireEvent.click(screen.getByText('Use connection link'));
     expect(screen.getByLabelText('Connection link')).toHaveValue('');
     expect(screen.getByLabelText('Connection security')).toHaveValue('require');
-    fireEvent.change(screen.getByLabelText('Connection Name'), { target: { value: 'My database' } });
-    fireEvent.click(screen.getByText('Save Connection'));
+    fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'My database' } });
+    fireEvent.click(screen.getByText('Save connection'));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/v1/connections', expect.objectContaining({
       host: 'db.example.com', port: 28173, password: 'pass', tls_enabled: true, tls_mode: 'require',
     })));
@@ -56,8 +56,8 @@ it('reads a provider certificate file and includes it when saving', async () => 
   await screen.findByText('Certificate selected: ca.pem');
   fireEvent.change(screen.getByLabelText('Connection link'), { target: { value: 'postgres://reader:pass@db.example.com/db?sslmode=verify-full' } });
   fireEvent.click(screen.getByText('Use connection link'));
-  fireEvent.change(screen.getByLabelText('Connection Name'), { target: { value: 'Verified DB' } });
-  fireEvent.click(screen.getByText('Save Connection'));
+  fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Verified DB' } });
+  fireEvent.click(screen.getByText('Save connection'));
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/v1/connections', expect.objectContaining({ ca_cert: contents, tls_mode: 'verify-full' })));
 });
 

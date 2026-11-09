@@ -34,14 +34,14 @@ it('recovers from a removed query without locking the new connection selector', 
     : response({ error: { code: 'NOT_FOUND', message: 'Query run not found' } }, 404)));
   render(<WorkspaceView initialQueryId="deleted-run" onActiveQueryChange={changed} onNavigateToConnections={vi.fn()} />);
   expect(await screen.findByRole('alert')).toHaveTextContent('This query is no longer available');
-  expect(screen.getByLabelText('Database Source')).toBeEnabled();
-  expect(screen.getByLabelText('Database Source')).toHaveValue('replacement');
+  expect(screen.getByLabelText('Database source')).toBeEnabled();
+  expect(screen.getByLabelText('Database source')).toHaveValue('replacement');
   expect(screen.queryByText('Queued')).not.toBeInTheDocument();
   expect(changed).toHaveBeenCalledWith(null);
 });
 
 it('keeps one labels panel and one metrics panel after refreshing the schema', async () => {
-  const catalog = { connection_id: replacement.id, snapshot_hash: 'abc', policy_version: 1, tables: [] };
+  const catalog = { connection_id: replacement.id, snapshot_hash: 'abc', policy_version: 1, tables: [{ namespace: 'public', name: 'orders', columns: [], primary_key_columns: [], foreign_keys: [] }] };
   const fetch = vi.fn(async (url: string) => {
     if (url === '/api/v1/connections') return response([replacement]);
     if (url.endsWith('/schema') || url.endsWith('/refresh')) return response(catalog);
@@ -54,6 +54,8 @@ it('keeps one labels panel and one metrics panel after refreshing the schema', a
   fireEvent.click(screen.getByRole('button', { name: 'Refresh schema' }));
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => url.endsWith('/refresh'))).toBe(true));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save labels' })).toBeEnabled());
-  expect(screen.getAllByRole('heading', { name: 'Business labels' })).toHaveLength(1);
+  expect(screen.getAllByRole('button', { name: 'Save labels' })).toHaveLength(1);
+  expect(screen.getAllByLabelText('public.orders display name')).toHaveLength(1);
+  expect(screen.queryByRole('heading', { name: 'Business labels' })).not.toBeInTheDocument();
   expect(screen.getAllByRole('heading', { name: 'Business metrics' })).toHaveLength(1);
 });
