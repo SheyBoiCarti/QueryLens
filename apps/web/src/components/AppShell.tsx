@@ -16,7 +16,6 @@ export function AppShell({
     { id: 'schema', label: 'Explore Schema' },
     { id: 'ask', label: 'Ask Data' },
     { id: 'history', label: 'History' },
-    { id: 'diagnostics', label: 'Diagnostics' },
   ];
 
   return (

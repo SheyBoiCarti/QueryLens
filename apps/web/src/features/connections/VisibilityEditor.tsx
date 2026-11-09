@@ -7,6 +7,17 @@ interface Props {
   onDone: () => void;
 }
 
+const discoveries = new Map<string, Promise<Record<string, string[]>>>();
+
+function discoverColumns(connectionId: string): Promise<Record<string, string[]>> {
+  const pending = discoveries.get(connectionId);
+  if (pending) return pending;
+  const request = api.get<Record<string, string[]>>(`/api/v1/connections/${connectionId}/schema/discover/columns`)
+    .finally(() => discoveries.delete(connectionId));
+  discoveries.set(connectionId, request);
+  return request;
+}
+
 export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Element {
   const [discovered, setDiscovered] = useState<Record<string, string[]>>({});
   const [selected, setSelected] = useState<Record<string, string[]>>({});
@@ -17,12 +28,13 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const abort = new AbortController();
+    let active = true;
     setDiscoveryFailed(false);
     setLoading(true);
     setError(null);
-    api.get<Record<string, string[]>>(`/api/v1/connections/${connection.id}/schema/discover/columns`, { signal: abort.signal })
+    discoverColumns(connection.id)
       .then((tables) => {
+        if (!active) return;
         setDiscovered(tables);
         const policy: Record<string, string[]> = {};
         for (const [key, columns] of Object.entries(tables)) {
@@ -32,13 +44,13 @@ export function VisibilityEditor({ connection, onDone }: Props): React.JSX.Eleme
         setSelected(policy);
       })
       .catch((err: unknown) => {
-        if (!abort.signal.aborted) {
+        if (active) {
           setDiscoveryFailed(true);
           setError(err instanceof Error ? err.message : 'Discovery failed');
         }
       })
-      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
-    return () => abort.abort();
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [connection, attempt]);
 
   const toggleTable = (table: string) => setSelected((current) => {

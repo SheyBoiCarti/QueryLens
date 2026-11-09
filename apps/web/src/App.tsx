@@ -16,7 +16,7 @@ export function App(): React.JSX.Element {
 
   return (
     <AppShell currentRoute={route} onRouteChange={(next) => navigate(next as AppRoute)}>
-          {(route === 'ask' || route === 'diagnostics') && (
+          {route === 'ask' && (
             <WorkspaceView initialQueryId={queryId} onActiveQueryChange={setQueryId}
               onNavigateToConnections={() => navigate('connections')} />
           )}

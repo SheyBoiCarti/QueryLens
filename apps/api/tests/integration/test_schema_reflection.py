@@ -80,3 +80,30 @@ def test_live_table_discovery(analytics_source):
     )
     assert len(snapshot.tables) == 1
     assert {column.name for column in snapshot.tables[0].columns} == {"id", "day"}
+
+
+def test_reflection_batches_only_authorized_tables(monkeypatch):
+    """Hosted database latency should not multiply by the selected table count."""
+    from unittest.mock import Mock
+
+    source = sa.create_engine("sqlite://")
+    with source.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE customers (id INTEGER PRIMARY KEY, secret TEXT)")
+        conn.exec_driver_sql("CREATE TABLE orders (id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(id))")
+        conn.exec_driver_sql("CREATE TABLE hidden (id INTEGER)")
+    with source.connect() as conn:
+        inspector = sa.inspect(conn)
+        for method in ("get_multi_columns", "get_multi_pk_constraint", "get_multi_foreign_keys", "get_multi_indexes"):
+            monkeypatch.setattr(inspector, method, Mock(wraps=getattr(inspector, method)))
+        monkeypatch.setattr("querylens.schema.inspector.sa.inspect", lambda connection: inspector)
+        snapshot = SchemaInspector.reflect_visible_catalog(
+            "fixture", source, "postgresql", {"main.customers": ["id"], "main.orders": []},
+        )
+        assert {table.name for table in snapshot.tables} == {"customers", "orders"}
+        customers = next(table for table in snapshot.tables if table.name == "customers")
+        assert [column.name for column in customers.columns] == ["id"]
+        orders = next(table for table in snapshot.tables if table.name == "orders")
+        assert orders.foreign_keys[0].target_table == "customers"
+        for method in ("get_multi_columns", "get_multi_pk_constraint", "get_multi_foreign_keys", "get_multi_indexes"):
+            getattr(inspector, method).assert_called_once_with(schema="main", filter_names=["customers", "orders"])
+    source.dispose()

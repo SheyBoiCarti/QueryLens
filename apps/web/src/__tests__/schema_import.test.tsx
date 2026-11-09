@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { api } from '../api/client.ts';
@@ -41,4 +42,15 @@ it('blocks saving after failed discovery and allows retry', async () => {
   expect(await screen.findByText('public.customers')).toBeInTheDocument();
   expect(screen.getByText('Save selections')).toBeEnabled();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+
+it('shares discovery across StrictMode effects instead of competing for the source pool', async () => {
+  let resolve!: (tables: Record<string, string[]>) => void;
+  vi.mocked(api.get).mockReturnValue(new Promise((done) => { resolve = done; }));
+  render(<StrictMode><VisibilityEditor connection={connection} onDone={vi.fn()} /></StrictMode>);
+  expect(api.get).toHaveBeenCalledTimes(1);
+  resolve({ 'public.customers': ['id'] });
+  expect(await screen.findByText('public.customers')).toBeInTheDocument();
+  expect(screen.getByText('Save selections')).toBeEnabled();
 });

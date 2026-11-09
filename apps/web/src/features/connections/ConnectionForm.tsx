@@ -33,6 +33,7 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError(null);
     setLoading(true);
 
@@ -81,7 +82,8 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
       )}
 
       {!connection && <p className="mb-4 text-sm text-slate-600">Saving verifies your connection and imports accessible tables and columns automatically. You can adjust table access afterward.</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit}>
+        <fieldset disabled={loading} className="space-y-4">
         <div className="rounded border border-slate-200 p-3 space-y-2">
           <label htmlFor="connection-link" className="block text-sm font-medium">Connection link</label>
           <input id="connection-link" type="password" autoComplete="off" value={connectionString}
@@ -255,6 +257,7 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
           </>}
         </div>}
 
+        {loading && <p role="status" className="text-sm text-slate-600">{connection ? 'Saving your connection settings…' : 'Connecting to your database and importing its schema. Please keep this page open; this can take a moment.'}</p>}
         <div className="flex justify-end space-x-3 pt-4 border-t">
           {onCancel && (
             <button
@@ -271,9 +274,10 @@ export function ConnectionForm({ onSuccess, onCancel, connection }: ConnectionFo
             disabled={loading}
             className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Save Connection'}
+            {loading ? (connection ? 'Saving...' : 'Connecting and importing...') : 'Save Connection'}
           </button>
         </div>
+        </fieldset>
       </form>
     </div>
   );

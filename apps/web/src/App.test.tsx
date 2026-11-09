@@ -12,3 +12,11 @@ describe('Application without authentication', () => {
     expect(screen.queryByText(/sign in|restoring your session/i)).not.toBeInTheDocument();
   });
 });
+
+it('keeps diagnostics within Ask Data instead of exposing a duplicate tab', () => {
+  window.location.hash = '#diagnostics';
+  render(<App />);
+  expect(screen.getByText('Query workspace')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Ask Data' })).toHaveAttribute('aria-current', 'page');
+  expect(screen.queryByRole('button', { name: 'Diagnostics' })).not.toBeInTheDocument();
+});
