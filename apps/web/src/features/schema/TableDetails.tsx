@@ -21,6 +21,8 @@ interface ForeignKeyMeta {
 
 interface TableDetailsProps {
   labels?: CatalogLabelInput[];
+  disabled?: boolean;
+  onLabelChange?: (column: string | null, field: 'display_name' | 'description', value: string) => void;
   table: {
     name: string;
     namespace: string;
@@ -30,81 +32,61 @@ interface TableDetailsProps {
   };
 }
 
-export function TableDetails({ table, labels = [] }: TableDetailsProps): React.JSX.Element {
+export function TableDetails({ table, labels = [], disabled = false, onLabelChange }: TableDetailsProps): React.JSX.Element {
   const label = labelFor(labels, table.namespace, table.name);
+  const physical = `${table.namespace}.${table.name}`;
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
-      <div>
-        {label && <div className="mb-2"><p className="font-semibold">{label.display_name}</p>{label.description && <p className="text-sm text-slate-600">{label.description}</p>}</div>}
-        <div className="flex items-center space-x-2">
-          <h3 className="text-xl font-bold text-slate-900">{table.name}</h3>
-          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
-            {table.namespace}
-          </span>
+    <div>
+      <div className="p-5 space-y-4">
+        <div className="actions">
+          <h2 className="section-title font-mono">{table.name}</h2>
+          <span className="badge">{table.namespace}</span>
         </div>
+        {onLabelChange ? <div className="grid gap-4 sm:grid-cols-2">
+          <label>Table display name
+            <input aria-label={`${physical} display name`} maxLength={200} value={label?.display_name ?? ''}
+              onChange={(event) => onLabelChange(null, 'display_name', event.target.value)} disabled={disabled}
+              placeholder={table.name} className="block w-full mt-1" />
+          </label>
+          <label>Description
+            <input aria-label={`${physical} description`} maxLength={2000} value={label?.description ?? ''}
+              onChange={(event) => onLabelChange(null, 'description', event.target.value)} disabled={disabled}
+              placeholder="Describe this table" className="block w-full mt-1" />
+          </label>
+        </div> : label && <div><p>{label.display_name}</p><p className="text-muted">{label.description}</p></div>}
       </div>
-
-      <div>
-        <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">Columns</h4>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600 font-medium">
-              <tr>
-                <th className="py-2 px-3">Name</th>
-                <th className="py-2 px-3">Type</th>
-                <th className="py-2 px-3">Native DB Type</th>
-                <th className="py-2 px-3">Key</th>
-                <th className="py-2 px-3">Nullable</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {table.columns.map((c) => (
-                <tr key={c.name} className="hover:bg-slate-50">
-                  <td className="py-2 px-3 text-slate-900"><span className="font-mono font-medium">{c.name}</span>{labelFor(labels, table.namespace, table.name, c.name) && <div className="text-sm"><p>{labelFor(labels, table.namespace, table.name, c.name)?.display_name}</p><p className="text-slate-600">{labelFor(labels, table.namespace, table.name, c.name)?.description}</p></div>}</td>
-                  <td className="py-2 px-3">
-                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-mono">
-                      {c.canonical_type}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-slate-500 font-mono text-xs">{c.db_type}</td>
-                  <td className="py-2 px-3">
-                    {c.primary_key && (
-                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-bold">
-                        PK
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 px-3 text-slate-500 text-xs">
-                    {c.nullable ? 'YES' : 'NO'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="table-scroll" tabIndex={0} role="region" aria-label={`${physical} columns`}>
+        <table className="schema-table">
+          <thead><tr>
+            <th scope="col">Column</th><th scope="col">Type</th><th scope="col">Key</th><th scope="col">Nullable</th>
+            <th scope="col">Business name</th><th scope="col">Description</th>
+          </tr></thead>
+          <tbody>
+            {table.columns.map((column) => {
+              const columnLabel = labelFor(labels, table.namespace, table.name, column.name);
+              return <tr key={column.name}>
+                <td><span className="font-mono text-xs">{column.name}</span><p className="native-type">{column.db_type}</p></td>
+                <td><span className="badge type-tag">{column.canonical_type}</span></td>
+                <td>{column.primary_key && <span className="badge badge-pk">PK</span>}</td>
+                <td className="text-muted text-xs">{column.nullable ? 'Yes' : 'No'}</td>
+                <td>{onLabelChange ? <input aria-label={`${physical}.${column.name} display name`} maxLength={200}
+                  placeholder={column.name} value={columnLabel?.display_name ?? ''} disabled={disabled}
+                  onChange={(event) => onLabelChange(column.name, 'display_name', event.target.value)} /> : columnLabel?.display_name}</td>
+                <td>{onLabelChange ? <input aria-label={`${physical}.${column.name} description`} maxLength={2000}
+                  placeholder="Add description" value={columnLabel?.description ?? ''} disabled={disabled}
+                  onChange={(event) => onLabelChange(column.name, 'description', event.target.value)} /> : columnLabel?.description}</td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
       </div>
-
-      {table.foreign_keys.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">Relationships (Foreign Keys)</h4>
-          <div className="space-y-2">
-            {table.foreign_keys.map((fk, idx) => (
-              <div key={idx} className="p-3 bg-slate-50 rounded border border-slate-200 text-xs font-mono flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-slate-800">{table.name}</span>
-                  <span className="text-slate-500">({fk.source_columns.join(', ')})</span>
-                  <span className="mx-2 text-indigo-600 font-bold">&rarr;</span>
-                  <span className="font-semibold text-slate-800">{fk.target_table}</span>
-                  <span className="text-slate-500">({fk.target_columns.join(', ')})</span>
-                </div>
-                <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded">
-                  {fk.cardinality}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {table.foreign_keys.length > 0 && <div className="p-5 border-t border-border space-y-2">
+        <h3 className="section-title">Relationships (foreign keys)</h3>
+        {table.foreign_keys.map((fk, index) => <div key={index} className="flex flex-wrap justify-between gap-2 text-xs font-mono text-muted">
+          <span>{table.name}({fk.source_columns.join(', ')}) → {fk.target_table}({fk.target_columns.join(', ')})</span>
+          <span className="badge">{fk.cardinality}</span>
+        </div>)}
+      </div>}
     </div>
   );
 }

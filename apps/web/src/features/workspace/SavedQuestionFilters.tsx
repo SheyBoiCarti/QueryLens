@@ -24,7 +24,7 @@ export function SavedQuestionFilters({
           type="button"
           onClick={onRun}
           disabled={disabled}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          className="rounded-md font-medium transition-colors btn-primary"
         >
           Run Saved Question
         </button>}
@@ -33,10 +33,10 @@ export function SavedQuestionFilters({
   }
 
   return (
-    <div className="space-y-4 bg-slate-50 border border-slate-200 rounded-lg p-4" data-testid="saved-question-filters">
-      <div className="border-b border-slate-200 pb-2">
-        <h4 className="text-sm font-semibold text-slate-800">Typed Filter Controls</h4>
-        <p className="text-xs text-slate-500">Configure parameters for direct rerun without natural-language latency.</p>
+    <div className="space-y-4 bg-subtle border border-border rounded-lg p-4" data-testid="saved-question-filters">
+      <div className="border-b border-border pb-2">
+        <h4 className="text-sm font-semibold text-text">Typed Filter Controls</h4>
+        <p className="text-xs text-muted">Configure parameters for direct rerun without natural-language latency.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -51,12 +51,12 @@ export function SavedQuestionFilters({
               <div key={param.slot_id} className="space-y-1">
                 <label
                   htmlFor={`date-preset-${param.name}`}
-                  className="block text-xs font-semibold text-slate-700"
+                  className="block text-xs"
                 >
                   {param.label}
                 </label>
                 {param.target && (
-                  <span className="text-[10px] text-slate-400 font-mono block">
+                  <span className="text-[10px] text-dim font-mono block">
                     {param.target.table_name}.{param.target.column_name} ({param.target.operator})
                   </span>
                 )}
@@ -76,7 +76,7 @@ export function SavedQuestionFilters({
                         onChange(param.name, { mode });
                       }
                     }}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                    className="w-full border rounded"
                   >
                     <option value="this_month">This Month</option>
                     <option value="this_year">This Year</option>
@@ -97,9 +97,9 @@ export function SavedQuestionFilters({
                             start_date: e.target.value,
                           })
                         }
-                        className="px-2 py-1 border border-slate-300 rounded text-xs"
+                        className="border rounded"
                       />
-                      <span className="text-xs text-slate-400">to</span>
+                      <span className="text-xs text-dim">to</span>
                       <input
                         type="date"
                         aria-label={`${param.label} End Date`}
@@ -112,12 +112,12 @@ export function SavedQuestionFilters({
                             end_date_inclusive: e.target.value,
                           })
                         }
-                        className="px-2 py-1 border border-slate-300 rounded text-xs"
+                        className="border rounded"
                       />
                     </div>
                   )}
 
-                  <span className="text-[11px] text-slate-500 block">
+                  <span className="text-[11px] text-muted block">
                     Inclusive end-date UTC resolution
                   </span>
                 </div>
@@ -132,7 +132,7 @@ export function SavedQuestionFilters({
               <div key={param.slot_id} className="space-y-1">
                 <label
                   htmlFor={`param-${param.name}`}
-                  className="block text-xs font-semibold text-slate-700"
+                  className="block text-xs"
                 >
                   {param.label}
                 </label>
@@ -147,9 +147,9 @@ export function SavedQuestionFilters({
                     const number = Number(e.target.value);
                     if (e.target.value && Number.isSafeInteger(number) && number >= 1 && number <= 1000) onChange(param.name, number);
                   }}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className="w-full border rounded"
                 />
-                <span className="text-[11px] text-slate-500 block">
+                <span className="text-[11px] text-muted block">
                   Configured maximum: 1,000 rows
                 </span>
               </div>
@@ -164,12 +164,12 @@ export function SavedQuestionFilters({
             <div key={param.slot_id} className="space-y-1">
               <label
                 htmlFor={`param-${param.name}`}
-                className="block text-xs font-semibold text-slate-700"
+                className="block text-xs"
               >
                 {param.label}
               </label>
               {param.target && (
-                <span className="text-[10px] text-slate-400 font-mono block">
+                <span className="text-[10px] text-dim font-mono block">
                   {param.target.table_name}.{param.target.column_name} ({param.target.operator})
                 </span>
               )}
@@ -195,7 +195,7 @@ export function SavedQuestionFilters({
                       if (Number.isFinite(parsed) && (param.source_type !== 'integer' || Number.isInteger(parsed))) onChange(param.name, parsed);
                     }
                   }}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className="w-full border rounded"
                 >
                   {choices.map((c, cIdx) => (
                     <option key={cIdx} value={String(c)}>
@@ -209,7 +209,7 @@ export function SavedQuestionFilters({
                   value={typeof val === 'boolean' ? String(val) : String(param.default_value ?? true)}
                   disabled={disabled}
                   onChange={(e) => onChange(param.name, e.target.value === 'true')}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className="w-full border rounded"
                 >
                   <option value="true">True</option><option value="false">False</option>
                 </select>
@@ -226,7 +226,7 @@ export function SavedQuestionFilters({
                     const number = Number(value);
                     if (Number.isFinite(number) && (param.source_type !== 'integer' || Number.isSafeInteger(number))) onChange(param.name, number);
                   }}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className="w-full border rounded"
                 />
               ) : (
                 <input
@@ -235,7 +235,7 @@ export function SavedQuestionFilters({
                   value={val !== undefined ? String(val) : String(param.default_value ?? '')}
                   disabled={disabled}
                   onChange={(e) => onChange(param.name, e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className="w-full border rounded"
                 />
               )}
             </div>
@@ -243,12 +243,12 @@ export function SavedQuestionFilters({
         })}
       </div>
 
-      {onRun && <div className="flex justify-end pt-2 border-t border-slate-200">
+      {onRun && <div className="flex justify-end pt-2 border-t border-border">
         <button
           type="button"
           onClick={onRun}
           disabled={disabled}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          className="rounded-md font-medium transition-colors btn-primary"
         >
           Run with Filters
         </button>

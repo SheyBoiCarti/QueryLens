@@ -1,7 +1,156 @@
+@font-face { font-family: Inter; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/inter-400.ttf') format('truetype'); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/inter-500.ttf') format('truetype'); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/inter-600.ttf') format('truetype'); }
+@font-face { font-family: 'Source Code Pro'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/source-code-pro-400.ttf') format('truetype'); }
+@font-face { font-family: 'Source Code Pro'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/source-code-pro-500.ttf') format('truetype'); }
+@font-face { font-family: 'Source Code Pro'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/source-code-pro-600.ttf') format('truetype'); }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+@layer base {
+  :root {
+    color-scheme: dark;
+    --bg-page: #171717;
+    --bg-surface: #1C1C1C;
+    --bg-subtle: #1F1F1F;
+    --bg-control: #262626;
+    --bg-active: #2A2A2A;
+    --border: #2E2E2E;
+    --border-control: #3E3E3E;
+    --border-row: #2A2A2A;
+    --text: #EDEDED;
+    --text-nav: #B4B4B4;
+    --text-muted: #A0A0A0;
+    --text-dim: #8F8F8F;
+    --accent: #3ECF8E;
+    --accent-bg: #0E2A1F;
+    --accent-border: #1F6B4A;
+    --btn-primary-bg: #006239;
+    --btn-primary-border: #1F8A5C;
+    --danger: #F87171;
+    --warning: #F5B94A;
+    font-family: Inter, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background: var(--bg-page);
+    color: var(--text);
+  }
+  * { border-color: var(--border); }
+  body { font-size: 13px; margin: 0; min-width: 320px; }
+  button, input, select, textarea { font: inherit; }
+  button, .button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 40px; padding: 0 14px; border: 1px solid var(--border-control);
+    border-radius: 6px; background: var(--bg-control); color: var(--text);
+    font-weight: 500; cursor: pointer; text-decoration: none;
+  }
+  button:hover, .button:hover { background: #2E2E2E; border-color: #505050; }
+  button:disabled, button:disabled:hover, input:disabled, select:disabled, textarea:disabled { opacity: 1; background: var(--bg-subtle); color: var(--text-dim); border-color: var(--border-control); cursor: not-allowed; }
+  input:not([type=checkbox]):not([type=radio]), select, textarea {
+    height: 40px; max-width: 100%; min-width: 0; padding: 0 12px;
+    background: var(--bg-subtle); border: 1px solid var(--border-control); border-radius: 6px; color: var(--text);
+  }
+  textarea { height: auto; min-height: 88px; padding: 10px 12px; resize: vertical; }
+  input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--text-dim); opacity: 1; }
+  fieldset { min-inline-size: 0; }
+  label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  a { color: var(--accent); }
+  table { width: 100%; text-align: left; border-collapse: collapse; }
+  th { padding: 10px 16px; background: var(--bg-subtle); color: var(--text-muted); font-size: 12px; font-weight: 500; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border-row); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--bg-subtle); }
+  pre, code { font-family: 'Source Code Pro', monospace; font-size: 12px; }
+  details { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 0 16px; }
+  summary { min-height: 44px; align-content: center; font-weight: 500; cursor: pointer; }
+  details[open] > :last-child:not(summary) { margin-bottom: 16px; }
+}
+
+/* Keep one visible focus treatment, including on links, SVG chart points and disclosures. */
+:focus-visible, input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: none;
+}
+
+@layer components {
+  .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .page-title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .page-subtitle { color: var(--text-muted); margin-top: 4px; }
+  .section-title { font-size: 14px; font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .bg-primary { border-color: var(--btn-primary-border); }
+  .btn-primary { background: var(--btn-primary-bg); border-color: var(--btn-primary-border); color: #fff; }
+  .btn-primary:hover { background: #00764A; border-color: var(--btn-primary-border); }
+  .btn-danger { color: var(--danger); border-color: #5C2B2B; }
+  .btn-link { background: transparent; border-color: transparent; color: var(--accent); padding: 0; }
+  .btn-link:hover { background: transparent; border-color: transparent; text-decoration: underline; }
+  .btn-link-danger { color: var(--danger); }
+  .badge { display: inline-flex; align-items: center; white-space: nowrap; font-size: 11px; font-weight: 500; line-height: 1.5; padding: 1px 8px; border: 1px solid var(--border-control); border-radius: 999px; background: #232323; color: #C4C4C4; }
+  .badge-success { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent); }
+  .badge-danger { border-color: #5C2B2B; color: var(--danger); }
+  .type-tag { font-family: 'Source Code Pro', monospace; border-radius: 4px; }
+  .badge-pk { background: #2B2208; color: var(--warning); border-color: #5A4512; }
+  .table-scroll { overflow-x: auto; }
+  .table-card { padding: 0; overflow: hidden; }
+  .table-card-header, .table-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; }
+  .table-card-footer { border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+  .app-topbar > svg { flex-shrink: 0; }
+  .app-topbar { height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 20px; background: var(--bg-surface); border-bottom: 1px solid var(--border); }
+  .app-brand { flex-shrink: 0; font-size: 14px; font-weight: 600; }
+  .app-breadcrumb { min-width: 0; display: flex; align-items: center; gap: 12px; margin-left: 16px; font-size: 12px; color: var(--text-muted); }
+  .app-breadcrumb > span:not([aria-hidden]) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-layout { display: flex; min-height: calc(100vh - 48px); }
+  .app-sidebar { flex: 0 0 216px; padding: 12px 8px; border-right: 1px solid var(--border); }
+  .workspace-label { font-size: 11px; color: var(--text-dim); padding: 8px 12px 10px; }
+  .app-nav { display: flex; flex-direction: column; gap: 4px; }
+  .app-nav button { width: 100%; min-height: 36px; height: 36px; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; background: transparent; color: var(--text-nav); }
+  .app-nav button:hover { background: #232323; }
+  .app-nav button[aria-current=page] { background: var(--bg-active); color: var(--text); }
+  .app-nav button[aria-current=page] svg { color: var(--accent); }
+  .app-main { flex: 1; min-width: 0; }
+  .app-content { width: 100%; padding: 28px 32px 48px; }
+  .connection-row { display: flex; align-items: center; gap: 16px; }
+  .connection-info { min-width: 0; flex: 1; }
+  .connection-address { font-family: 'Source Code Pro', monospace; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; margin-top: 6px; }
+  .icon-tile { display: grid; place-items: center; flex: 0 0 40px; height: 40px; border-radius: 8px; background: var(--accent-bg); border: 1px solid var(--accent-border); color: var(--accent); }
+  .schema-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .schema-list { padding: 6px; }
+  .schema-list button { display: block; width: 100%; min-height: 0; padding: 8px 10px; border: 0; border-radius: 4px; text-align: left; background: transparent; font-family: 'Source Code Pro', monospace; font-size: 12px; overflow-wrap: anywhere; }
+  .schema-list button:hover { background: #232323; }
+  .schema-list button[aria-current=true] { background: var(--bg-active); color: var(--accent); }
+  .schema-table { min-width: 790px; }
+  .schema-table input { width: 100%; min-width: 140px; }
+  .native-type { font-family: 'Source Code Pro', monospace; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .followup-card { background: #1A2420; border: 1px solid #2B4A3C; }
+  .disclosure { padding: 0 16px; }
+  .result-body { padding: 0 20px 20px; }
+  .result-body:empty { display: none; }
+  .result-body > :last-child { margin-bottom: 0; }
+  .history-table { min-width: 720px; }
+}
+
+@media (max-width: 1100px) {
+  .connection-row { flex-wrap: wrap; }
+  .connection-row > .actions { margin-left: 56px; }
+}
+@media (max-width: 760px) {
+  .app-layout { flex-direction: column; }
+  .app-sidebar { flex: none; width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
+  .app-nav { flex-direction: row; flex-wrap: wrap; }
+  .app-nav button { width: auto; min-height: 44px; }
+  .app-content { padding: 24px 16px 48px; }
+  .app-breadcrumb { gap: 8px; margin-left: auto; }
+  .schema-grid { grid-template-columns: minmax(0, 1fr); }
+  .page-header, .table-card-header, .table-card-footer { flex-wrap: wrap; }
+  button, .button, input:not([type=checkbox]):not([type=radio]), select { min-height: 44px; }
+  .schema-list button { min-height: 44px; }
+  .connection-row > .actions { margin-left: 0; width: 100%; }
+  .followup-card form, .followup-card > .flex { flex-wrap: wrap; }
+  .followup-card form input { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

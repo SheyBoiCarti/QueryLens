@@ -73,9 +73,9 @@ export function SQLPanel({
     : `${dialect} Generated & Executed`;
 
   return (
-    <div className="bg-slate-900 rounded-lg text-slate-100 p-4 space-y-3 font-mono" data-testid="sql-panel">
-      <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
-        <span className="uppercase font-semibold tracking-wider">{labelText}</span>
+    <div className="bg-surface rounded-lg text-text p-4 space-y-3 font-mono" data-testid="sql-panel">
+      <div className="flex items-center justify-between text-xs text-dim border-b border-border pb-2">
+        <span className="font-semibold">{labelText}</span>
         <div className="flex items-center space-x-2">
           {!isEditing ? (
             <>
@@ -83,14 +83,14 @@ export function SQLPanel({
                 type="button"
                 onClick={() => setIsEditing(true)}
                 disabled={disabled}
-                className="px-2.5 py-1 bg-indigo-600 rounded hover:bg-indigo-700 text-white font-sans text-xs transition-colors disabled:opacity-50"
+                className="rounded font-sans transition-colors btn-primary"
               >
                 Edit SQL
               </button>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="px-2.5 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 transition-colors"
+                className="bg-control rounded hover:bg-active text-text transition-colors"
               >
                 {copied ? 'Copied!' : 'Copy SQL'}
               </button>
@@ -101,14 +101,14 @@ export function SQLPanel({
                 type="button"
                 onClick={handleRun}
                 disabled={disabled || !draft.trim()}
-                className="px-2.5 py-1 bg-emerald-600 rounded hover:bg-emerald-700 text-white font-sans text-xs font-medium transition-colors disabled:opacity-50"
+                className="rounded font-sans font-medium transition-colors btn-primary"
               >
-                Run Edited SQL
+                Run edited SQL
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-2.5 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-300 font-sans text-xs transition-colors"
+                className="bg-control rounded hover:bg-active text-dim font-sans transition-colors"
               >
                 Cancel
               </button>
@@ -118,7 +118,7 @@ export function SQLPanel({
       </div>
 
       {!isEditing ? (
-        <pre className="text-sm overflow-x-auto text-emerald-400 whitespace-pre-wrap">{sql}</pre>
+        <pre className="text-sm overflow-x-auto text-accent whitespace-pre-wrap">{sql}</pre>
       ) : (
         <textarea
           aria-label="SQL Editor"
@@ -126,13 +126,13 @@ export function SQLPanel({
           onChange={(e) => updateDraft(e.target.value)}
           disabled={disabled}
           rows={6}
-          className="w-full bg-slate-950 text-emerald-400 font-mono text-sm p-3 rounded border border-slate-700 focus:outline-none focus:border-indigo-500 resize-y"
+          className="w-full text-accent font-mono rounded border resize-y"
         />
       )}
 
       {assumptions.length > 0 && (
-        <div className="pt-2 border-t border-slate-800 text-xs text-slate-400 space-y-1">
-          <span className="font-sans font-medium text-slate-300">Model Assumptions:</span>
+        <div className="pt-2 border-t border-border text-xs text-dim space-y-1">
+          <span className="font-sans font-medium text-dim">Model assumptions:</span>
           <ul className="list-disc list-inside space-y-0.5">
             {assumptions.map((a, i) => (
               <li key={i}>{a}</li>

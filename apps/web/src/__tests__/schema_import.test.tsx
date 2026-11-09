@@ -20,12 +20,12 @@ it('imports on save and returns to the list without requiring table selection', 
   vi.mocked(api.get).mockResolvedValue([]);
   vi.mocked(api.post).mockResolvedValue(connection);
   render(<ConnectionManager />);
-  fireEvent.click(await screen.findByText('Add Connection'));
+  fireEvent.click(await screen.findByText('Add connection'));
   fireEvent.change(screen.getByLabelText('Connection link'), { target: { value: 'postgres://reader:pass@db.example.test/analytics?sslmode=require' } });
   fireEvent.click(screen.getByText('Use connection link'));
-  fireEvent.change(screen.getByLabelText('Connection Name'), { target: { value: 'Analytics' } });
+  fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Analytics' } });
   vi.mocked(api.get).mockResolvedValue([connection]);
-  fireEvent.click(screen.getByText('Save Connection'));
+  fireEvent.click(screen.getByText('Save connection'));
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/v1/connections', expect.objectContaining({ import_schema: true })));
   expect(await screen.findByText('Select tables')).toBeInTheDocument();
   expect(screen.queryByText(/Select tables and columns for/)).not.toBeInTheDocument();

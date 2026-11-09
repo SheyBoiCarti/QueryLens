@@ -79,35 +79,36 @@ export function SavedQuestionsModal({
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 space-y-6">
+      <div className="card max-w-2xl w-full space-y-6">
         <div className="flex items-center justify-between border-b pb-3">
-          <h3 id="modal-title" className="text-lg font-bold text-slate-900">
-            Save as Reusable Question
+          <h3 id="modal-title" className="text-lg font-semibold text-text">
+            Save as reusable question
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+            aria-label="Close dialog"
+            className="text-dim hover:text-muted leading-none"
           >
             &times;
           </button>
         </div>
 
         {error && (
-          <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
+          <div role="alert" className="p-3 bg-surface border border-danger-border text-danger text-xs rounded">
             {error}
           </div>
         )}
 
         {loading ? (
-          <p role="status" className="text-sm text-slate-500 py-6 text-center">
+          <p role="status" className="text-sm text-muted py-6 text-center">
             Discovering query parameter slots...
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="saved-title" className="block text-xs font-semibold text-slate-700 mb-1">
-                Title <span className="text-rose-500">*</span>
+              <label htmlFor="saved-title" className="block text-xs mb-1">
+                Title <span className="text-danger">*</span>
               </label>
               <input
                 id="saved-title"
@@ -116,12 +117,12 @@ export function SavedQuestionsModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Monthly Active Users by Region"
-                className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500"
+                className="w-full border rounded"
               />
             </div>
 
             <div>
-              <label htmlFor="saved-desc" className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="saved-desc" className="block text-xs mb-1">
                 Description
               </label>
               <textarea
@@ -130,35 +131,35 @@ export function SavedQuestionsModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief explanation for teammates"
-                className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:border-indigo-500"
+                className="w-full border rounded"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="chart-pref" className="block text-xs font-semibold text-slate-700 mb-1">
-                  Chart Preference
+                <label htmlFor="chart-pref" className="block text-xs mb-1">
+                  Chart preference
                 </label>
                 <select
                   id="chart-pref"
                   value={chartPreference}
                   onChange={(e) => setChartPreference(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className="w-full border rounded"
                 >
-                  <option value="">Auto (Default)</option>
+                  <option value="">Auto (default)</option>
                   <option value="table">Table</option>
-                  <option value="line">Line Chart</option>
-                  <option value="bar">Bar Chart</option>
+                  <option value="line">Line chart</option>
+                  <option value="bar">Bar chart</option>
                 </select>
               </div>
             </div>
 
             {parameters.length > 0 && (
               <div className="space-y-3 pt-2 border-t">
-                <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Discovered Filter Slots ({parameters.length})
+                <span className="block text-xs font-semibold text-text">
+                  Discovered filter slots ({parameters.length})
                 </span>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                   Configure consumer-facing labels and choices for discovered parameters.
                 </p>
 
@@ -171,16 +172,16 @@ export function SavedQuestionsModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-300 rounded text-sm text-slate-700 hover:bg-slate-50"
+                className="border rounded text-text"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving || !title.trim() || !parametersValid}
-                className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded font-medium btn-primary"
               >
-                {saving ? 'Saving...' : 'Save Question'}
+                {saving ? 'Saving...' : 'Save question'}
               </button>
             </div>
           </form>

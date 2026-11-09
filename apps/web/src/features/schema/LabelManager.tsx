@@ -1,3 +1,4 @@
+import TableDetails from './TableDetails.tsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/client.ts';
 import { CatalogTable } from '../../api/catalog.ts';
@@ -6,6 +7,7 @@ import { CatalogLabelInput, LabelsResponse } from '../../api/generated/schema.ts
 interface LabelManagerProps {
   connectionId: string;
   tables: CatalogTable[];
+  selectedTable?: CatalogTable | null;
   onSaved: (labels: LabelsResponse) => void;
   onLoaded?: (labels: LabelsResponse) => void;
 }
@@ -19,7 +21,7 @@ export function LabelManager(props: LabelManagerProps): React.JSX.Element {
   return <LabelForm key={props.connectionId} {...props} />;
 }
 
-function LabelForm({ connectionId, tables, onSaved, onLoaded }: LabelManagerProps): React.JSX.Element {
+function LabelForm({ connectionId, tables, selectedTable, onSaved, onLoaded }: LabelManagerProps): React.JSX.Element {
   const [labels, setLabels] = useState<CatalogLabelInput[]>([]);
   const [version, setVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,27 +70,24 @@ function LabelForm({ connectionId, tables, onSaved, onLoaded }: LabelManagerProp
       if (mounted.current) setError(err instanceof ApiError ? `${err.message}${err.statusCode === 409 ? ' Reload labels before retrying; reloading replaces your draft.' : ''}` : 'Could not save labels');
     } finally { if (mounted.current) setSaving(false); }
   };
-  return <section className="space-y-3 border rounded bg-white p-4">
-    <h3 className="font-semibold">Business labels</h3>
-    <p className="text-sm text-slate-600">Add business names and descriptions. Physical names remain visible. Clear a display name to remove its label.</p>
-    {error && <p role="alert" className="text-red-700">{error}</p>}
-    {loading && <p role="status">Loading labels...</p>}
-    {saved && <p role="status">Labels saved.</p>}
-    <form onSubmit={(event) => void save(event)} className="space-y-3">
-      <fieldset disabled={loading || saving || version === null} className="space-y-3">
-        {objects.map((object) => {
-          const physical = `${object.namespace}.${object.table_name}${object.column_name === null ? '' : `.${object.column_name}`}`;
-          const label = labelFor(labels, object.namespace, object.table_name, object.column_name);
-          return <div key={physical} className="grid gap-2 md:grid-cols-3">
-            <span className="font-mono text-sm">{physical}</span>
-            <label className="text-sm">Display name <input aria-label={`${physical} display name`} maxLength={200} value={label?.display_name ?? ''} onChange={(event) => update(object, 'display_name', event.target.value)} className="border rounded p-2 w-full" /></label>
-            <label className="text-sm">Description <input aria-label={`${physical} description`} maxLength={2000} value={label?.description ?? ''} onChange={(event) => update(object, 'description', event.target.value)} className="border rounded p-2 w-full" /></label>
-          </div>;
-        })}
+  return <section className="card table-card">
+    {error && <p role="alert" className="text-danger p-4">{error}</p>}
+    {loading && <p role="status" className="p-4 text-muted">Loading labels...</p>}
+    {saved && <p role="status" className="p-4 text-accent">Labels saved.</p>}
+    <form onSubmit={(event) => void save(event)}>
+      <fieldset disabled={loading || saving || version === null}>
+        {(selectedTable === undefined ? tables : selectedTable ? [selectedTable] : []).map((table) => (
+          <TableDetails key={`${table.namespace}.${table.name}`} table={table} labels={labels}
+            disabled={loading || saving || version === null}
+            onLabelChange={(column, field, value) => update({ namespace: table.namespace, table_name: table.name, column_name: column }, field, value)} />
+        ))}
       </fieldset>
-      <div className="flex gap-3">
-        <button type="submit" disabled={loading || saving || version === null}>{saving ? 'Saving labels...' : 'Save labels'}</button>
-        <button type="button" disabled={loading || saving} onClick={() => { setSaved(false); setReload((value) => value + 1); }}>Reload labels (discard draft)</button>
+      <div className="table-card-footer">
+        <p>Add business names and descriptions. Clear a display name to remove its label.</p>
+        <div className="actions">
+          <button type="button" className="btn-link" disabled={loading || saving} onClick={() => { setSaved(false); setReload((value) => value + 1); }}>Reload labels (discard draft)</button>
+          <button type="submit" className="btn-primary" disabled={loading || saving || version === null}>{saving ? 'Saving labels...' : 'Save labels'}</button>
+        </div>
       </div>
     </form>
   </section>;

@@ -30,10 +30,10 @@ describe('QueryInspector Component (Task 07.07)', () => {
 
     render(<QueryInspector trace={trace} status="completed" />);
 
-    expect(screen.getByText('Query Inspector & Diagnostics')).toBeInTheDocument();
+    expect(screen.getByText('Query inspector & diagnostics')).toBeInTheDocument();
     expect(screen.getByText(/Attempt 1 \(Initial Generation\)/)).toBeInTheDocument();
     expect(screen.getByText(/Attempt 2 \(Repair\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Repair Reason: syntax:SYNTAX_ERROR/)).toBeInTheDocument();
+    expect(screen.getByText(/Repair reason: syntax:SYNTAX_ERROR/)).toBeInTheDocument();
     expect(screen.getByText('SELECT COUNT(*) FROM users')).toBeInTheDocument();
   });
 
@@ -58,7 +58,7 @@ describe('QueryInspector Component (Task 07.07)', () => {
 
     expect(screen.getByText(/Attempt 1 \(Initial Generation\)/)).toBeInTheDocument();
     expect(screen.queryByText(/Attempt 2/)).not.toBeInTheDocument();
-    expect(screen.getByTestId('status-badge')).toHaveTextContent('rejected');
+    expect(screen.getByTestId('status-badge')).toHaveTextContent('Rejected');
   });
 
   it('does not display cancelled early when status is cancelling', () => {

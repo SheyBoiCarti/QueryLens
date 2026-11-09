@@ -1,4 +1,13 @@
-import React from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Search, Database, Table2, MessageSquare, History } from 'lucide-react';
+
+interface DatabaseContext { database?: string; namespace?: string }
+const BreadcrumbContext = createContext<(context: DatabaseContext) => void>(() => {});
+
+export function useDatabaseBreadcrumb(database?: string, namespace?: string): void {
+  const update = useContext(BreadcrumbContext);
+  useEffect(() => { update({ database, namespace }); }, [database, namespace, update]);
+}
 
 export interface AppShellProps {
   currentRoute: string;
@@ -6,60 +15,38 @@ export interface AppShellProps {
   children: React.ReactNode;
 }
 
-export function AppShell({
-  currentRoute,
-  onRouteChange,
-  children,
-}: AppShellProps): React.JSX.Element {
+export function AppShell({ currentRoute, onRouteChange, children }: AppShellProps): React.JSX.Element {
+  const [{ database, namespace }, setDatabaseContext] = useState<DatabaseContext>({});
   const navItems = [
-    { id: 'connections', label: 'Connections' },
-    { id: 'schema', label: 'Explore Schema' },
-    { id: 'ask', label: 'Ask Data' },
-    { id: 'history', label: 'History' },
+    { id: 'connections', label: 'Connections', icon: Database },
+    { id: 'schema', label: 'Explore schema', icon: Table2 },
+    { id: 'ask', label: 'Ask data', icon: MessageSquare },
+    { id: 'history', label: 'History', icon: History },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      {/* Top Navbar */}
-      <header className="bg-slate-900 text-white border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-3">
-              <span className="text-indigo-400 font-bold text-xl tracking-tight">QueryLens</span>
-              <span className="px-2 py-0.5 text-xs bg-slate-800 text-slate-300 rounded border border-slate-700">
-                MVP
-              </span>
-            </div>
-
-            <nav className="flex space-x-1" aria-label="Main Navigation">
-              {navItems.map((item) => {
-                const isActive = currentRoute === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onRouteChange(item.id)}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                      isActive
-                        ? 'bg-slate-800 text-indigo-400 font-semibold'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-
-        </div>
+    <div className="min-h-screen bg-page font-sans">
+      <header className="app-topbar">
+        <Search size={18} strokeWidth={1.8} className="text-accent" aria-hidden="true" />
+        <span className="app-brand">QueryLens</span>
+        {database && <div className="app-breadcrumb" aria-label="Current database">
+          <span aria-hidden="true">/</span><span className="text-text">{database}</span>
+          {namespace && <><span aria-hidden="true">/</span><span>{namespace}</span></>}
+        </div>}
       </header>
-
-      {/* Main Content Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {children}
-      </main>
+      <div className="app-layout">
+        <aside className="app-sidebar">
+          <p className="workspace-label">Workspace</p>
+          <nav className="app-nav" aria-label="Main navigation">
+            {navItems.map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" onClick={() => onRouteChange(id)} aria-current={currentRoute === id ? 'page' : undefined}>
+                <Icon size={16} strokeWidth={1.7} aria-hidden="true" />{label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <main className="app-main"><div className="app-content"><BreadcrumbContext.Provider value={setDatabaseContext}>{children}</BreadcrumbContext.Provider></div></main>
+      </div>
     </div>
   );
 }

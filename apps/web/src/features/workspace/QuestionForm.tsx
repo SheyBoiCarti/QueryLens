@@ -44,37 +44,37 @@ export function QuestionForm({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow border border-slate-200 p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="card space-y-4">
+      <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label htmlFor="conn-select" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Database Source
+          <label htmlFor="conn-select" className="block text-xs text-muted mb-1">
+            Database source
           </label>
           <select
             id="conn-select"
             value={selectedConnectionId}
             onChange={(e) => onSelectConnection(e.target.value)}
             disabled={disabled || loading}
-            className="px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+            className="border rounded"
           >
             {connections.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} ({c.engine})
+                {c.name} ({c.engine === 'postgresql' ? 'PostgreSQL' : 'MySQL'})
               </option>
             ))}
           </select>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <label htmlFor="max-rows" className="text-xs text-slate-500 font-medium">
-            Max Rows:
+        <div className="flex flex-col gap-1">
+          <label htmlFor="max-rows" className="text-xs text-muted font-medium">
+            Max rows
           </label>
           <select
             id="max-rows"
             value={maxRows}
             onChange={(e) => setMaxRows(Number(e.target.value))}
             disabled={disabled || loading}
-            className="px-2 py-1 border border-slate-300 rounded text-xs bg-white"
+            className="border rounded"
           >
             <option value={50}>50</option>
             <option value={100}>100</option>
@@ -85,14 +85,14 @@ export function QuestionForm({
       </div>
 
       {error && (
-        <div role="alert" className="p-3 bg-red-50 text-red-700 text-sm rounded border border-red-200">
+        <div role="alert" className="p-3 bg-surface text-danger text-sm rounded border border-danger-border">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label htmlFor="question-input" className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="question-input" className="block font-medium mb-1">
             Ask a natural-language question
           </label>
           <textarea
@@ -103,7 +103,7 @@ export function QuestionForm({
             onChange={(e) => setQuestion(e.target.value)}
             disabled={disabled || loading}
             placeholder="e.g. Which customers placed more than 5 orders last month?"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full border rounded-md"
           />
         </div>
 
@@ -111,9 +111,9 @@ export function QuestionForm({
           <button
             type="submit"
             disabled={disabled || loading || !selectedConnectionId}
-            className="px-5 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            className="btn-primary"
           >
-            {loading ? 'Submitting...' : 'Run Query'}
+            {loading ? 'Submitting...' : 'Run query'}
           </button>
         </div>
       </form>
