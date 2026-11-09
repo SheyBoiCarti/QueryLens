@@ -9,14 +9,19 @@ import sqlalchemy as sa
 
 from querylens.domain.schema import CatalogSnapshot
 from querylens.persistence.session import get_db_connection
-from querylens.persistence.tables import business_metrics, few_shot_examples
+from querylens.persistence.tables import few_shot_examples
 from querylens.retrieval.examples import ExampleRetriever
 from querylens.retrieval.join_paths import expand_join_paths
 from querylens.retrieval.schema_ranker import SchemaRanker, tokenize
 from querylens.semantics.metrics import MetricDSL
+from querylens.semantics.versions import SemanticContext, label_is_visible, visible_labels, visible_metrics
 from querylens.sql.policy import validate_and_bound_sql
 
 MAX_INPUT_TOKENS = 6000
+
+
+class ContextBudgetError(ValueError):
+    """Required context cannot fit without losing query meaning."""
 
 
 @dataclass(frozen=True)
@@ -34,7 +39,7 @@ def estimate_tokens(text: str) -> int:
 def build_schema_context(snapshot: CatalogSnapshot, max_tokens: int = MAX_INPUT_TOKENS) -> str:
     header = f"TARGET DATABASE ENGINE: {snapshot.engine.upper()}\nCATALOG SNAPSHOT HASH: {snapshot.snapshot_hash}\nVISIBLE TABLES AND COLUMNS:\n"
     if estimate_tokens(header) > max_tokens:
-        raise ValueError("Input budget cannot fit schema header")
+        raise ContextBudgetError("Input budget cannot fit schema header")
     sections = [header]
     for table in snapshot.tables:
         columns = ", ".join(
@@ -52,22 +57,23 @@ def build_schema_context(snapshot: CatalogSnapshot, max_tokens: int = MAX_INPUT_
     return "\n".join(sections)
 
 
-def build_query_context(snapshot: CatalogSnapshot, question: str, max_tokens: int) -> str:
-    # Reserve space for provider instructions, question, and semantic definitions.
-    available = max_tokens - estimate_tokens(question) - 2200
+def build_query_context(
+    snapshot: CatalogSnapshot,
+    question: str,
+    max_tokens: int,
+    semantic_context: SemanticContext | None = None,
+    followup_context: Any | None = None,
+) -> str:
+    # Reserve space for provider instructions, question, semantic definitions, and follow-up history.
+    followup_tokens = getattr(followup_context, "estimated_tokens", 0) if followup_context else 0
+    available = max_tokens - estimate_tokens(question) - 2200 - followup_tokens
     if available < 512:
-        raise ValueError("Question leaves insufficient room for schema context")
+        raise ContextBudgetError("Question leaves insufficient room for schema context")
     with get_db_connection() as conn:
-        metric_rows = (
-            conn.execute(
-                sa.select(business_metrics.c.dsl_json)
-                .where(business_metrics.c.connection_id == snapshot.connection_id, business_metrics.c.enabled.is_(True))
-                .order_by(business_metrics.c.key)
-                .limit(100)
+        if semantic_context is None:
+            semantic_context = SemanticContext(
+                labels=visible_labels(conn, snapshot), metrics=visible_metrics(conn, snapshot, enabled_only=True)
             )
-            .scalars()
-            .all()
-        )
         examples = conn.execute(
             sa.select(few_shot_examples.c.question, few_shot_examples.c.sql)
             .where(
@@ -78,34 +84,62 @@ def build_query_context(snapshot: CatalogSnapshot, question: str, max_tokens: in
             .limit(3)
         ).all()
     metrics: list[MetricDSL] = []
-    for raw in metric_rows:
+    for definition in semantic_context.metrics:
         try:
-            metric = MetricDSL.model_validate_json(raw)
-            metric.validate_against_snapshot(snapshot)
+            definition.dsl.validate_against_snapshot(snapshot)
         except ValueError:
-            continue  # A revoked/removed column cannot leak back through a saved metric.
-        metrics.append(metric)
+            continue
+        if definition.enabled:
+            metrics.append(definition.dsl)
     question_tokens = tokenize(question)
 
     def metric_score(metric: MetricDSL) -> int:
-        return len(question_tokens & tokenize(metric.key + " " + metric.name + " " + (metric.description or "")))
+        return len(
+            question_tokens & tokenize(" ".join((metric.key, metric.name, metric.description or "", *metric.synonyms)))
+        )
 
     metrics = sorted(
         (metric for metric in metrics if metric_score(metric)), key=lambda metric: (-metric_score(metric), metric.key)
     )[:3]
-    ranked = SchemaRanker.rank_tables(question, snapshot, top_k=5)
+    ranked = SchemaRanker.rank_tables(question, snapshot, top_k=5, semantic_context=semantic_context)
     metric_tables = [
         table
         for metric in metrics
         for table in snapshot.tables
         if metric.table in (table.name, f"{table.namespace}.{table.name}")
     ]
+    inherited_tables = []
+    if followup_context and getattr(followup_context, "required_references", None):
+        for ref in followup_context.required_references:
+            for table in snapshot.tables:
+                if table.name == ref.table_name:
+                    if not ref.namespace or table.namespace == ref.namespace:
+                        inherited_tables.append(table)
+
     selected = expand_join_paths(
-        list({(table.namespace, table.name): table for table in metric_tables + ranked}.values()), snapshot
+        list({(table.namespace, table.name): table for table in inherited_tables + metric_tables + ranked}.values()), snapshot
     )
     subset = snapshot.model_copy(update={"tables": selected})
-    context = build_schema_context(subset, max(256, int(available * 0.75)))
+    # Reserve complete matched definitions before optional examples/schema expansion.
     additions = ["BUSINESS METRIC (apply its filters and grain): " + metric.model_dump_json() for metric in metrics]
+    labels = [label.model_dump() for label in semantic_context.labels if label_is_visible(label, subset)]
+    semantics = "\n".join(additions)
+    schema_budget = available - (estimate_tokens(semantics) + 1 if semantics else 0)
+    context = build_schema_context(subset, schema_budget)
+    # Referenced metric tables must fit with all columns, filters, and grain.
+    for table in metric_tables:
+        if f"TABLE {table.namespace}.{table.name}:" not in context:
+            raise ContextBudgetError("Input budget cannot fit complete metric schema and definitions")
+    for table in inherited_tables:
+        if f"TABLE {table.namespace}.{table.name}:" not in context:
+            raise ContextBudgetError("Input budget cannot fit required follow-up table schema")
+    if semantics:
+        context += "\n" + semantics
+    if labels:
+        label_text = "BUSINESS LABELS (metadata only; use physical identifiers in SQL): " + json.dumps(labels, ensure_ascii=False)
+        if estimate_tokens(context + "\n" + label_text) <= available:
+            context += "\n" + label_text
+    additions = []
     candidate_examples = [(row[0], row[1]) for row in examples]
     candidate_examples.extend(
         (example.question, example.sql) for example in ExampleRetriever.get_examples(snapshot.engine)
@@ -119,4 +153,6 @@ def build_query_context(snapshot: CatalogSnapshot, question: str, max_tokens: in
     for addition in additions:
         if estimate_tokens(context + "\n" + addition) <= available:
             context += "\n" + addition
+    if followup_context and getattr(followup_context, "formatted_text", None):
+        context = followup_context.formatted_text + "\n\n" + context
     return context

@@ -95,7 +95,11 @@ def register_error_handlers(app: FastAPI) -> None:
             429: "RATE_LIMIT_EXCEEDED",
         }
         code = code_map.get(exc.status_code, "HTTP_ERROR")
-        msg = str(exc.detail) if exc.detail else "An error occurred"
+        if isinstance(exc.detail, dict):
+            code = exc.detail.get("error_code") or exc.detail.get("code") or code
+            msg = exc.detail.get("message") or str(exc.detail)
+        else:
+            msg = str(exc.detail) if exc.detail else "An error occurred"
         return make_error_response(exc.status_code, code, msg, req_id, dict(exc.headers) if exc.headers else None)
 
     @app.exception_handler(RequestValidationError)

@@ -1,6 +1,191 @@
 {
   "components": {
     "schemas": {
+      "AppliedFilter": {
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "$ref": "#/components/schemas/ObjectReference"
+          },
+          "operator": {
+            "enum": [
+              "=",
+              "!=",
+              "<>",
+              "<",
+              "<=",
+              ">",
+              ">=",
+              "IN",
+              "BETWEEN",
+              "date_range"
+            ],
+            "title": "Operator",
+            "type": "string"
+          },
+          "slot_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "maxItems": 100,
+                "type": "array"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "slot_id",
+          "column",
+          "operator",
+          "value"
+        ],
+        "title": "AppliedFilter",
+        "type": "object"
+      },
+      "BoundParameter": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,99}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "scalar_type": {
+            "enum": [
+              "integer",
+              "decimal",
+              "float",
+              "string",
+              "boolean",
+              "date",
+              "datetime"
+            ],
+            "title": "Scalar Type",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "scalar_type",
+          "value"
+        ],
+        "title": "BoundParameter",
+        "type": "object"
+      },
+      "CatalogLabelInput": {
+        "additionalProperties": false,
+        "properties": {
+          "column_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "table_name",
+          "display_name"
+        ],
+        "title": "CatalogLabelInput",
+        "type": "object"
+      },
       "CatalogSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -439,6 +624,17 @@
             "title": "Max Rows",
             "type": "integer"
           },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "question": {
             "maxLength": 4000,
             "minLength": 1,
@@ -470,6 +666,45 @@
           "query_id"
         ],
         "title": "CreateQueryResponse",
+        "type": "object"
+      },
+      "CreateSQLQueryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "max_rows": {
+            "default": 100,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
+          },
+          "sql": {
+            "maxLength": 32768,
+            "minLength": 1,
+            "title": "Sql",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "sql"
+        ],
+        "title": "CreateSQLQueryRequest",
         "type": "object"
       },
       "CsrfResponse": {
@@ -614,6 +849,28 @@
             "title": "Max Rows",
             "type": "integer"
           },
+          "origin": {
+            "default": "natural_language",
+            "enum": [
+              "natural_language",
+              "follow_up",
+              "manual_sql",
+              "saved_question"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "question": {
             "title": "Question",
             "type": "string"
@@ -621,6 +878,39 @@
           "results_available": {
             "title": "Results Available",
             "type": "boolean"
+          },
+          "saved_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Id"
+          },
+          "saved_question_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Version"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
           },
           "status": {
             "title": "Status",
@@ -692,6 +982,89 @@
           "columns"
         ],
         "title": "IndexMetadata",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "LabelReference": {
+        "additionalProperties": false,
+        "properties": {
+          "column_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "namespace",
+          "table_name",
+          "display_name",
+          "version"
+        ],
+        "title": "LabelReference",
+        "type": "object"
+      },
+      "LabelsResponse": {
+        "properties": {
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/LabelReference"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "semantic_version": {
+            "title": "Semantic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "semantic_version",
+          "labels"
+        ],
+        "title": "LabelsResponse",
         "type": "object"
       },
       "LoginRequest": {
@@ -794,6 +1167,16 @@
             "title": "Name",
             "type": "string"
           },
+          "synonyms": {
+            "items": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Synonyms",
+            "type": "array"
+          },
           "table": {
             "pattern": "^[a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)?$",
             "title": "Table",
@@ -857,7 +1240,43 @@
         "title": "MetricFilter",
         "type": "object"
       },
+      "MetricReference": {
+        "additionalProperties": false,
+        "properties": {
+          "dsl_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dsl Hash",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "version",
+          "dsl_hash"
+        ],
+        "title": "MetricReference",
+        "type": "object"
+      },
       "MetricResponse": {
+        "additionalProperties": false,
         "properties": {
           "connection_id": {
             "title": "Connection Id",
@@ -911,6 +1330,396 @@
         "title": "MetricResponse",
         "type": "object"
       },
+      "ObjectReference": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "integer",
+                  "decimal",
+                  "float",
+                  "string",
+                  "boolean",
+                  "date",
+                  "datetime"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Type"
+          },
+          "column_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Name"
+          },
+          "db_type": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Type"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "table_name"
+        ],
+        "title": "ObjectReference",
+        "type": "object"
+      },
+      "ParameterDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Values"
+          },
+          "default_value": {
+            "title": "Default Value"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,99}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "param_type": {
+            "enum": [
+              "date_range",
+              "category",
+              "result_count"
+            ],
+            "title": "Param Type",
+            "type": "string"
+          },
+          "slot_id": {
+            "pattern": "^[A-Za-z0-9_]{1,100}$",
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "integer",
+              "decimal",
+              "float",
+              "string",
+              "boolean",
+              "date",
+              "datetime"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParameterTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slot_id",
+          "name",
+          "label",
+          "param_type",
+          "source_type"
+        ],
+        "title": "ParameterDefinition",
+        "type": "object"
+      },
+      "ParameterDiscoveryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "definitions": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterDefinition"
+            },
+            "title": "Definitions",
+            "type": "array"
+          },
+          "template_fingerprint": {
+            "title": "Template Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_fingerprint",
+          "definitions"
+        ],
+        "title": "ParameterDiscoveryResponse",
+        "type": "object"
+      },
+      "ParameterTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "column_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Column Name",
+            "type": "string"
+          },
+          "db_type": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Type"
+          },
+          "namespace": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Namespace",
+            "type": "string"
+          },
+          "operator": {
+            "enum": [
+              "=",
+              "!=",
+              "<>",
+              "<",
+              "<=",
+              ">",
+              ">=",
+              "IN",
+              "BETWEEN",
+              "date_range"
+            ],
+            "title": "Operator",
+            "type": "string"
+          },
+          "predicate_path": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Predicate Path",
+            "type": "string"
+          },
+          "scope": {
+            "default": "root",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Scope",
+            "type": "string"
+          },
+          "secondary_operator": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Operator"
+          },
+          "secondary_predicate_path": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Predicate Path"
+          },
+          "table_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Table Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate_path",
+          "namespace",
+          "table_name",
+          "column_name",
+          "operator"
+        ],
+        "title": "ParameterTarget",
+        "type": "object"
+      },
+      "PresentationMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_type": {
+            "default": "table",
+            "enum": [
+              "table",
+              "single_value",
+              "line",
+              "bar"
+            ],
+            "title": "Chart Type",
+            "type": "string"
+          },
+          "date_scope": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AppliedFilter"
+            },
+            "title": "Date Scope",
+            "type": "array"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "plot_row_order": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "title": "Plot Row Order",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verified_definitions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/VerifiedDefinition"
+            },
+            "title": "Verified Definitions",
+            "type": "array"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "x_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X Column"
+          },
+          "y_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y Column"
+          }
+        },
+        "required": [
+          "title",
+          "explanation"
+        ],
+        "title": "PresentationMetadata",
+        "type": "object"
+      },
       "PublicColumn": {
         "properties": {
           "db_type": {
@@ -954,6 +1763,33 @@
             "title": "Created At",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "origin": {
+            "default": "natural_language",
+            "enum": [
+              "natural_language",
+              "follow_up",
+              "manual_sql",
+              "saved_question"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "query_id": {
             "title": "Query Id",
             "type": "string"
@@ -965,6 +1801,39 @@
           "safe_message": {
             "title": "Safe Message",
             "type": "string"
+          },
+          "saved_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Id"
+          },
+          "saved_question_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Version"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
           },
           "state_version": {
             "title": "State Version",
@@ -1008,6 +1877,33 @@
             "title": "Created At",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "origin": {
+            "default": "natural_language",
+            "enum": [
+              "natural_language",
+              "follow_up",
+              "manual_sql",
+              "saved_question"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "query_id": {
             "title": "Query Id",
             "type": "string"
@@ -1015,6 +1911,39 @@
           "question": {
             "title": "Question",
             "type": "string"
+          },
+          "saved_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Id"
+          },
+          "saved_question_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Version"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
           },
           "state_version": {
             "title": "State Version",
@@ -1064,6 +1993,16 @@
             "title": "Connection Id",
             "type": "string"
           },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -1076,6 +2015,43 @@
             "title": "Dialect",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "origin": {
+            "default": "natural_language",
+            "enum": [
+              "natural_language",
+              "follow_up",
+              "manual_sql",
+              "saved_question"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
+          "presentation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PresentationMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "query_id": {
             "title": "Query Id",
             "type": "string"
@@ -1087,6 +2063,17 @@
           "results_available": {
             "title": "Results Available",
             "type": "boolean"
+          },
+          "results_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Results Expires At"
           },
           "row_count": {
             "title": "Row Count",
@@ -1121,6 +2108,39 @@
               }
             ],
             "title": "Rows"
+          },
+          "saved_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Id"
+          },
+          "saved_question_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Version"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
           },
           "sql": {
             "title": "Sql",
@@ -1186,6 +2206,33 @@
             "title": "Error Code",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "origin": {
+            "default": "natural_language",
+            "enum": [
+              "natural_language",
+              "follow_up",
+              "manual_sql",
+              "saved_question"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "query_id": {
             "title": "Query Id",
             "type": "string"
@@ -1197,6 +2244,39 @@
           "safe_message": {
             "title": "Safe Message",
             "type": "string"
+          },
+          "saved_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Id"
+          },
+          "saved_question_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Version"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
           },
           "state_version": {
             "title": "State Version",
@@ -1241,6 +2321,33 @@
             "title": "Created At",
             "type": "string"
           },
+          "max_rows": {
+            "default": 100,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "origin": {
+            "default": "natural_language",
+            "enum": [
+              "natural_language",
+              "follow_up",
+              "manual_sql",
+              "saved_question"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Query Id"
+          },
           "query_id": {
             "title": "Query Id",
             "type": "string"
@@ -1248,6 +2355,39 @@
           "question": {
             "title": "Question",
             "type": "string"
+          },
+          "saved_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Id"
+          },
+          "saved_question_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Question Version"
+          },
+          "source_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Query Id"
           },
           "state_version": {
             "title": "State Version",
@@ -1366,6 +2506,573 @@
         "title": "QueryTraceResponse",
         "type": "object"
       },
+      "ReplaceLabelsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_semantic_version": {
+            "minimum": 1.0,
+            "title": "Expected Semantic Version",
+            "type": "integer"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogLabelInput"
+            },
+            "maxItems": 200,
+            "title": "Labels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "expected_semantic_version",
+          "labels"
+        ],
+        "title": "ReplaceLabelsRequest",
+        "type": "object"
+      },
+      "ResolvedDateRange": {
+        "additionalProperties": false,
+        "properties": {
+          "end_exclusive": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "End Exclusive"
+          },
+          "slot_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              }
+            ],
+            "title": "Start"
+          }
+        },
+        "required": [
+          "slot_id",
+          "start",
+          "end_exclusive"
+        ],
+        "title": "ResolvedDateRange",
+        "type": "object"
+      },
+      "ResolvedParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "bindings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BoundParameter"
+            },
+            "maxItems": 100,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "max_rows": {
+            "default": 100,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "resolved_dates": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ResolvedDateRange"
+            },
+            "maxItems": 100,
+            "title": "Resolved Dates",
+            "type": "array"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "ResolvedParameters",
+        "type": "object"
+      },
+      "RunContext": {
+        "additionalProperties": false,
+        "properties": {
+          "applied_filters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AppliedFilter"
+            },
+            "maxItems": 100,
+            "title": "Applied Filters",
+            "type": "array"
+          },
+          "author_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Limit"
+          },
+          "canonical_sql_template": {
+            "maxLength": 32768,
+            "minLength": 1,
+            "title": "Canonical Sql Template",
+            "type": "string"
+          },
+          "effective_question": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Effective Question",
+            "type": "string"
+          },
+          "label_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/LabelReference"
+            },
+            "maxItems": 200,
+            "title": "Label References",
+            "type": "array"
+          },
+          "metric_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MetricReference"
+            },
+            "maxItems": 100,
+            "title": "Metric References",
+            "type": "array"
+          },
+          "policy_version": {
+            "minimum": 1.0,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "referenced_objects": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ObjectReference"
+            },
+            "maxItems": 200,
+            "title": "Referenced Objects",
+            "type": "array"
+          },
+          "resolved_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolvedParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic_version": {
+            "minimum": 1.0,
+            "title": "Semantic Version",
+            "type": "integer"
+          },
+          "snapshot_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "effective_question",
+          "canonical_sql_template",
+          "snapshot_hash",
+          "policy_version",
+          "semantic_version"
+        ],
+        "title": "RunContext",
+        "type": "object"
+      },
+      "SavedQuestionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_preference": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "parameters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ParameterDefinition"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "source_query_id": {
+            "title": "Source Query Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_query_id",
+          "title"
+        ],
+        "title": "SavedQuestionCreateRequest",
+        "type": "object"
+      },
+      "SavedQuestionDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_sql_template": {
+            "title": "Canonical Sql Template",
+            "type": "string"
+          },
+          "chart_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_max_rows": {
+            "title": "Default Max Rows",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "effective_question": {
+            "title": "Effective Question",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metric_references": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Metric References",
+            "type": "array"
+          },
+          "parameters": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterDefinition"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "referenced_objects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Referenced Objects",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "title",
+          "default_max_rows",
+          "revision",
+          "created_at",
+          "updated_at",
+          "canonical_sql_template",
+          "effective_question",
+          "parameters",
+          "referenced_objects",
+          "metric_references"
+        ],
+        "title": "SavedQuestionDetail",
+        "type": "object"
+      },
+      "SavedQuestionDuplicateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "SavedQuestionDuplicateRequest",
+        "type": "object"
+      },
+      "SavedQuestionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedQuestionSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SavedQuestionListResponse",
+        "type": "object"
+      },
+      "SavedQuestionRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SavedQuestionRunRequest",
+        "type": "object"
+      },
+      "SavedQuestionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_max_rows": {
+            "title": "Default Max Rows",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "title",
+          "default_max_rows",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavedQuestionSummary",
+        "type": "object"
+      },
+      "SavedQuestionUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_preference": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Preference"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ParameterDefinition"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters"
+          },
+          "replacement_query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacement Query Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SavedQuestionUpdateRequest",
+        "type": "object"
+      },
       "StatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1440,6 +3147,42 @@
         "title": "TableMetadata",
         "type": "object"
       },
+      "UpdateMetricRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dsl": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricDSL"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version"
+        ],
+        "title": "UpdateMetricRequest",
+        "type": "object"
+      },
       "UserResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1505,6 +3248,57 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifiedDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "version",
+          "name"
+        ],
+        "title": "VerifiedDefinition",
         "type": "object"
       }
     }
@@ -1909,9 +3703,116 @@
         ]
       }
     },
+    "/api/v1/connections/{connection_id}/labels": {
+      "get": {
+        "operationId": "get_labels_api_v1_connections__connection_id__labels_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Labels",
+        "tags": [
+          "labels"
+        ]
+      },
+      "put": {
+        "operationId": "put_labels_api_v1_connections__connection_id__labels_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceLabelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Labels",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
     "/api/v1/connections/{connection_id}/metrics": {
       "get": {
-        "description": "List business metrics defined for connection.",
         "operationId": "list_metrics_api_v1_connections__connection_id__metrics_get",
         "parameters": [
           {
@@ -1956,7 +3857,6 @@
         ]
       },
       "post": {
-        "description": "Create a structured business metric validated against the connection catalog.",
         "operationId": "create_metric_api_v1_connections__connection_id__metrics_post",
         "parameters": [
           {
@@ -2025,7 +3925,6 @@
     },
     "/api/v1/connections/{connection_id}/metrics/{metric_id}": {
       "delete": {
-        "description": "Delete business metric.",
         "operationId": "delete_metric_api_v1_connections__connection_id__metrics__metric_id__delete",
         "parameters": [
           {
@@ -2086,6 +3985,81 @@
           }
         },
         "summary": "Delete Metric",
+        "tags": [
+          "metrics"
+        ]
+      },
+      "patch": {
+        "operationId": "update_metric_api_v1_connections__connection_id__metrics__metric_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "metric_id",
+            "required": true,
+            "schema": {
+              "title": "Metric Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetricRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Metric",
         "tags": [
           "metrics"
         ]
@@ -2540,6 +4514,66 @@
         ]
       }
     },
+    "/api/v1/queries/sql": {
+      "post": {
+        "description": "Submit an independent edited SQL run through the read-only execution policy.",
+        "operationId": "create_sql_query_api_v1_queries_sql_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSQLQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Sql Query",
+        "tags": [
+          "queries"
+        ]
+      }
+    },
     "/api/v1/queries/{query_id}": {
       "delete": {
         "description": "Delete a query run and cascade-evict associated attempts and cached rows (Contracts C02, C09).",
@@ -2795,6 +4829,49 @@
         ]
       }
     },
+    "/api/v1/queries/{query_id}/parameters": {
+      "get": {
+        "description": "Discover eligible filter parameters from a completed query run.",
+        "operationId": "get_query_parameters_api_v1_queries__query_id__parameters_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterDiscoveryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Query Parameters",
+        "tags": [
+          "queries"
+        ]
+      }
+    },
     "/api/v1/queries/{query_id}/trace": {
       "get": {
         "description": "Retrieve execution attempt trace.",
@@ -2835,6 +4912,449 @@
         "summary": "Get Query Trace",
         "tags": [
           "queries"
+        ]
+      }
+    },
+    "/api/v1/saved-questions": {
+      "get": {
+        "description": "List saved questions for a connection with optional search and cursor pagination.",
+        "operationId": "list_saved_questions_api_v1_saved_questions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Saved Questions",
+        "tags": [
+          "saved_questions"
+        ]
+      },
+      "post": {
+        "description": "Create a saved question from an authorized completed source query run.",
+        "operationId": "create_saved_question_api_v1_saved_questions_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      }
+    },
+    "/api/v1/saved-questions/{saved_question_id}": {
+      "delete": {
+        "description": "Delete a saved question definition.",
+        "operationId": "delete_saved_question_api_v1_saved_questions__saved_question_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      },
+      "get": {
+        "description": "Get full details of a saved question.",
+        "operationId": "get_saved_question_api_v1_saved_questions__saved_question_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      },
+      "patch": {
+        "description": "Optimistically update saved question metadata or replace with a new successful run.",
+        "operationId": "update_saved_question_api_v1_saved_questions__saved_question_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      }
+    },
+    "/api/v1/saved-questions/{saved_question_id}/duplicate": {
+      "post": {
+        "description": "Duplicate an existing saved question as an independent revision-1 definition.",
+        "operationId": "duplicate_saved_question_api_v1_saved_questions__saved_question_id__duplicate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionDuplicateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedQuestionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Duplicate Saved Question",
+        "tags": [
+          "saved_questions"
+        ]
+      }
+    },
+    "/api/v1/saved-questions/{saved_question_id}/run": {
+      "post": {
+        "description": "Execute a saved question directly with supplied or default parameter values.",
+        "operationId": "run_saved_question_api_v1_saved_questions__saved_question_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_question_id",
+            "required": true,
+            "schema": {
+              "title": "Saved Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedQuestionRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Saved Question",
+        "tags": [
+          "saved_questions"
         ]
       }
     },

@@ -18,6 +18,9 @@ QueryLens is an enterprise natural-language analytics engine for **PostgreSQL 16
   - **Session & CSRF Hardening:** `__Host-` prefixed secure cookies, SameSite enforcement, and cryptographic double-submit HMAC tokens for all mutating actions.
 - **Self-Correcting Repair Loop:** Deterministic error classification maps syntax, policy, or runtime engine failures into targeted, bounded repair attempts (max 2) with semantic loop detection.
 - **Volatile Caching & Safe CSV Export:** Query results cached strictly in volatile memory (300s TTL) with automatic invalidation on schema changes. CSV streaming export neutralizes spreadsheet formula injection (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`, `|`).
+- **Business Labels & Metric Editing:** The schema explorer supports table/column display names and descriptions. The structured metric editor supports synonyms, units, aggregation, filters, and grain, with version checks for concurrent edits.
+- **Verified Answer Metadata:** Completed-query responses include authorized SQL context and conservative chart recommendations derived from currently available rows. Exact numeric strings are preserved; expiry or eviction removes rows and result-derived presentation together.
+- **Manual SQL API:** Authenticated `POST /api/v1/queries/sql` accepts read-only SQL and an optional completed source run. It shares query admission, policy validation, budgets, cancellation, and completion checks with natural-language execution, without model generation or repair.
 - **Benchmark Suite & Evaluation Harness:** 150 held-out evaluation cases across 8 categories with bipartite multiset comparison, exact string/decimal equality (`1.0 == 1.00`), float tolerance matching, and ablation analysis.
 
 ---

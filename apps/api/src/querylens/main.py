@@ -20,6 +20,8 @@ from querylens.api.schema import router as schema_router
 from querylens.api.history import router as history_router
 from querylens.api.queries import router as queries_router
 from querylens.api.metrics import router as metrics_router
+from querylens.api.labels import router as labels_router
+from querylens.api.saved_questions import router as saved_questions_router
 from querylens.api.exports import router as exports_router
 from querylens.api.errors import register_error_handlers
 from querylens.utils.workers import shutdown_db_executor
@@ -269,6 +271,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(queries_router, prefix="/api/v1")
     app.include_router(exports_router, prefix="/api/v1")
     app.include_router(metrics_router, prefix="/api/v1")
+    app.include_router(labels_router, prefix="/api/v1")
+    app.include_router(saved_questions_router, prefix="/api/v1")
     # Also mount health at root /health for simple container probes
     app.include_router(health_router, prefix="")
 

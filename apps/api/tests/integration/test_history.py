@@ -212,3 +212,37 @@ async def test_owner_deletion_and_foreign_rejection(app_with_test_db) -> None:
 
         # Cache is evicted
         assert cache.get(run_id) is None
+
+
+def test_analytics_history_projection_and_authenticated_delivery(analytics_env, completed_run):
+    """The shared fixture exercises real auth and delivers validated cached results."""
+    from querylens.persistence.repositories.history import HistoryRepository
+    env = analytics_env
+    run = completed_run(origin="saved_question", saved_question_id="deleted-definition", saved_question_version=4,
+                        saved_definition_json='{"parameters":{"country":"South Africa"}}')
+    response = env.client.get(f"/api/v1/queries/{run['id']}")
+    assert response.status_code == 200, response.text
+    assert response.json()["rows"] == [{"id": 1}]
+    assert response.json()["results_available"] is True
+    records, _ = HistoryRepository().list_user_runs(env.owner_id)
+    assert len(records) == 1 and records[0]["origin"] == "saved_question"
+    assert records[0]["saved_question_id"] == "deleted-definition"
+    assert records[0]["saved_question_version"] == 4
+    assert "run_context_json" not in records[0] and "saved_definition_json" not in records[0]
+    assert "submitted_sql" not in records[0]
+    assert HistoryRepository().list_user_runs(env.foreign_id)[0] == []
+    # CSRF and session-bound mutations are proven separately from SQL validation.
+    assert env.client.delete(f"/api/v1/queries/{run['id']}").status_code == 403
+    assert env.client.delete(f"/api/v1/queries/{run['id']}", headers=env.headers).status_code == 200
+    assert env.cache.get(run["id"]) is None
+
+
+def test_retention_evicts_rows_with_run_metadata(analytics_env, completed_run):
+    from querylens.persistence.retention import run_retention_cleanup
+    env = analytics_env
+    run = completed_run()
+    with env.engine.begin() as conn:
+        conn.execute(query_runs.update().where(query_runs.c.id == run["id"]).values(
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=10)))
+        assert run_retention_cleanup(conn=conn)["deleted_query_runs"] == 1
+    assert env.cache.get(run["id"]) is None

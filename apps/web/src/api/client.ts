@@ -9,7 +9,6 @@ import {
   LoginResponse,
   StatusResponse,
   UserResponse,
-  ErrorEnvelope,
 } from './generated/schema.ts';
 
 let _csrfToken: string | null = null;
@@ -66,10 +65,21 @@ async function request<T>(
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
 
     try {
-      const errorJson = (await response.json()) as ErrorEnvelope;
-      if (errorJson?.error) {
-        errorCode = errorJson.error.code;
-        errorMessage = errorJson.error.message;
+      const errorJson: unknown = await response.json();
+      if (errorJson && typeof errorJson === 'object') {
+        const body = errorJson as { error?: { code?: string; message?: string }; detail?: unknown };
+        if (body.error) {
+          errorCode = body.error.code || errorCode;
+          errorMessage = body.error.message || errorMessage;
+        } else if (body.detail !== undefined) {
+          if (body.detail && typeof body.detail === 'object') {
+            const detail = body.detail as { error_code?: string; message?: string };
+            errorCode = detail.error_code || errorCode;
+            errorMessage = detail.message || JSON.stringify(body.detail);
+          } else {
+            errorMessage = String(body.detail);
+          }
+        }
       }
     } catch {
       // Non-JSON response
@@ -130,6 +140,10 @@ export const api = {
 
   patch: async <T>(path: string, body: unknown): Promise<T> => {
     return request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
+  },
+
+  put: async <T>(path: string, body: unknown): Promise<T> => {
+    return request<T>(path, { method: 'PUT', body: JSON.stringify(body) });
   },
 
   delete: async <T>(path: string): Promise<T> => {

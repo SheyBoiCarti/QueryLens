@@ -6,11 +6,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
 
+from querylens.domain.analytics import RunOrigin
 from querylens.auth.dependencies import get_current_user, verify_csrf_token
 from querylens.auth.ownership import verify_query_run_ownership
 from querylens.jobs.results import get_result_cache
 from querylens.persistence.repositories.history import HistoryRepository
 from querylens.schema.snapshots import get_latest_snapshot
+from querylens.auth.ownership import verify_connection_ownership
 
 router = APIRouter(prefix="/queries", tags=["history"])
 
@@ -27,6 +29,11 @@ class HistoryItem(StrictBaseModel):
     created_at: str
     max_rows: int
     results_available: bool
+    origin: RunOrigin = "natural_language"
+    parent_query_id: str | None = None
+    source_query_id: str | None = None
+    saved_question_id: str | None = None
+    saved_question_version: int | None = None
 
 
 class HistoryResponse(StrictBaseModel):
@@ -50,7 +57,9 @@ def get_query_history(
     items = []
     for r in raw_items:
         snapshot = get_latest_snapshot(r["connection_id"])
-        is_available = snapshot is not None and cache.get(r["id"], snapshot.snapshot_hash) is not None
+        connection = verify_connection_ownership(r["connection_id"], user_id)
+        is_available = (snapshot is not None and snapshot.policy_version == connection["policy_version"]
+                        and cache.get(r["id"], snapshot.snapshot_hash) is not None)
         items.append(
             HistoryItem(
                 id=r["id"],
@@ -62,6 +71,8 @@ def get_query_history(
                 else str(r["created_at"]),
                 max_rows=r["max_rows"],
                 results_available=is_available,
+                origin=r.get("origin") or "natural_language",
+                **{key: r.get(key) for key in ("parent_query_id", "source_query_id", "saved_question_id", "saved_question_version")},
             )
         )
 

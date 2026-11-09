@@ -41,6 +41,11 @@ def resolve_identifiers(ast: exp.Expression, snapshot: CatalogSnapshot) -> list[
             for _, source in scope.selected_sources.values():
                 if not isinstance(source, exp.Table):
                     continue  # Derived/CTE scopes are validated independently.
+                alias = source.args.get("alias")
+                if isinstance(alias, exp.TableAlias) and alias.columns:
+                    # The catalog contains visible columns, not complete physical
+                    # ordinals. Positional renaming could expose hidden columns.
+                    raise IdentifierPolicyError("Physical table column alias lists are prohibited")
                 if not isinstance(source.this, exp.Identifier) or source.catalog:
                     raise IdentifierPolicyError("Catalog-qualified and dynamic table sources are prohibited")
                 candidates = [

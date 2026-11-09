@@ -66,6 +66,7 @@ connections = Table(
     Column("ca_cert", Text, nullable=True),
     Column("allowed_tables", Text, nullable=True),  # JSON-encoded list/map of visible tables/columns
     Column("policy_version", Integer, nullable=False, server_default="1"),
+    Column("semantic_version", Integer, nullable=False, server_default="1"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     CheckConstraint("engine IN ('postgresql', 'mysql')", name="chk_connections_engine"),
@@ -127,6 +128,18 @@ query_runs = Table(
     Column("connection_id", String(36), ForeignKey("connections.id", ondelete="CASCADE"), nullable=False),
     Column("status", String(50), nullable=False, server_default="queued"),
     Column("state_version", Integer, nullable=False, server_default="1"),
+    Column("origin", String(30), nullable=False, server_default="natural_language"),
+    Column("parent_query_id", String(36), ForeignKey("query_runs.id", name="fk_query_runs_parent", ondelete="SET NULL")),
+    Column("source_query_id", String(36), ForeignKey("query_runs.id", name="fk_query_runs_source", ondelete="SET NULL")),
+    # Audit identifiers deliberately survive saved-definition deletion.
+    Column("saved_question_id", String(36), nullable=True),
+    Column("saved_question_version", Integer, nullable=True),
+    Column("submitted_sql", Text, nullable=True),
+    Column("saved_definition_json", Text, nullable=True),
+    Column("run_context_json", Text, nullable=True),
+    Column("snapshot_hash", String(64), nullable=True),
+    Column("policy_version", Integer, nullable=True),
+    Column("semantic_version", Integer, nullable=True),
     Column("question", Text, nullable=False),
     Column("max_rows", Integer, nullable=False, server_default="100"),
     Column("error_code", String(100), nullable=True),
@@ -140,6 +153,9 @@ query_runs = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     Index("idx_query_runs_user_created", "user_id", "created_at"),
     Index("idx_query_runs_connection", "connection_id"),
+    Index("idx_query_runs_parent", "parent_query_id"),
+    Index("idx_query_runs_source", "source_query_id"),
+    CheckConstraint("origin IN ('natural_language', 'follow_up', 'manual_sql', 'saved_question')", name="chk_query_runs_origin"),
 )
 
 # 8. query_attempts
@@ -189,4 +205,52 @@ evaluation_runs = Table(
     Column("accuracy_rate", Float, nullable=False),
     Column("report_json", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+)
+
+
+# Durable definitions contain metadata only; source rows remain in the volatile cache.
+catalog_labels = Table(
+    "catalog_labels",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("connection_id", String(36), ForeignKey("connections.id", ondelete="CASCADE"), nullable=False),
+    Column("namespace", String(255), nullable=False),
+    Column("table_name", String(255), nullable=False),
+    Column("column_name", String(255), nullable=True),
+    Column("display_name", String(200), nullable=False),
+    Column("description", Text, nullable=True),
+    Column("version", Integer, nullable=False, server_default="1"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    Index("uq_catalog_labels_table", "connection_id", "namespace", "table_name", unique=True,
+          postgresql_where=sa.text("column_name IS NULL"), sqlite_where=sa.text("column_name IS NULL")),
+    Index("uq_catalog_labels_column", "connection_id", "namespace", "table_name", "column_name", unique=True,
+          postgresql_where=sa.text("column_name IS NOT NULL"), sqlite_where=sa.text("column_name IS NOT NULL")),
+)
+
+saved_questions = Table(
+    "saved_questions",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("connection_id", String(36), ForeignKey("connections.id", ondelete="CASCADE"), nullable=False),
+    Column("user_id", String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("title", String(200), nullable=False),
+    Column("description", Text, nullable=True),
+    Column("canonical_sql_template", Text, nullable=False),
+    Column("effective_question", Text, nullable=False),
+    Column("parameter_definitions_json", Text, nullable=False, server_default="[]"),
+    Column("parameter_defaults_json", Text, nullable=False, server_default="{}"),
+    Column("default_max_rows", Integer, nullable=False, server_default="100"),
+    Column("chart_preference", String(20), nullable=True),
+    Column("referenced_objects_json", Text, nullable=False, server_default="[]"),
+    Column("metric_references_json", Text, nullable=False, server_default="[]"),
+    Column("label_references_json", Text, nullable=False, server_default="[]"),
+    Column("snapshot_hash", String(64), nullable=False),
+    Column("policy_version", Integer, nullable=False),
+    Column("semantic_version", Integer, nullable=False),
+    Column("author_limit", Integer, nullable=True),
+    Column("revision", Integer, nullable=False, server_default="1"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    Index("idx_saved_questions_owner_connection_cursor", "user_id", "connection_id", "created_at", "id"),
 )

@@ -7,11 +7,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from querylens.auth.dependencies import get_current_user
-from querylens.auth.ownership import verify_query_run_ownership
+from querylens.auth.ownership import verify_query_run_ownership, verify_connection_ownership
 from querylens.export.csv import ResultTooLargeError, generate_csv_string
 from querylens.jobs.results import get_result_cache
 from querylens.persistence.repositories.query_runs import QueryRunRepository
-from querylens.schema.catalog import CatalogService
+from querylens.schema.snapshots import get_latest_snapshot
 
 router = APIRouter(prefix="/queries", tags=["exports"])
 
@@ -38,8 +38,13 @@ def export_query_results(
     # 3. Retrieve from volatile cache
     cache = get_result_cache()
     run = QueryRunRepository().get(query_id, user_id=user_id)
-    catalog = CatalogService().get_catalog(user_id, run["connection_id"])
-    cached = cache.get(query_id, catalog.snapshot_hash)
+    connection = verify_connection_ownership(run["connection_id"], user_id)
+    catalog = get_latest_snapshot(run["connection_id"])
+    if catalog is None or catalog.policy_version != connection["policy_version"]:
+        cache.evict(query_id)
+        cached = None
+    else:
+        cached = cache.get(query_id, catalog.snapshot_hash)
 
     # 4. If cache has expired / been evicted, return 410 Gone (Contract C09)
     if cached is None:

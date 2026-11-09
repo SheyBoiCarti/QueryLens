@@ -10,6 +10,7 @@ from sqlalchemy.engine import Connection
 
 from querylens.persistence.session import get_db_connection
 from querylens.persistence.tables import query_runs
+from querylens.jobs.results import get_result_cache
 
 
 class HistoryRepository:
@@ -28,7 +29,11 @@ class HistoryRepository:
         bounded_limit = max(1, min(limit, 100))
 
         stmt = (
-            sa.select(query_runs)
+            sa.select(*(query_runs.c[name] for name in (
+                "id", "user_id", "connection_id", "question", "status", "state_version",
+                "created_at", "updated_at", "max_rows", "origin", "parent_query_id",
+                "source_query_id", "saved_question_id", "saved_question_version",
+            )))
             .where(query_runs.c.user_id == user_id)
             .order_by(query_runs.c.created_at.desc(), query_runs.c.id.desc())
             .limit(bounded_limit + 1)
@@ -83,4 +88,7 @@ class HistoryRepository:
         else:
             with get_db_connection() as c:
                 res = c.execute(stmt)
-        return res.rowcount > 0
+        deleted = res.rowcount > 0
+        if deleted:
+            get_result_cache().evict(query_id)
+        return deleted

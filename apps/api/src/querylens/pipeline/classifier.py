@@ -31,6 +31,14 @@ def classify_pipeline_error(
     from querylens.execution.executor import ExecutionSecurityError
     from querylens.execution.serializer import SerializationError
 
+    from querylens.pipeline.context import ContextBudgetError
+
+    if isinstance(exception, ContextBudgetError):
+        return ClassifiedError(
+            category="policy", code="INPUT_CONTEXT_OVERSIZED",
+            safe_message="Required query context exceeds the input budget; narrow the request or start a new question.",
+            repairable=False,
+        )
     if isinstance(exception, LiveLLMError):
         return ClassifiedError(
             category="unknown",

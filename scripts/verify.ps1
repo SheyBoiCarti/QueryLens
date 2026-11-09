@@ -54,6 +54,7 @@ Run-Step "Python Environment" {
 
 Run-Step "Node Environment" {
     & node -v
+    if ($LASTEXITCODE -ne 0) { throw "Node environment check failed" }
     & npm -v
 }
 
@@ -123,6 +124,26 @@ if ($targetPhase -ge "09") {
 if ($targetPhase -ge "10") {
     Run-Step "Phase 10 Release & Hardening Gates" {
         & .venv/bin/pytest apps/api/tests/security/test_profiles.py apps/api/tests/integration/test_load_budgets.py -v
+    }
+
+    Run-Step "Everyday Analytics Schema Parity" {
+        & .venv/bin/python scripts/export_schema.py --check
+    }
+    Run-Step "Everyday Analytics Backend Acceptance" {
+        & .venv/bin/pytest apps/api/tests/unit/test_analytics_contracts.py apps/api/tests/integration/test_everyday_analytics_e2e.py -v
+    }
+    Run-Step "Everyday Analytics Required Source Journeys" {
+        $previousRequirement = $env:QUERYLENS_REQUIRE_SOURCES
+        try {
+            $env:QUERYLENS_REQUIRE_SOURCES = "1"
+            & .venv/bin/pytest apps/api/tests/integration/test_source_analytics_gate.py apps/api/tests/integration/test_adapters.py apps/api/tests/integration/test_execution.py apps/api/tests/integration/test_schema_reflection.py apps/api/tests/integration/test_vertical_slice.py -v
+            if ($LASTEXITCODE -ne 0) { throw "Required source journeys failed" }
+        } finally {
+            $env:QUERYLENS_REQUIRE_SOURCES = $previousRequirement
+        }
+    }
+    Run-Step "Everyday Analytics Frontend Contracts" {
+        & npm run test --workspace=apps/web -- src/__tests__/analytics_contracts.test.ts
     }
 }
 

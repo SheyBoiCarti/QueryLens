@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-import hashlib
+from sqlglot import exp
+import sqlalchemy as sa
+
 from querylens.connections.crypto import decrypt_credential
 from querylens.connections.registry import get_registry
-from querylens.domain.query import QueryResult, ValidatedQuery
+from querylens.domain.query import QueryResult, ValidatedQuery, compute_token_fingerprint
+from querylens.execution.cancellation import check_cancelled
 from querylens.execution.mysql import execute_mysql_restricted
 from querylens.execution.postgres import execute_postgres_restricted
 from querylens.persistence.session import get_db_connection
 from querylens.persistence.tables import connections
 from querylens.schema.snapshots import get_latest_snapshot
-from querylens.execution.cancellation import check_cancelled
-import sqlalchemy as sa
+from querylens.sql.functions import validate_functions
+from querylens.sql.parse import parse_query
+from querylens.sql.policy import PROHIBITED_NODES
 
 
 class ExecutionSecurityError(Exception):
@@ -33,9 +37,41 @@ class SafeExecutor:
         check_cancelled(query_id)
 
         # 2. Fingerprint check
-        expected_fp = hashlib.sha256(query.canonical_sql.strip().encode("utf-8")).hexdigest()
+        expected_fp = compute_token_fingerprint(
+            canonical_sql=query.canonical_sql,
+            bindings=query.bindings,
+            connection_id=query.connection_id,
+            engine=query.engine,
+            policy_version=query.policy_version,
+            snapshot_hash=query.snapshot_hash,
+            permitted_identifiers=query.permitted_identifiers,
+            max_rows=query.max_rows,
+        )
         if query.sql_fingerprint != expected_fp:
             raise ExecutionSecurityError("SQL fingerprint mismatch: canonical query has been tampered with")
+
+        # Revalidate canonical AST before source dispatch (Contract C06)
+        try:
+            revalidated_ast = parse_query(query.canonical_sql, dialect=query.engine)
+        except Exception as exc:
+            raise ExecutionSecurityError(f"Canonical SQL cannot be parsed: {exc}") from exc
+
+        for node_type in PROHIBITED_NODES:
+            if isinstance(revalidated_ast, node_type) or revalidated_ast.find(node_type):
+                raise ExecutionSecurityError(f"Prohibited SQL construct in execution token: {node_type.__name__}")
+
+        try:
+            validate_functions(revalidated_ast)
+        except Exception as exc:
+            raise ExecutionSecurityError(f"Function policy violation: {exc}") from exc
+
+        ast_placeholders = {
+            p.this if isinstance(p.this, str) else p.this.name
+            for p in revalidated_ast.find_all(exp.Placeholder, exp.Parameter)
+        }
+        binding_names = {b.name for b in query.bindings}
+        if ast_placeholders != binding_names:
+            raise ExecutionSecurityError("Placeholders in canonical AST do not match token bindings")
 
         # 3. Fetch connection credentials
         with get_db_connection() as conn:

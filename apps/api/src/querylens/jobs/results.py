@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import datetime as dt
 import threading
 import time
 from dataclasses import dataclass
@@ -21,11 +22,16 @@ class CacheEntry:
     approx_bytes: int
     expires_at: float
 
+    @property
+    def results_expires_at(self) -> dt.datetime:
+        """Translate remaining monotonic TTL to UTC without refreshing the entry."""
+        return dt.datetime.now(dt.UTC) + dt.timedelta(seconds=max(0, self.expires_at-time.monotonic()))
+
 
 class ResultCache:
     def __init__(self, max_bytes: int = RESULT_CACHE_MAX_BYTES, ttl_sec: int = RESULT_CACHE_TTL_SEC) -> None:
         self._max_bytes = max_bytes
-        self._ttl_sec = ttl_sec
+        self._ttl_sec = min(ttl_sec, RESULT_CACHE_TTL_SEC)
         self._cache: dict[str, CacheEntry] = {}
         self._total_bytes = 0
         self._lock = threading.RLock()
@@ -60,18 +66,22 @@ class ResultCache:
             )
             self._total_bytes += size
 
-    def get(
+    def get_entry(
         self, query_id: str, snapshot_hash: str | None = None
-    ) -> tuple[list[dict[str, str]], list[dict[str, Any]]] | None:
+    ) -> CacheEntry | None:
         with self._lock:
             self._purge_expired(time.monotonic())
             entry = self._cache.get(query_id)
-            if entry is None:
-                return None
-            if snapshot_hash is not None and entry.snapshot_hash != snapshot_hash:
+            if entry is not None and snapshot_hash is not None and entry.snapshot_hash != snapshot_hash:
                 self._evict(query_id)
                 return None
-            return entry.columns, entry.rows
+            return entry
+
+    def get(
+        self, query_id: str, snapshot_hash: str | None = None
+    ) -> tuple[list[dict[str, str]], list[dict[str, Any]]] | None:
+        entry = self.get_entry(query_id, snapshot_hash)
+        return (entry.columns, entry.rows) if entry is not None else None
 
     def evict(self, query_id: str) -> None:
         with self._lock:
