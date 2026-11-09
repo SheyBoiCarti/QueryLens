@@ -20,7 +20,10 @@ export function App(): React.JSX.Element {
             <WorkspaceView initialQueryId={queryId} onActiveQueryChange={setQueryId}
               onNavigateToConnections={() => navigate('connections')} />
           )}
-          {route === 'connections' && <ConnectionManager />}
+          {route === 'connections' && <ConnectionManager onConnectionDeleted={(id) => {
+            setConnectionId((current) => current === id ? '' : current);
+            setQueryId(null);
+          }} />}
           {route === 'schema' && <SchemaExplorer connectionId={connectionId} onConnectionChange={setConnectionId} />}
           {route === 'history' && <History onSelectRun={(id) => { setQueryId(id); navigate('ask'); }} />}
     </AppShell>

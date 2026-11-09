@@ -13,7 +13,9 @@ interface SchemaExplorerProps {
 
 export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplorerProps): React.JSX.Element {
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
-  const [activeId, setActiveId] = useState(connectionId || '');
+  const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+  const [selectedId, setSelectedId] = useState(connectionId || '');
+  const activeId = connections.some((item) => item.id === selectedId) ? selectedId : connections[0]?.id || '';
   const [catalog, setCatalog] = useState<CatalogSnapshot | null>(null);
   const [table, setTable] = useState<CatalogTable | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,12 +32,16 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
     api.get<ConnectionResponse[]>('/api/v1/connections', { signal: abort.signal }).then((items) => {
       if (abort.signal.aborted) return;
       setConnections(items);
-      setActiveId((current) => current || items[0]?.id || '');
+      setConnectionsLoaded(true);
     }).catch((err: unknown) => { if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not load connections'); });
     return () => abort.abort();
   }, []);
 
-  useEffect(() => { if (connectionId) setActiveId(connectionId); }, [connectionId]);
+  useEffect(() => { setSelectedId(connectionId || ''); }, [connectionId]);
+
+  useEffect(() => {
+    if (connectionsLoaded && activeId !== (connectionId || '')) onConnectionChange?.(activeId);
+  }, [activeId, connectionId, connectionsLoaded, onConnectionChange]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -75,7 +81,7 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
       <h2 className="text-xl font-semibold">Schema explorer</h2>
       <div className="flex gap-4">
         <label>Database <select aria-label="Schema database" value={activeId} onChange={(event) => {
-          setActiveId(event.target.value); onConnectionChange?.(event.target.value);
+          setSelectedId(event.target.value); onConnectionChange?.(event.target.value);
         }}>
           {connections.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select></label>
@@ -93,10 +99,11 @@ export function SchemaExplorer({ connectionId, onConnectionChange }: SchemaExplo
       </nav>
       <div className="col-span-3">{table && <TableDetails table={table} labels={labels} />}</div>
     </div>}
-    {activeId && currentCatalog && <LabelManager key={`${activeId}:${version}`} connectionId={activeId} tables={currentCatalog.tables}
+    {activeId && currentCatalog && <LabelManager key={`labels:${activeId}:${version}`} connectionId={activeId} tables={currentCatalog.tables}
       onLoaded={(data) => { if (activeRef.current === activeId) setLabels(data.labels); }}
       onSaved={(data) => { if (activeRef.current === activeId) setLabels(data.labels); }} />}
-    {activeId && <Metrics key={activeId} connectionId={activeId} catalog={currentCatalog ?? undefined} />}
+    {connectionsLoaded && !connections.length && <p>Add a database connection in Connections to explore its schema.</p>}
+    {activeId && currentCatalog && <Metrics key={`metrics:${activeId}:${version}`} connectionId={activeId} catalog={currentCatalog} />}
   </div>;
 }
 

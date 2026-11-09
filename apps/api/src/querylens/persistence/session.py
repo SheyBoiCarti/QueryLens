@@ -27,6 +27,12 @@ def get_engine(db_url: str | None = None) -> Engine:
         # Engine configuration
         if "sqlite" in url:
             engine = sa.create_engine(url, echo=False)
+
+            @sa.event.listens_for(engine, "connect")
+            def enable_foreign_keys(dbapi_connection, _):
+                # SQLite disables FK cascades by default, leaving deleted
+                # connections' history, snapshots, and definitions orphaned.
+                dbapi_connection.execute("PRAGMA foreign_keys=ON")
         else:
             settings = get_settings()
             engine = sa.create_engine(

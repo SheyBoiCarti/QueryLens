@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import threading
 from querylens.auth.ownership import verify_connection_ownership
 from querylens.connections.crypto import decrypt_credential
 from querylens.connections.registry import get_registry
 from querylens.domain.schema import CatalogSnapshot
 from querylens.schema.inspector import SchemaInspector
 from querylens.schema.snapshots import get_latest_snapshot, save_snapshot
+
+# Bound lock storage while coalescing cold-catalog requests for each source.
+# A schema request can outlast the source pool's two-second acquisition budget.
+_catalog_locks = tuple(threading.RLock() for _ in range(128))
 
 
 class CatalogService:
@@ -53,14 +58,19 @@ class CatalogService:
 
     def get_catalog(self, user_id: str, connection_id: str) -> CatalogSnapshot:
         """Get latest catalog snapshot, refreshing if none exists."""
-        connection = verify_connection_ownership(connection_id, user_id)
-        snapshot = get_latest_snapshot(connection_id)
-        if snapshot is None or snapshot.policy_version != connection["policy_version"]:
-            return self.refresh_catalog(user_id, connection_id)
-        return snapshot
+        with _catalog_locks[hash(connection_id) % len(_catalog_locks)]:
+            connection = verify_connection_ownership(connection_id, user_id)
+            snapshot = get_latest_snapshot(connection_id)
+            if snapshot is None or snapshot.policy_version != connection["policy_version"]:
+                return self.refresh_catalog(user_id, connection_id)
+            return snapshot
 
     def refresh_catalog(self, user_id: str, connection_id: str) -> CatalogSnapshot:
         """Reflect visible catalog and save new snapshot atomically."""
+        with _catalog_locks[hash(connection_id) % len(_catalog_locks)]:
+            return self._refresh_catalog(user_id, connection_id)
+
+    def _refresh_catalog(self, user_id: str, connection_id: str) -> CatalogSnapshot:
         conn_dict = verify_connection_ownership(connection_id, user_id)
         pwd = decrypt_credential(conn_dict["encrypted_password"], connection_id=connection_id)
 

@@ -109,8 +109,9 @@ export function WorkspaceView({
     const abort = new AbortController();
     api.get<ConnectionResponse[]>('/api/v1/connections', { signal: abort.signal })
       .then((items) => {
+        if (abort.signal.aborted) return;
         setConnections(items);
-        setConnectionId((prev) => prev || items[0]?.id || '');
+        setConnectionId((prev) => items.some((item) => item.id === prev) ? prev : items[0]?.id || '');
       })
       .catch((err: unknown) => {
         if (!abort.signal.aborted) {
@@ -222,6 +223,14 @@ export function WorkspaceView({
             }
             return updated;
           });
+          setSelectedRunId(null);
+          setInFlightRunId(null);
+          setTrace(null);
+          setCancelling(false);
+          onActiveQueryChange?.(null);
+          setPollError(err.statusCode === 404
+            ? 'This query is no longer available. Select a database to start a new question.'
+            : err.message);
           return;
         }
       }
@@ -342,6 +351,10 @@ export function WorkspaceView({
       setInFlightRunId(null);
       onActiveQueryChange?.(null);
       setFollowUpError(null);
+      setPollError(null);
+      setTrace(null);
+      setInspecting(false);
+      setShowSaveModal(false);
     });
   };
 
@@ -427,6 +440,14 @@ export function WorkspaceView({
                 setSelectedRunId(null);
                 setInFlightRunId(null);
                 onActiveQueryChange?.(null);
+                setLoadedRuns({});
+                setDrafts({});
+                setLastSuccessfulRunId(null);
+                setTrace(null);
+                setInspecting(false);
+                setPollError(null);
+                setFollowUpError(null);
+                setShowSaveModal(false);
               })
             }
             onQuerySubmitted={submitted}

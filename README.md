@@ -124,6 +124,32 @@ Verify running service endpoints:
 pwsh scripts/smoke.ps1 -BaseUrl http://127.0.0.1:8000
 ```
 
+### Playwright application checks
+
+Start the API and web app with a disposable metadata database, then run:
+
+```bash
+npx playwright install chromium
+export QUERYLENS_E2E_DATABASE_URL='<PostgreSQL connection link>'
+npm run test:e2e
+```
+
+The browser checks connection import/test/edit/delete/replacement, concurrent schema
+reads, table selection, refresh, labels, metrics, manual SQL, CSV downloads, saved
+questions, diagnostics, and history. They create uniquely named connections and
+delete those connections afterward; source queries only read existing data. The
+recovery checks cover empty results, rejected SQL, cancellation, query deletion,
+and blocking cached results and exports after table access is revoked. The
+fixture expects `customers` (`id`, `name`, `tier`) and `orders` (`status`) tables,
+as provided by this project's datasets. Use a test source with read-only credentials.
+
+To include live questions, follow-ups, charts, and saved-question variations,
+configure `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY` on the API and set
+`QUERYLENS_E2E_LLM=true` for the test command. Answers are checked against direct SQL
+results. `E2E_BASE_URL` selects another running web app (default
+`http://127.0.0.1:5173`). Credentials are supplied through environment variables;
+browser traces, screenshots, and video recording are disabled.
+
 ---
 
 ## Production Deployment

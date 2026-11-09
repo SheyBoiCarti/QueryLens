@@ -5,7 +5,11 @@ import ConnectionForm from './ConnectionForm.tsx';
 import ConnectionList from './ConnectionList.tsx';
 import { VisibilityEditor } from './VisibilityEditor.tsx';
 
-export function ConnectionManager(): React.JSX.Element {
+interface ConnectionManagerProps {
+  onConnectionDeleted?: (id: string) => void;
+}
+
+export function ConnectionManager({ onConnectionDeleted }: ConnectionManagerProps): React.JSX.Element {
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +84,7 @@ export function ConnectionManager(): React.JSX.Element {
           onAddNew={handleAddNew}
           onEdit={(connection) => { setSelectedConnection(connection); setIsEditing(true); }}
           onConfigure={setConfiguring}
+          onDeleted={onConnectionDeleted}
         />
       )}
     </div>

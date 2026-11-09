@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
 from querylens.persistence.session import get_db_connection
-from querylens.persistence.tables import query_runs
+from querylens.persistence.tables import connections, query_runs
 from querylens.jobs.results import get_result_cache
 
 
@@ -34,7 +34,8 @@ class HistoryRepository:
                 "created_at", "updated_at", "max_rows", "origin", "parent_query_id",
                 "source_query_id", "saved_question_id", "saved_question_version",
             )))
-            .where(query_runs.c.user_id == user_id)
+            .join(connections, connections.c.id == query_runs.c.connection_id)
+            .where(query_runs.c.user_id == user_id, connections.c.user_id == user_id)
             .order_by(query_runs.c.created_at.desc(), query_runs.c.id.desc())
             .limit(bounded_limit + 1)
         )

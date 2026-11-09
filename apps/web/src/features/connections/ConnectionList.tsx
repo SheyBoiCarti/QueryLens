@@ -8,9 +8,10 @@ interface ConnectionListProps {
   onAddNew: () => void;
   onEdit?: (connection: ConnectionResponse) => void;
   onConfigure?: (connection: ConnectionResponse) => void;
+  onDeleted?: (id: string) => void;
 }
 
-export function ConnectionList({ connections, onRefresh, onAddNew, onEdit, onConfigure }: ConnectionListProps): React.JSX.Element {
+export function ConnectionList({ connections, onRefresh, onAddNew, onEdit, onConfigure, onDeleted }: ConnectionListProps): React.JSX.Element {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
 
@@ -41,6 +42,7 @@ export function ConnectionList({ connections, onRefresh, onAddNew, onEdit, onCon
     if (!confirm('Are you sure you want to delete this connection?')) return;
     try {
       await api.delete(`/api/v1/connections/${id}`);
+      onDeleted?.(id);
       onRefresh();
     } catch (err) {
       alert(err instanceof ApiError ? err.message : 'Delete failed');

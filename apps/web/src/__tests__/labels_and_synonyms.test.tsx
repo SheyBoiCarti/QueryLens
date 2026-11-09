@@ -227,6 +227,7 @@ describe('schema and metric integration', () => {
       return Promise.resolve(response({ ...catalog, connection_id: 'two' }));
     });
     const view = render(<SchemaExplorer connectionId="one" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/v1/connections/one/schema', expect.anything()));
     view.rerender(<SchemaExplorer connectionId="two" />);
     await screen.findByRole('button', { name: 'Purchases public.orders' });
     expect(screen.getByRole('heading', { name: 'orders' })).toBeInTheDocument();
