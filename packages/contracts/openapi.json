@@ -707,20 +707,6 @@
         "title": "CreateSQLQueryRequest",
         "type": "object"
       },
-      "CsrfResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "csrf_token": {
-            "title": "Csrf Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "csrf_token"
-        ],
-        "title": "CsrfResponse",
-        "type": "object"
-      },
       "ForeignKeyConstraint": {
         "additionalProperties": false,
         "properties": {
@@ -1065,47 +1051,6 @@
           "labels"
         ],
         "title": "LabelsResponse",
-        "type": "object"
-      },
-      "LoginRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "email": {
-            "maxLength": 255,
-            "minLength": 3,
-            "title": "Email",
-            "type": "string"
-          },
-          "password": {
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "LoginRequest",
-        "type": "object"
-      },
-      "LoginResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "csrf_token": {
-            "title": "Csrf Token",
-            "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserResponse"
-          }
-        },
-        "required": [
-          "user",
-          "csrf_token"
-        ],
-        "title": "LoginResponse",
         "type": "object"
       },
       "MetricDSL": {
@@ -3183,33 +3128,6 @@
         "title": "UpdateMetricRequest",
         "type": "object"
       },
-      "UserResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "email": {
-            "description": "User email address",
-            "title": "Email",
-            "type": "string"
-          },
-          "id": {
-            "description": "Unique user identifier",
-            "title": "Id",
-            "type": "string"
-          },
-          "role": {
-            "description": "User role (e.g. admin, analyst)",
-            "title": "Role",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "role"
-        ],
-        "title": "UserResponse",
-        "type": "object"
-      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3310,148 +3228,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/v1/auth/csrf": {
-      "get": {
-        "description": "Return session-bound CSRF token for authenticated requests.",
-        "operationId": "get_csrf_api_v1_auth_csrf_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CsrfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Get Csrf",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/login": {
-      "post": {
-        "description": "Authenticate user with email and password, returning session cookie and CSRF token.",
-        "operationId": "login_api_v1_auth_login_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-QueryLens-Client",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Querylens-Client"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Origin",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Login",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/logout": {
-      "post": {
-        "description": "Log out user, revoking the active session and clearing the cookie.",
-        "operationId": "logout_api_v1_auth_logout_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Logout",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/me": {
-      "get": {
-        "description": "Return currently authenticated user information.",
-        "operationId": "get_me_api_v1_auth_me_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Get Me",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
     "/api/v1/connections": {
       "get": {
         "description": "List all connections owned by current user.",
@@ -3480,24 +3256,6 @@
       "post": {
         "description": "Create a new database connection.",
         "operationId": "create_connection_api_v1_connections_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -3548,22 +3306,6 @@
             "schema": {
               "title": "Connection Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -3646,22 +3388,6 @@
             "schema": {
               "title": "Connection Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -3754,22 +3480,6 @@
             "schema": {
               "title": "Connection Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -3867,22 +3577,6 @@
               "title": "Connection Id",
               "type": "string"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
           }
         ],
         "requestBody": {
@@ -3944,22 +3638,6 @@
               "title": "Metric Id",
               "type": "string"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
           }
         ],
         "responses": {
@@ -4008,22 +3686,6 @@
             "schema": {
               "title": "Metric Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -4217,22 +3879,6 @@
               "title": "Connection Id",
               "type": "string"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
           }
         ],
         "responses": {
@@ -4275,22 +3921,6 @@
             "schema": {
               "title": "Connection Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -4392,24 +4022,6 @@
       "post": {
         "description": "Submit a natural-language analytics question for asynchronous processing.",
         "operationId": "create_query_api_v1_queries_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4518,24 +4130,6 @@
       "post": {
         "description": "Submit an independent edited SQL run through the read-only execution policy.",
         "operationId": "create_sql_query_api_v1_queries_sql_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4586,22 +4180,6 @@
             "schema": {
               "title": "Query Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -4725,22 +4303,6 @@
             "schema": {
               "title": "Query Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -5004,24 +4566,6 @@
       "post": {
         "description": "Create a saved question from an authorized completed source query run.",
         "operationId": "create_saved_question_api_v1_saved_questions_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -5072,22 +4616,6 @@
             "schema": {
               "title": "Saved Question Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],
@@ -5164,22 +4692,6 @@
               "title": "Saved Question Id",
               "type": "string"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
           }
         ],
         "requestBody": {
@@ -5233,22 +4745,6 @@
               "title": "Saved Question Id",
               "type": "string"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
-            }
           }
         ],
         "requestBody": {
@@ -5301,22 +4797,6 @@
             "schema": {
               "title": "Saved Question Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Csrf-Token"
             }
           }
         ],

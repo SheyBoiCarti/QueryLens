@@ -25,13 +25,15 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def analytics_env(monkeypatch, tmp_path):
-    """Real owner cookies/CSRF, FK-enforced metadata, and isolated singletons.
+    """Shared workspace, FK-enforced metadata, and isolated singletons.
 
-    No auth bypasses or provider/executor spies: tests install spies explicitly.
+    No provider/executor spies: tests install spies explicitly.
     """
     from querylens import config
     from querylens.auth import service
     from querylens.auth.crypto import hash_password
+    from querylens.auth.dependencies import DEFAULT_DEV_USER
+    from querylens.auth.workspace import initialize_workspace
     from querylens.connections import keyring, registry
     from querylens.jobs import admission, results
     from querylens.llm import fake, live
@@ -63,7 +65,8 @@ def analytics_env(monkeypatch, tmp_path):
     app = create_app(settings)
     auth = service.AuthService()
     password = "Analytics-test-password-123!"
-    owner = auth.create_user("analytics-owner@example.test", hash_password(password))
+    initialize_workspace()
+    owner = {"id": DEFAULT_DEV_USER["user_id"]}
     foreign = auth.create_user("analytics-foreign@example.test", hash_password(password))
     snapshots = []
     for user in (owner, foreign):
@@ -86,10 +89,12 @@ def analytics_env(monkeypatch, tmp_path):
 
     try:
         with TestClient(app, base_url="https://testserver") as client:
-            response = client.post("/api/v1/auth/login", json={"email": owner["email"], "password": password},
-                                   headers={"Origin": settings.allowed_origins[0], "X-QueryLens-Client": "web"})
-            assert response.status_code == 200, response.text
-            headers = {"Origin": settings.allowed_origins[0], "X-CSRF-Token": response.json()["csrf_token"]}
+            # Simulate an unclaimed legacy resource created after startup. Internal
+            # owner guards must still reject records outside the shared workspace.
+            with engine.begin() as conn:
+                conn.execute(connections.update().where(connections.c.id == snapshots[1].connection_id)
+                             .values(user_id=foreign["id"]))
+            headers = {"Origin": settings.allowed_origins[0]}
             yield SimpleNamespace(client=client, app=app, engine=engine, owner_id=owner["id"],
                                   foreign_id=foreign["id"], connection_id=snapshots[0].connection_id,
                                   foreign_connection_id=snapshots[1].connection_id, snapshot=snapshots[0],

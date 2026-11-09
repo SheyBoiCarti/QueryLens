@@ -14,7 +14,7 @@ QueryLens is an enterprise natural-language analytics engine for **PostgreSQL 16
 - **Defense-in-Depth Security:** 
   - **AES-256-GCM Envelope Encryption:** Source database credentials encrypted at rest with 96-bit random IVs and connection-bound Additional Authenticated Data (`AAD`).
   - **SSRF Prevention & DNS Pinning:** Remote database host destinations validated against loopback, private RFC 1918, and cloud metadata ranges (`169.254.169.254`). Sockets pin validated IPs at connect time.
-  - **Multi-Tenant Ownership Isolation:** Every resource (connection, catalog, query, result) is strictly scoped to the authenticated owner. Foreign resource access unconditionally returns HTTP 404.
+  - **Shared Workspace:** Connections, saved questions, and query history are available without signing in.
   - **Session & CSRF Hardening:** `__Host-` prefixed secure cookies, SameSite enforcement, and cryptographic double-submit HMAC tokens for all mutating actions.
 - **Self-Correcting Repair Loop:** Deterministic error classification maps syntax, policy, or runtime engine failures into targeted, bounded repair attempts (max 2) with semantic loop detection.
 - **Volatile Caching & Safe CSV Export:** Query results cached strictly in volatile memory (300s TTL) with automatic invalidation on schema changes. CSV streaming export neutralizes spreadsheet formula injection (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`, `|`).
@@ -86,7 +86,7 @@ Launch local support services (PostgreSQL metadata database and integration fixt
 ```powershell
 pwsh scripts/dev.ps1
 ```
-Create an administrator using `querylens-admin bootstrap` before signing in. Development authentication bypass is disabled by default; enable `DEVELOPMENT_AUTH_BYPASS=true` only for a trusted local workspace.
+QueryLens opens directly without authentication. All visitors share connections, saved questions, and query history. Existing account resources are moved into the shared workspace at startup.
 
 - **Web UI:** `http://localhost:5173`
 - **API Server:** `http://127.0.0.1:8000`
@@ -114,7 +114,7 @@ pwsh scripts/evaluate.ps1 -Engine postgres -Provider fake
 ```
 
 ### Application Smoke Test
-Verify running service endpoints and authentication protections:
+Verify running service endpoints:
 
 ```powershell
 pwsh scripts/smoke.ps1 -BaseUrl http://127.0.0.1:8000

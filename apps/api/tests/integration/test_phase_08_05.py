@@ -17,8 +17,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 import sqlalchemy as sa
 
-from querylens.auth.crypto import hash_password
-from querylens.auth.service import AuthService
+from querylens.auth.dependencies import DEFAULT_DEV_USER
+from querylens.auth.workspace import initialize_workspace
 from querylens.config import Settings
 from querylens.jobs.results import get_result_cache
 from querylens.main import create_app
@@ -34,6 +34,7 @@ def app_with_test_db():
     )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
+    initialize_workspace()
 
     app = create_app(Settings(environment="test"))
     yield app
@@ -46,15 +47,7 @@ def app_with_test_db():
 async def test_history_api_contracts(app_with_test_db) -> None:
     transport = ASGITransport(app=app_with_test_db)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        auth = AuthService()
-        user = auth.create_user("history_contract@example.com", hash_password("Pass123!"))
-
-        # Login
-        await client.post(
-            "/api/v1/auth/login",
-            json={"email": "history_contract@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
+        user = {"id": DEFAULT_DEV_USER["user_id"]}
 
         conn_id = str(uuid.uuid4())
         run_id = str(uuid.uuid4())

@@ -14,8 +14,6 @@ describe('AppShell and Navigation States (Task 08.01)', () => {
       <AppShell
         currentRoute={current}
         onRouteChange={onRouteChange}
-        user={{ id: 'u1', email: 'analyst@example.com', role: 'admin' }}
-        onLogout={vi.fn()}
       >
         <div>Content for {current}</div>
       </AppShell>
@@ -31,8 +29,6 @@ describe('AppShell and Navigation States (Task 08.01)', () => {
       <AppShell
         currentRoute="history"
         onRouteChange={onRouteChange}
-        user={{ id: 'u1', email: 'analyst@example.com', role: 'admin' }}
-        onLogout={vi.fn()}
       >
         <div>Content for history</div>
       </AppShell>
@@ -41,22 +37,10 @@ describe('AppShell and Navigation States (Task 08.01)', () => {
     expect(screen.getByRole('button', { name: /history/i })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('triggers logout callback removing user session', () => {
-    const onLogout = vi.fn();
-    render(
-      <AppShell
-        currentRoute="ask"
-        onRouteChange={vi.fn()}
-        user={{ id: 'u1', email: 'analyst@example.com', role: 'admin' }}
-        onLogout={onLogout}
-      >
-        <div>Workspace</div>
-      </AppShell>
-    );
-
-    const logoutBtn = screen.getByRole('button', { name: /logout/i });
-    fireEvent.click(logoutBtn);
-    expect(onLogout).toHaveBeenCalledTimes(1);
+  it('has no account or logout controls', () => {
+    render(<AppShell currentRoute="ask" onRouteChange={vi.fn()}><div>Workspace</div></AppShell>);
+    expect(screen.queryByRole('button', { name: /logout/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/not authenticated/i)).not.toBeInTheDocument();
   });
 
   it('renders distinct and actionable status notices for loading, empty, error and expired', () => {

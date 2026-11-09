@@ -68,8 +68,8 @@ async def test_bounded_db_worker_responsiveness():
 
 def test_production_settings_validation():
     """Missing production secrets/insecure settings fail startup."""
-    # Insecure cookie
-    with pytest.raises(SecurityProfileError, match="session_cookie_secure"):
+    # Unapproved production origins
+    with pytest.raises(SecurityProfileError, match="HTTPS allowed_origins"):
         Settings(
             environment="production",
             session_cookie_secure=False,

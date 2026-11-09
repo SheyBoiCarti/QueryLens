@@ -16,16 +16,6 @@ class SecurityProfileError(Exception):
 def validate_security_profile(settings: Settings, deployment: str = "production") -> None:
     """Validate settings against production security contracts (Contracts C01, C02, C03, C07, C11)."""
     if deployment == "production":
-        # 1. Cookies & TLS
-        if not settings.session_cookie_secure:
-            raise SecurityProfileError("Production requires session_cookie_secure=True (HTTPS only)")
-        if not settings.session_cookie_name.startswith("__Host-"):
-            raise SecurityProfileError("Production requires session_cookie_name to start with '__Host-'")
-        if settings.session_cookie_samesite not in ("lax", "strict"):
-            raise SecurityProfileError("Production requires session_cookie_samesite='lax' or 'strict'")
-
-        if not settings.session_cookie_httponly or settings.session_cookie_path != "/":
-            raise SecurityProfileError("Production cookies require HttpOnly and Path=/")
         if settings.network_allow_loopback:
             raise SecurityProfileError("Production cannot enable loopback source access")
         if not settings.allowed_origins or any(
@@ -51,8 +41,6 @@ def validate_security_profile(settings: Settings, deployment: str = "production"
             raise SecurityProfileError("max_sql_bytes exceeds maximum allowed hard bound (32768)")
         if settings.max_request_bytes > 65536:
             raise SecurityProfileError("max_request_bytes exceeds maximum allowed hard bound (65536)")
-        if settings.session_absolute_expiry_sec > 28800:
-            raise SecurityProfileError("session_absolute_expiry_sec cannot exceed 28800s (8h)")
 
 
 class Settings(BaseSettings):

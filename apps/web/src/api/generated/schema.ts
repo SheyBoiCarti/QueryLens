@@ -3,26 +3,6 @@
  * scripts/export_schema.py exports JSON; keep these declarations in sync.
  */
 
-export interface UserResponse {
-  id: string;
-  email: string;
-  role: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  user: UserResponse;
-  csrf_token: string;
-}
-
-export interface CsrfResponse {
-  csrf_token: string;
-}
-
 export interface StatusResponse {
   status: string;
 }

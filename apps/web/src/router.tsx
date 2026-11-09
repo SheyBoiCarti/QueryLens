@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 
-export type AppRoute = 'connections' | 'schema' | 'ask' | 'history' | 'diagnostics' | 'login';
+export type AppRoute = 'connections' | 'schema' | 'ask' | 'history' | 'diagnostics';
 
 export function useRouter() {
   const [route, setRoute] = useState<AppRoute>(() => {
     const hash = window.location.hash.replace('#', '');
-    if (['connections', 'schema', 'ask', 'history', 'diagnostics', 'login'].includes(hash)) {
+    if (['connections', 'schema', 'ask', 'history', 'diagnostics'].includes(hash)) {
       return hash as AppRoute;
     }
     return 'ask';
@@ -14,7 +14,7 @@ export function useRouter() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['connections', 'schema', 'ask', 'history', 'diagnostics', 'login'].includes(hash)) {
+      if (['connections', 'schema', 'ask', 'history', 'diagnostics'].includes(hash)) {
         setRoute(hash as AppRoute);
       }
     };

@@ -1,4 +1,4 @@
-"""Integration tests for ownership boundaries, auth routes, and CSRF (Contracts C02, C05)."""
+"""Integration tests for the shared workspace and internal legacy ownership guards."""
 
 import pytest
 import sqlalchemy as sa
@@ -26,56 +26,17 @@ def test_db():
 
 
 @pytest.mark.asyncio
-async def test_auth_endpoints_workflow(test_db):
-    """Full login -> me -> csrf -> logout flow with cookie and CSRF handling."""
-    # Seed user
-    service = AuthService()
-    service.create_user("analyst@example.com", hash_password("SecretPass123!"))
+async def test_shared_workspace_without_login(test_db):
+    from querylens.auth.workspace import initialize_workspace
 
+    initialize_workspace()
     app = create_app(Settings(environment="test"))
-    transport = ASGITransport(app=app)
-
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. Login missing required headers -> 403
-        bad_res = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "analyst@example.com", "password": "SecretPass123!"},
-        )
-        assert bad_res.status_code == 403
-
-        # 2. Login with valid headers
-        login_res = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "analyst@example.com", "password": "SecretPass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        assert login_res.status_code == 200
-        data = login_res.json()
-        assert data["user"]["email"] == "analyst@example.com"
-        assert "csrf_token" in data
-        csrf_token = data["csrf_token"]
-
-        # Cookie was set
-        assert "querylens_session" in client.cookies
-
-        # 3. GET /me
-        me_res = await client.get("/api/v1/auth/me")
-        assert me_res.status_code == 200
-        assert me_res.json()["email"] == "analyst@example.com"
-
-        # 4. GET /csrf
-        csrf_res = await client.get("/api/v1/auth/csrf")
-        assert csrf_res.status_code == 200
-        assert csrf_res.json()["csrf_token"] == csrf_token
-
-        # 5. Logout
-        logout_res = await client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
-        assert logout_res.status_code == 200
-        assert logout_res.json()["status"] == "logged_out"
-
-        # 6. Replay after logout returns 401
-        me_after = await client.get("/api/v1/auth/me")
-        assert me_after.status_code == 401
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.get("/api/v1/connections")).status_code == 200
+        assert (await client.get("/api/v1/queries/history")).status_code == 200
+        assert not client.cookies
+        for method, path in (("post", "login"), ("post", "logout"), ("get", "me"), ("get", "csrf")):
+            assert (await getattr(client, method)(f"/api/v1/auth/{path}")).status_code == 404
 
 
 @pytest.mark.asyncio

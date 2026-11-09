@@ -130,7 +130,7 @@ def test_security_and_invalid_payloads(analytics_env):
         ("/metrics", "post", metric()),
         ("/metrics/unknown", "patch", {"expected_version": 1, "enabled": False}),
     ):
-        assert getattr(env.client, method)(base(env) + suffix, json=payload).status_code == 403
+        assert getattr(env.client, method)(base(env) + suffix, json=payload, headers={"Origin": "https://foreign.example"}).status_code == 403
         for cid in (env.foreign_connection_id, "unknown"):
             assert (
                 getattr(env.client, method)(

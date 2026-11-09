@@ -96,17 +96,10 @@ def test_followup_rejects_foreign_and_incomplete_parent(analytics_env, completed
     )
     assert res_inc.status_code == 422
 
-    # 2. Foreign user attempt on owner parent returns 404
-    login_foreign = env.client.post(
-        "/api/v1/auth/login",
-        json={"email": "analytics-foreign@example.test", "password": env.password},
-        headers={"Origin": "http://localhost:5173", "X-QueryLens-Client": "web"},
-    )
-    foreign_headers = {"Origin": "http://localhost:5173", "X-CSRF-Token": login_foreign.json()["csrf_token"]}
-
+    # 2. An unclaimed legacy connection cannot provide workspace follow-up context
     res_foreign = env.client.post(
         "/api/v1/queries",
-        headers=foreign_headers,
+        headers=env.headers,
         json={
             "connection_id": env.foreign_connection_id,
             "question": "Follow up fragment",

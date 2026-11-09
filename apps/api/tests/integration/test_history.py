@@ -11,13 +11,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 import sqlalchemy as sa
 
-from querylens.auth.crypto import hash_password
-from querylens.auth.service import AuthService
+from querylens.auth.dependencies import DEFAULT_DEV_USER
+from querylens.auth.workspace import initialize_workspace
 from querylens.config import Settings
 from querylens.jobs.results import get_result_cache
 from querylens.main import create_app
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine
-from querylens.persistence.tables import connections, query_runs
+from querylens.persistence.tables import connections, query_runs, users
 
 
 @pytest.fixture
@@ -27,6 +27,7 @@ def app_with_test_db():
     )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
+    initialize_workspace()
 
     app = create_app(Settings(environment="test"))
     yield app
@@ -36,12 +37,13 @@ def app_with_test_db():
 
 
 @pytest.mark.asyncio
-async def test_history_keyset_pagination_and_ownership(app_with_test_db) -> None:
+async def test_history_keyset_pagination_preserves_legacy_runs(app_with_test_db) -> None:
     transport = ASGITransport(app=app_with_test_db)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        auth = AuthService()
-        user1 = auth.create_user("user1_hist@example.com", hash_password("Pass123!"))
-        user2 = auth.create_user("user2_hist@example.com", hash_password("Pass123!"))
+        user1 = {"id": DEFAULT_DEV_USER["user_id"]}
+        user2 = {"id": "legacy-history-owner"}
+        with get_db_connection() as conn:
+            conn.execute(users.insert().values(id=user2["id"], email="legacy@example.test", password_hash="disabled"))
 
         conn_id = str(uuid.uuid4())
         with get_db_connection() as c:
@@ -92,13 +94,8 @@ async def test_history_keyset_pagination_and_ownership(app_with_test_db) -> None
                 )
             c.commit()
 
-        # Login as user 1
-        login_res = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "user1_hist@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        assert login_res.status_code == 200
+        # Existing runs from both accounts become shared at startup.
+        initialize_workspace()
 
         # Page 1: limit 2
         res1 = await client.get("/api/v1/queries/history?limit=2")
@@ -106,10 +103,6 @@ async def test_history_keyset_pagination_and_ownership(app_with_test_db) -> None
         data1 = res1.json()
         assert len(data1["items"]) == 2
         assert data1["next_cursor"] is not None
-
-        # Verify no foreign runs from user 2 appear
-        for item in data1["items"]:
-            assert item["id"].startswith("run-u1-")
 
         # Page 2: using cursor
         res2 = await client.get(f"/api/v1/queries/history?limit=2&cursor={data1['next_cursor']}")
@@ -123,29 +116,28 @@ async def test_history_keyset_pagination_and_ownership(app_with_test_db) -> None
         p2_ids = {item["id"] for item in data2["items"]}
         assert p1_ids.isdisjoint(p2_ids)
 
-        # Page 3: last item
+        # Page 3: two more shared runs
         res3 = await client.get(f"/api/v1/queries/history?limit=2&cursor={data2['next_cursor']}")
         assert res3.status_code == 200
         data3 = res3.json()
-        assert len(data3["items"]) == 1
-        assert data3["next_cursor"] is None
+        assert len(data3["items"]) == 2
+        assert data3["next_cursor"] is not None
+        res4 = await client.get(f"/api/v1/queries/history?limit=2&cursor={data3['next_cursor']}")
+        assert res4.status_code == 200
+        data4 = res4.json()
+        assert len(data4["items"]) == 1
+        assert data4["next_cursor"] is None
+        pages = (data1, data2, data3, data4)
+        assert {item["id"] for page in pages for item in page["items"]} == {
+            *(f"run-u1-{i:02d}" for i in range(5)), *(f"run-u2-{i:02d}" for i in range(2)),
+        }
 
 
 @pytest.mark.asyncio
-async def test_owner_deletion_and_foreign_rejection(app_with_test_db) -> None:
+async def test_shared_history_deletion_without_credentials(app_with_test_db) -> None:
     transport = ASGITransport(app=app_with_test_db)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        auth = AuthService()
-        owner = auth.create_user("owner_del@example.com", hash_password("Pass123!"))
-        auth.create_user("foreign_del@example.com", hash_password("Pass123!"))
-
-        # Login owner
-        res_login = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "owner_del@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        res_login.json()["csrf_token"]
+        owner = {"id": DEFAULT_DEV_USER["user_id"]}
 
         conn_id = str(uuid.uuid4())
         run_id = str(uuid.uuid4())
@@ -180,32 +172,8 @@ async def test_owner_deletion_and_foreign_rejection(app_with_test_db) -> None:
         cache.put(run_id, "snap", [{"name": "col", "type": "string"}], [{"col": "val"}])
         assert cache.get(run_id) is not None
 
-        # Foreign user tries to delete -> 404
-        login_foreign = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "foreign_del@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        foreign_csrf = login_foreign.json()["csrf_token"]
-
-        res_foreign_del = await client.delete(
-            f"/api/v1/queries/{run_id}",
-            headers={"X-CSRF-Token": foreign_csrf, "Origin": "http://localhost:5173"},
-        )
-        assert res_foreign_del.status_code == 404
-
-        # Owner re-authenticates and deletes
-        await client.post(
-            "/api/v1/auth/login",
-            json={"email": "owner_del@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        res_csrf = await client.get("/api/v1/auth/csrf")
-        owner_csrf = res_csrf.json()["csrf_token"]
-
         res_del = await client.delete(
             f"/api/v1/queries/{run_id}",
-            headers={"X-CSRF-Token": owner_csrf, "Origin": "http://localhost:5173"},
         )
         assert res_del.status_code == 200
         assert res_del.json()["status"] == "deleted"
@@ -214,8 +182,8 @@ async def test_owner_deletion_and_foreign_rejection(app_with_test_db) -> None:
         assert cache.get(run_id) is None
 
 
-def test_analytics_history_projection_and_authenticated_delivery(analytics_env, completed_run):
-    """The shared fixture exercises real auth and delivers validated cached results."""
+def test_analytics_history_projection_and_shared_delivery(analytics_env, completed_run):
+    """The shared workspace delivers validated cached results without login."""
     from querylens.persistence.repositories.history import HistoryRepository
     env = analytics_env
     run = completed_run(origin="saved_question", saved_question_id="deleted-definition", saved_question_version=4,
@@ -231,8 +199,8 @@ def test_analytics_history_projection_and_authenticated_delivery(analytics_env, 
     assert "run_context_json" not in records[0] and "saved_definition_json" not in records[0]
     assert "submitted_sql" not in records[0]
     assert HistoryRepository().list_user_runs(env.foreign_id)[0] == []
-    # CSRF and session-bound mutations are proven separately from SQL validation.
-    assert env.client.delete(f"/api/v1/queries/{run['id']}").status_code == 403
+    # Foreign browser origins are rejected even without session authentication.
+    assert env.client.delete(f"/api/v1/queries/{run['id']}", headers={"Origin": "https://foreign.example"}).status_code == 403
     assert env.client.delete(f"/api/v1/queries/{run['id']}", headers=env.headers).status_code == 200
     assert env.cache.get(run["id"]) is None
 

@@ -1,6 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setCsrfToken } from '../api/client.ts';
 import { CatalogSnapshot } from '../api/catalog.ts';
 import { MetricResponse } from '../api/generated/schema.ts';
 import { LabelManager } from '../features/schema/LabelManager.tsx';
@@ -22,11 +21,11 @@ const change = (label: string, value: string) => fireEvent.change(screen.getByLa
 const metric: MetricResponse = { id: 'metric', connection_id: 'one', key: 'revenue', name: 'Revenue', description: 'Original', version: 3, enabled: true,
   dsl: { key: 'revenue', name: 'Revenue', description: 'Original', table: 'public.orders', measure_column: 'amount', aggregation: 'sum', units: 'USD', synonyms: ['Sales'], filters: [], grain: ['region'] } };
 
-beforeEach(() => { vi.stubGlobal('fetch', fetchMock); fetchMock.mockReset(); setCsrfToken('csrf'); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); setCsrfToken(null); });
+beforeEach(() => { vi.stubGlobal('fetch', fetchMock); fetchMock.mockReset(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('business labels at the HTTP boundary', () => {
-  it('loads, replaces table/column metadata with version and CSRF, and reloads persisted values', async () => {
+  it('loads, replaces table/column metadata with version and no session credentials, and reloads persisted values', async () => {
     let persisted = { semantic_version: 4, labels: [{ namespace: 'public', table_name: 'orders', column_name: null, display_name: 'Orders', description: null, version: 1 }] };
     fetchMock.mockImplementation(async (_url: string, options: RequestInit) => {
       if (options.method === 'PUT') {
@@ -46,8 +45,8 @@ describe('business labels at the HTTP boundary', () => {
     const [url, options] = fetchMock.mock.calls[1];
     expect(url).toBe('/api/v1/connections/one/labels');
     expect(options.method).toBe('PUT');
-    expect(options.credentials).toBe('include');
-    expect(options.headers.get('X-CSRF-Token')).toBe('csrf');
+    expect(options.credentials).toBe('omit');
+    expect(options.headers.get('X-CSRF-Token')).toBeNull();
     expect(options.headers.get('X-QueryLens-Client')).toBe('web');
     expect(JSON.parse(options.body)).toEqual({ expected_semantic_version: 4, labels: [
       { namespace: 'public', table_name: 'orders', column_name: null, display_name: 'Purchases', description: 'Paid orders' },

@@ -28,10 +28,10 @@ try:
         assert r.status_code == 200, f'OpenAPI spec failed: {r.status_code}'
         print('PASSED: /openapi.json endpoint')
 
-        # 3. Auth unauthenticated guard
-        r = client.get('/api/connections')
-        assert r.status_code in (401, 403, 404), f'Expected auth rejection, got: {r.status_code}'
-        print('PASSED: Auth route protection')
+        # 3. Shared workspace access
+        r = client.get('/api/v1/connections')
+        assert r.status_code == 200, f'Connections failed: {r.status_code}'
+        print('PASSED: Shared workspace access')
 
     print('All smoke checks passed!')
 except Exception as e:

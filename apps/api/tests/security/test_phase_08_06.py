@@ -1,9 +1,9 @@
-"""Task 08.06 Tests: Export security, cache expiration, and owner isolation contracts.
+"""Task 08.06 Tests: Export security, cache expiration, and shared workspace contracts.
 
 Contracts: C02, C07, C09.
 Assertions:
-1. Foreign/unknown IDs return 404 even when cache expired.
-2. Owner expiry returns 410.
+1. Unknown IDs return 404 even when cache expired.
+2. Expired shared results return 410.
 3. Unsupported format returns 422.
 4. Formula injection neutralized in headers and data.
 5. Generation/executor call counts remain zero during export.
@@ -16,8 +16,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 import sqlalchemy as sa
 
-from querylens.auth.crypto import hash_password
-from querylens.auth.service import AuthService
+from querylens.auth.dependencies import DEFAULT_DEV_USER
+from querylens.auth.workspace import initialize_workspace
 from querylens.config import Settings
 from querylens.connections.crypto import encrypt_credential
 from querylens.domain.schema import CatalogSnapshot
@@ -36,6 +36,7 @@ def app_with_test_db():
     )
     set_engine(test_eng)
     create_metadata_tables(test_eng)
+    initialize_workspace()
 
     app = create_app(Settings(environment="test"))
     yield app
@@ -48,18 +49,8 @@ def app_with_test_db():
 async def test_export_security_and_expiry_workflow(app_with_test_db) -> None:
     transport = ASGITransport(app=app_with_test_db)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. Create owner and foreign user
-        auth = AuthService()
-        owner = auth.create_user("owner_csv@example.com", hash_password("Pass123!"))
-        auth.create_user("foreign_csv@example.com", hash_password("Pass123!"))
-
-        # Login as owner
-        login_res = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "owner_csv@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        assert login_res.status_code == 200
+        # 1. Use the persistent workspace identity
+        owner = {"id": DEFAULT_DEV_USER["user_id"]}
 
         # Seed connection & query run
         repo = QueryRunRepository()
@@ -115,13 +106,7 @@ async def test_export_security_and_expiry_workflow(app_with_test_db) -> None:
         csv_body = res_ok.text
         assert '"\'=SUM(A1:A10)"' in csv_body
 
-        # 6. Foreign user access -> 404 (does not disclose existence)
-        login_foreign = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "foreign_csv@example.com", "password": "Pass123!"},
-            headers={"X-QueryLens-Client": "web", "Origin": "http://localhost:5173"},
-        )
-        assert login_foreign.status_code == 200
-
-        res_foreign = await client.get(f"/api/v1/queries/{run_id}/export?format=csv")
-        assert res_foreign.status_code == 404
+        # Unknown IDs still return 404, while any visitor may export shared runs.
+        assert (await client.get("/api/v1/queries/unknown/export?format=csv")).status_code == 404
+        client.cookies.clear()
+        assert (await client.get(f"/api/v1/queries/{run_id}/export?format=csv")).status_code == 200

@@ -35,15 +35,8 @@ def test_parameter_discovery_endpoint(analytics_env, completed_run):
     rc_def = next(d for d in data["definitions"] if d["name"] == "result_count")
     assert rc_def["default_value"] == 100
 
-    # Foreign query returns 404
-    login_foreign = env.client.post(
-        "/api/v1/auth/login",
-        json={"email": "analytics-foreign@example.test", "password": env.password},
-        headers={"Origin": "http://localhost:5173", "X-QueryLens-Client": "web"},
-    )
-    foreign_headers = {"Origin": "http://localhost:5173", "X-CSRF-Token": login_foreign.json()["csrf_token"]}
-    res_foreign = env.client.get(f"/api/v1/queries/{run['id']}/parameters", headers=foreign_headers)
-    assert res_foreign.status_code == 404
+    # Unknown query remains a 404 without requiring authentication.
+    assert env.client.get("/api/v1/queries/unknown/parameters").status_code == 404
 
 
 def test_saved_question_crud_lifecycle(analytics_env, completed_run):

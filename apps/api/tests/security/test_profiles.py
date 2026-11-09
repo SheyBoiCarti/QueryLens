@@ -22,17 +22,7 @@ def test_production_security_profile_validation():
         llm_provider="fake",
     )
 
-    # Rejects insecure cookie
-    with pytest.raises(SecurityProfileError, match="session_cookie_secure"):
-        validate_security_profile(settings, deployment="production")
-
-    # Rejects non-__Host- cookie name
-    settings.session_cookie_secure = True
-    with pytest.raises(SecurityProfileError, match="__Host-"):
-        validate_security_profile(settings, deployment="production")
-
     # Rejects missing keyring
-    settings.session_cookie_name = "__Host-querylens_session"
     with pytest.raises(SecurityProfileError, match="credential_keys_file"):
         validate_security_profile(settings, deployment="production")
 

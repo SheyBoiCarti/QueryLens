@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 
 from querylens.config import Settings, get_settings, set_settings
 from querylens.api.health import router as health_router
-from querylens.api.auth import router as auth_router
 from querylens.api.connections import router as connections_router
 from querylens.api.schema import router as schema_router
 from querylens.api.history import router as history_router
@@ -70,77 +69,79 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ):
             command.stamp(migration_config, "0001_initial")
         command.upgrade(migration_config, "head")
-        if settings.development_auth_bypass:
-            with get_db_connection() as conn:
-                dev_user_id = "00000000-0000-0000-0000-000000000000"
-                existing = conn.execute(sa.select(users.c.id).where(users.c.id == dev_user_id)).scalar()
-                if not existing:
+        with get_db_connection() as conn:
+            dev_user_id = "00000000-0000-0000-0000-000000000000"
+            existing = conn.execute(sa.select(users.c.id).where(users.c.id == dev_user_id)).scalar()
+            if not existing:
+                conn.execute(
+                    users.insert().values(
+                        id=dev_user_id,
+                        email="admin@querylens.local",
+                        password_hash="dev-only-password-hash",
+                        role="admin",
+                    )
+                )
+
+            # Auto-seed Aiven connections from .env if present
+            if settings.postgres_host:
+                pg_conn = conn.execute(
+                    sa.select(connections.c.id).where(
+                        connections.c.user_id == dev_user_id,
+                        connections.c.engine == "postgresql",
+                    )
+                ).scalar()
+                if not pg_conn:
+                    from querylens.connections.crypto import encrypt_credential
+
+                    conn_id = "pg-aiven-default-conn"
+                    enc_pw = encrypt_credential(settings.postgres_password or "", connection_id=conn_id)
                     conn.execute(
-                        users.insert().values(
-                            id=dev_user_id,
-                            email="admin@querylens.local",
-                            password_hash="dev-only-password-hash",
-                            role="admin",
+                        connections.insert().values(
+                            id=conn_id,
+                            user_id=dev_user_id,
+                            name="Aiven PostgreSQL",
+                            engine="postgresql",
+                            host=settings.postgres_host,
+                            port=int(settings.postgres_port or 5432),
+                            database=settings.postgres_db or "defaultdb",
+                            username=settings.postgres_user or "avnadmin",
+                            encrypted_password=enc_pw,
+                            tls_enabled=True,
+                            allowed_tables="{}",
                         )
                     )
 
-                # Auto-seed Aiven connections from .env if present
-                if settings.postgres_host:
-                    pg_conn = conn.execute(
-                        sa.select(connections.c.id).where(
-                            connections.c.user_id == dev_user_id,
-                            connections.c.engine == "postgresql",
-                        )
-                    ).scalar()
-                    if not pg_conn:
-                        from querylens.connections.crypto import encrypt_credential
+            if settings.mysql_host:
+                my_conn = conn.execute(
+                    sa.select(connections.c.id).where(
+                        connections.c.user_id == dev_user_id,
+                        connections.c.engine == "mysql",
+                    )
+                ).scalar()
+                if not my_conn:
+                    from querylens.connections.crypto import encrypt_credential
 
-                        conn_id = "pg-aiven-default-conn"
-                        enc_pw = encrypt_credential(settings.postgres_password or "", connection_id=conn_id)
-                        conn.execute(
-                            connections.insert().values(
-                                id=conn_id,
-                                user_id=dev_user_id,
-                                name="Aiven PostgreSQL",
-                                engine="postgresql",
-                                host=settings.postgres_host,
-                                port=int(settings.postgres_port or 5432),
-                                database=settings.postgres_db or "defaultdb",
-                                username=settings.postgres_user or "avnadmin",
-                                encrypted_password=enc_pw,
-                                tls_enabled=True,
-                                allowed_tables="{}",
-                            )
+                    conn_id = "my-aiven-default-conn"
+                    enc_pw = encrypt_credential(settings.mysql_password or "", connection_id=conn_id)
+                    conn.execute(
+                        connections.insert().values(
+                            id=conn_id,
+                            user_id=dev_user_id,
+                            name="Aiven MySQL",
+                            engine="mysql",
+                            host=settings.mysql_host,
+                            port=int(settings.mysql_port or 3306),
+                            database=settings.mysql_db or "defaultdb",
+                            username=settings.mysql_user or "avnadmin",
+                            encrypted_password=enc_pw,
+                            tls_enabled=True,
+                            allowed_tables="{}",
                         )
+                    )
 
-                if settings.mysql_host:
-                    my_conn = conn.execute(
-                        sa.select(connections.c.id).where(
-                            connections.c.user_id == dev_user_id,
-                            connections.c.engine == "mysql",
-                        )
-                    ).scalar()
-                    if not my_conn:
-                        from querylens.connections.crypto import encrypt_credential
+    from querylens.auth.workspace import initialize_workspace
 
-                        conn_id = "my-aiven-default-conn"
-                        enc_pw = encrypt_credential(settings.mysql_password or "", connection_id=conn_id)
-                        conn.execute(
-                            connections.insert().values(
-                                id=conn_id,
-                                user_id=dev_user_id,
-                                name="Aiven MySQL",
-                                engine="mysql",
-                                host=settings.mysql_host,
-                                port=int(settings.mysql_port or 3306),
-                                database=settings.mysql_db or "defaultdb",
-                                username=settings.mysql_user or "avnadmin",
-                                encrypted_password=enc_pw,
-                                tls_enabled=True,
-                                allowed_tables="{}",
-                            )
-                        )
-
+    await run_db(initialize_workspace)
     await run_db(reconcile_interrupted_runs)
     await run_db(run_retention_cleanup, retention_days=settings.retention_days)
 
@@ -264,7 +265,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Mount routers under /api/v1
     app.include_router(health_router, prefix="/api/v1")
-    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(connections_router, prefix="/api/v1")
     app.include_router(schema_router, prefix="/api/v1")
     app.include_router(history_router, prefix="/api/v1")

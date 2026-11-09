@@ -94,10 +94,11 @@ def test_manual_source_is_completed_owned_and_same_connection_before_admission(
     assert submit(env, "SELECT 1", source_query_id=queued_id).status_code == 422
 
 
-def test_manual_auth_csrf_and_lowered_limits(analytics_env, monkeypatch):
+def test_manual_origin_and_lowered_limits(analytics_env, monkeypatch):
     env = analytics_env
     assert (
-        env.client.post("/api/v1/queries/sql", json={"connection_id": env.connection_id, "sql": "SELECT 1"}).status_code
+        env.client.post("/api/v1/queries/sql", json={"connection_id": env.connection_id, "sql": "SELECT 1"},
+                        headers={"Origin": "https://foreign.example"}).status_code
         == 403
     )
     from querylens.config import get_settings
@@ -128,7 +129,7 @@ def test_canonical_sql_expansion_respects_byte_budget_and_parameter_defaults(ana
         validate_query_artifact(sql, env.connection_id, "postgresql", env.snapshot, 20)
 
 
-def test_manual_source_wrong_connection_and_authentication_are_separate(analytics_env):
+def test_manual_source_wrong_connection_without_authentication(analytics_env, monkeypatch):
     from querylens.persistence.tables import connections
 
     env = analytics_env
@@ -142,7 +143,10 @@ def test_manual_source_wrong_connection_and_authentication_are_separate(analytic
     repo.update_state(source_id, "completed")
     assert submit(env, "SELECT 1", source_query_id=source_id).status_code == 422
     env.client.cookies.clear()
-    assert submit(env, "SELECT 1").status_code == 401
+    monkeypatch.setattr(SafeExecutor, "execute", lambda *a, **kw: QueryResult([], [], 0, False, 1))
+    response = submit(env, "SELECT 1")
+    assert response.status_code == 202
+    assert wait_terminal(env, response.json()["query_id"])["status"] == "completed"
 
 
 @pytest.mark.parametrize("partial_catalog", [False, True])

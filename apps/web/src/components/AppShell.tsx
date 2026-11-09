@@ -1,24 +1,14 @@
 import React from 'react';
 
-export interface UserSession {
-  id: string;
-  email: string;
-  role: string;
-}
-
 export interface AppShellProps {
   currentRoute: string;
   onRouteChange: (route: string) => void;
-  user: UserSession | null;
-  onLogout: () => void;
   children: React.ReactNode;
 }
 
 export function AppShell({
   currentRoute,
   onRouteChange,
-  user,
-  onLogout,
   children,
 }: AppShellProps): React.JSX.Element {
   const navItems = [
@@ -63,21 +53,7 @@ export function AppShell({
             </nav>
           </div>
 
-          <div className="flex items-center space-x-4">
-            {user ? (
-              <div className="flex items-center space-x-3 text-sm">
-                <span className="text-slate-300 text-xs font-mono">{user.email}</span>
-                <button
-                  onClick={onLogout}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <span className="text-xs text-slate-400">Not authenticated</span>
-            )}
-          </div>
+
         </div>
       </header>
 
