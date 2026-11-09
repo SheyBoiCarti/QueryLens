@@ -1,6 +1,6 @@
 """Natural-language HTTP journey against isolated real source fixtures."""
 
-from querylens.llm.fake import get_fake_llm_provider
+from llm_stub import get_fake_llm_provider
 from querylens.llm.protocol import GeneratedCandidate, LLMUsage
 from test_manual_sql_execution import wait_terminal
 

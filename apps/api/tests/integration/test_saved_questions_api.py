@@ -160,7 +160,7 @@ def test_saved_question_direct_rerun_execution(analytics_env, completed_run, mon
     monkeypatch.setattr(SafeExecutor, "execute", execute)
     import querylens.pipeline.orchestrator as orchestrator
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: pytest.fail("direct path used provider"))
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: pytest.fail("direct path used provider"))
 
     # Run saved question with changed filter value "CAN"
     run_res = env.client.post(

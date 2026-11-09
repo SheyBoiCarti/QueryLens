@@ -45,7 +45,7 @@ def test_followup_query_end_to_end_journey(analytics_env, completed_run, monkeyp
                 usage=LLMUsage(prompt_tokens=100, completion_tokens=20, latency_ms=10),
             )
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: SpyLLMProvider())
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: SpyLLMProvider())
 
     # Submit follow-up question
     submit_res = env.client.post(

@@ -36,7 +36,8 @@ def analytics_env(monkeypatch, tmp_path):
     from querylens.auth.workspace import initialize_workspace
     from querylens.connections import keyring, registry
     from querylens.jobs import admission, results
-    from querylens.llm import fake, live
+    from querylens.llm import live
+    import llm_stub as fake
     from querylens.persistence import session
     from querylens.persistence.tables import connections, metadata
     from querylens.schema.snapshots import save_snapshot
@@ -50,7 +51,7 @@ def analytics_env(monkeypatch, tmp_path):
         dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
     metadata.create_all(engine)
-    settings = config.Settings(_env_file=None, environment="test", llm_provider="fake",
+    settings = config.Settings(_env_file=None, environment="test",
                                metadata_database_url="sqlite://", development_auth_bypass=False)
     for module, attr, value in (
         (config, "_global_settings", settings), (session, "_engine", engine),
@@ -61,6 +62,8 @@ def analytics_env(monkeypatch, tmp_path):
         (keyring, "_active_key_id", keyring._active_key_id), (registry, "_registry", None),
     ):
         monkeypatch.setattr(module, attr, value)
+    import querylens.pipeline.orchestrator as orchestrator
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: fake.get_fake_llm_provider())
     from querylens.main import create_app
     app = create_app(settings)
     auth = service.AuthService()

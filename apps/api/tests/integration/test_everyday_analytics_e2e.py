@@ -63,7 +63,7 @@ def test_everyday_analytics_nl_query_journey(analytics_env, monkeypatch):
             execution_time_ms=10,
         )
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: spy_llm)
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: spy_llm)
     monkeypatch.setattr(SafeExecutor, "execute", mock_execute)
 
     # 1. Submit natural-language query
@@ -107,7 +107,7 @@ def test_everyday_analytics_manual_sql_journey(analytics_env, completed_run, mon
             execution_time_ms=10,
         )
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: pytest.fail("provider called on manual SQL"))
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: pytest.fail("provider called on manual SQL"))
     monkeypatch.setattr(SafeExecutor, "execute", mock_execute)
 
     # Submit manual SQL edit
@@ -174,7 +174,7 @@ def test_everyday_analytics_saved_question_journey(analytics_env, completed_run,
             execution_time_ms=10,
         )
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: pytest.fail("provider called on saved question"))
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: pytest.fail("provider called on saved question"))
     monkeypatch.setattr(SafeExecutor, "execute", mock_execute)
 
     run_res = env.client.post(
@@ -215,7 +215,7 @@ def test_everyday_analytics_followup_branching_journey(analytics_env, completed_
             execution_time_ms=10,
         )
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: spy_llm)
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: spy_llm)
     monkeypatch.setattr(SafeExecutor, "execute", mock_execute)
 
     # Follow-up B from parent A

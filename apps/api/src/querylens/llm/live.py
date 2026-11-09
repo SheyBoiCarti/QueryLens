@@ -160,11 +160,11 @@ _live_provider_singleton: OpenAICompatibleProvider | None = None
 def get_live_llm_provider(settings: Settings | None = None) -> OpenAICompatibleProvider:
     """Factory for singleton live LLM provider."""
     global _live_provider_singleton
+    cfg = settings or get_settings()
+    api_base, model, api_key = cfg.get_effective_llm_config()
+    if not cfg.llm_provider or not api_key or not api_key.strip() or not model.strip() or not api_base.strip():
+        raise LiveLLMError("LLM configuration is incomplete", code="CONFIG_ERROR")
     if _live_provider_singleton is None:
-        cfg = settings or get_settings()
-        api_base, model, api_key = cfg.get_effective_llm_config()
-        if not api_key:
-            raise LiveLLMError("LLM API key is required but not configured", code="CONFIG_ERROR")
         _live_provider_singleton = OpenAICompatibleProvider(
             api_base=api_base,
             model=model,

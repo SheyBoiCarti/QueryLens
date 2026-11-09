@@ -13,14 +13,14 @@ from querylens.llm.protocol import GeneratedCandidate
 def test_provider_presets():
     """Verify Groq, OpenRouter, and OpenAI default configurations."""
     # Groq preset
-    s_groq = Settings(_env_file=None, llm_provider="groq", llm_api_key="gsk_test")
+    s_groq = Settings(_env_file=None, llm_provider="groq", llm_model="openai/gpt-oss-120b", llm_api_key="gsk_test")
     base, model, key = s_groq.get_effective_llm_config()
     assert base == "https://api.groq.com/openai/v1"
     assert model == "openai/gpt-oss-120b"
     assert key == "gsk_test"
 
     # OpenRouter preset
-    s_or = Settings(_env_file=None, llm_provider="openrouter", llm_api_key="sk-or-test")
+    s_or = Settings(_env_file=None, llm_provider="openrouter", llm_model="meta-llama/llama-3.3-70b-instruct:free", llm_api_key="sk-or-test")
     base, model, key = s_or.get_effective_llm_config()
     assert base == "https://openrouter.ai/api/v1"
     assert model == "meta-llama/llama-3.3-70b-instruct:free"
@@ -175,3 +175,31 @@ async def test_openai_compatible_error_handling():
                 schema_context="",
             )
         assert exc_info.value.code == "MODEL_UNAVAILABLE"
+
+
+@pytest.mark.parametrize("missing", ["llm_provider", "llm_model", "llm_api_key"])
+@pytest.mark.parametrize("value", ["", "   "])
+def test_incomplete_configuration_has_actionable_message(monkeypatch, missing, value):
+    from querylens.llm import live
+    from querylens.pipeline.classifier import classify_pipeline_error
+
+    config = dict(llm_provider="openai", llm_model="configured-model", llm_api_key="secret-key")
+    config[missing] = value
+    monkeypatch.setattr(live, "_live_provider_singleton", None)
+    settings = Settings(_env_file=None, **config)
+    with pytest.raises(LiveLLMError) as caught:
+        live.get_live_llm_provider(settings)
+    error = classify_pipeline_error(caught.value)
+    assert error.code == "CONFIG_ERROR"
+    assert error.safe_message == (
+        "The LLM is not configured. Please configure the provider, model, and API key, then try again."
+    )
+    assert not error.repairable
+
+
+def test_no_default_provider_or_model(monkeypatch):
+    for name in ("LLM_PROVIDER", "LLM_MODEL", "LLM_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.llm_provider is None
+    assert settings.llm_model == ""

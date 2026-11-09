@@ -19,24 +19,18 @@ def test_production_security_profile_validation():
         session_cookie_name="querylens_session",
         credential_keys_file=None,
         credential_active_key_id=None,
-        llm_provider="fake",
     )
 
     # Rejects missing keyring
     with pytest.raises(SecurityProfileError, match="credential_keys_file"):
         validate_security_profile(settings, deployment="production")
 
-    # Rejects fake provider in production
+    # Missing LLM settings are reported when a prompt is submitted.
     settings.credential_keys_file = "/run/secrets/keyring.json"
     settings.credential_active_key_id = "key-01"
-    with pytest.raises(SecurityProfileError, match="forbids fake LLM provider"):
-        validate_security_profile(settings, deployment="production")
-
-    # Rejects missing live provider API key
-    settings.llm_provider = "live"
+    settings.llm_provider = None
     settings.llm_api_key = None
-    with pytest.raises(SecurityProfileError, match="llm_api_key"):
-        validate_security_profile(settings, deployment="production")
+    validate_security_profile(settings, deployment="production")
 
     # Rejects excessive budgets
     settings.llm_api_key = "sk-production-test-key"

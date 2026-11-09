@@ -176,7 +176,7 @@ async def test_inflight_cancellation_holds_lease_until_dbapi_cleanup(analytics_e
 
 
 def test_natural_language_uses_shared_publication_and_context(analytics_env, monkeypatch):
-    from querylens.llm.fake import get_fake_llm_provider
+    from llm_stub import get_fake_llm_provider
     from querylens.llm.protocol import GeneratedCandidate
 
     env = analytics_env
@@ -203,3 +203,28 @@ def test_natural_language_uses_shared_publication_and_context(analytics_env, mon
         json.loads(QueryRunRepository().get(run["query_id"], env.owner_id)["run_context_json"])["author_limit"] is None
     )
     assert run["rows"] == [{"id": 9}]
+
+
+def test_missing_llm_configuration_is_displayed_on_submitted_prompt(analytics_env, monkeypatch):
+    from querylens.config import get_settings
+    from querylens.llm.live import get_live_llm_provider
+    import querylens.pipeline.orchestrator as orchestrator
+
+    env = analytics_env
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_provider", None)
+    monkeypatch.setattr(settings, "llm_model", "")
+    monkeypatch.setattr(settings, "llm_api_key", None)
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", get_live_llm_provider)
+    monkeypatch.setattr(SafeExecutor, "execute", lambda *a, **kw: pytest.fail("unconfigured query executed"))
+    response = env.client.post(
+        "/api/v1/queries", headers=env.headers,
+        json={"connection_id": env.connection_id, "question": "List customers"},
+    )
+    assert response.status_code == 202, response.text
+    run = wait_terminal(env, response.json()["query_id"])
+    assert run["status"] == "failed", run
+    assert run["error_code"] == "CONFIG_ERROR"
+    assert run["safe_message"] == (
+        "The LLM is not configured. Please configure the provider, model, and API key, then try again."
+    )

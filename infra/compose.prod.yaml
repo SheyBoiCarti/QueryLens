@@ -37,9 +37,9 @@ services:
       ALLOWED_ORIGINS: '["https://${QUERYLENS_DOMAIN:?Set the public DNS hostname}"]'
       CREDENTIAL_KEYS_FILE: /run/secrets/keyring.json
       CREDENTIAL_ACTIVE_KEY_ID: ${CREDENTIAL_ACTIVE_KEY_ID:?Set the active key ID}
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      LLM_API_KEY: ${LLM_API_KEY:?Set the model provider API key}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
       SOURCE_PERMITTED_CIDRS: ${SOURCE_PERMITTED_CIDRS:-[]}
     command: [alembic, -c, /app/alembic.ini, upgrade, head]
     depends_on:

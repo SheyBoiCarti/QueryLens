@@ -14,7 +14,6 @@ from querylens.config import get_settings
 from querylens.execution.cancellation import cancel_source, forget_execution, prepare_execution, terminate_source
 from querylens.execution.executor import SafeExecutor
 from querylens.jobs.admission import JobReservation
-from querylens.llm.fake import get_fake_llm_provider
 from querylens.llm.live import get_live_llm_provider
 from querylens.llm.provider import LLMProvider
 from querylens.observability.logging import log_event
@@ -98,11 +97,7 @@ async def run_query_pipeline(
 ) -> None:
     async def process(services: RunServices) -> None:
         settings = get_settings()
-        llm = provider or (
-            get_live_llm_provider(settings)
-            if settings.environment != "test" and settings.llm_provider != "fake"
-            else get_fake_llm_provider()
-        )
+        llm = provider or get_live_llm_provider(settings)
         await _process(
             services.repo,
             query_id,

@@ -39,7 +39,7 @@ def test_manual_completes_without_provider_and_retains_author_limit(analytics_en
     monkeypatch.setattr(SafeExecutor, "execute", execute)
     import querylens.pipeline.orchestrator as orchestrator
 
-    monkeypatch.setattr(orchestrator, "get_fake_llm_provider", lambda: pytest.fail("direct path used provider"))
+    monkeypatch.setattr(orchestrator, "get_live_llm_provider", lambda *a, **kw: pytest.fail("direct path used provider"))
     response = submit(env, "SELECT id FROM public.customers" + suffix)
     assert response.status_code == 202, response.text
     completed = wait_terminal(env, response.json()["query_id"])

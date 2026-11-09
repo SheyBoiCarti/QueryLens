@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from querylens.jobs.results import ResultCache
-from querylens.llm.fake import FakeLLMProvider
+from llm_stub import FakeLLMProvider
 from querylens.llm.protocol import GeneratedCandidate
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, set_engine

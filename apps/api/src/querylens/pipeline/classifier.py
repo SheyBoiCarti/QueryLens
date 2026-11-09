@@ -43,7 +43,11 @@ def classify_pipeline_error(
         return ClassifiedError(
             category="unknown",
             code=exception.code,
-            safe_message="The model provider could not produce a valid response",
+            safe_message=(
+                "The LLM is not configured. Please configure the provider, model, and API key, then try again."
+                if exception.code == "CONFIG_ERROR"
+                else "The model provider could not produce a valid response"
+            ),
             repairable=False,
         )
     if isinstance(exception, (ExecutionSecurityError, SerializationError)):

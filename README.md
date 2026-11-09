@@ -80,6 +80,10 @@ Clone the repository and run the bootstrap script to create Python virtual envir
 pwsh scripts/bootstrap.ps1
 ```
 
+Copy `.env.example` to `.env` and configure `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY` for natural-language queries. Supported providers are `live`, `openai`, `groq`, and `openrouter`. Missing LLM settings produce a configuration message when a prompt is submitted; there is no fallback provider or model.
+
+Add PostgreSQL and MySQL source connections through the app. Connection details and encrypted passwords are saved in the metadata database and reused after restarts; source database credentials are not needed in `.env`. Preserve the metadata database and credential encryption keyring to retain access to saved connections.
+
 ### 2. Start Development Environment
 Launch local support services (PostgreSQL metadata database and integration fixtures) and start the backend and frontend dev servers:
 

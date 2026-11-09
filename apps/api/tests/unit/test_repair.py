@@ -9,7 +9,7 @@ import uuid
 import pytest
 
 from querylens.domain.schema import CatalogSnapshot, ColumnMetadata, TableMetadata
-from querylens.llm.fake import FakeLLMProvider
+from llm_stub import FakeLLMProvider
 from querylens.llm.protocol import GeneratedCandidate, LLMUsage
 from querylens.persistence.repositories.query_runs import QueryRunRepository
 from querylens.persistence.session import create_metadata_tables, drop_metadata_tables, get_db_connection, set_engine

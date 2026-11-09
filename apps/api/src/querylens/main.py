@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await run_db(ownership.acquire)
     if settings.environment == "development":
         from querylens.persistence.session import get_db_connection
-        from querylens.persistence.tables import users, connections
+        from querylens.persistence.tables import users
         import sqlalchemy as sa
 
         # Existing development databases need the same migrations as production.
@@ -81,63 +81,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         role="admin",
                     )
                 )
-
-            # Auto-seed Aiven connections from .env if present
-            if settings.postgres_host:
-                pg_conn = conn.execute(
-                    sa.select(connections.c.id).where(
-                        connections.c.user_id == dev_user_id,
-                        connections.c.engine == "postgresql",
-                    )
-                ).scalar()
-                if not pg_conn:
-                    from querylens.connections.crypto import encrypt_credential
-
-                    conn_id = "pg-aiven-default-conn"
-                    enc_pw = encrypt_credential(settings.postgres_password or "", connection_id=conn_id)
-                    conn.execute(
-                        connections.insert().values(
-                            id=conn_id,
-                            user_id=dev_user_id,
-                            name="Aiven PostgreSQL",
-                            engine="postgresql",
-                            host=settings.postgres_host,
-                            port=int(settings.postgres_port or 5432),
-                            database=settings.postgres_db or "defaultdb",
-                            username=settings.postgres_user or "avnadmin",
-                            encrypted_password=enc_pw,
-                            tls_enabled=True,
-                            allowed_tables="{}",
-                        )
-                    )
-
-            if settings.mysql_host:
-                my_conn = conn.execute(
-                    sa.select(connections.c.id).where(
-                        connections.c.user_id == dev_user_id,
-                        connections.c.engine == "mysql",
-                    )
-                ).scalar()
-                if not my_conn:
-                    from querylens.connections.crypto import encrypt_credential
-
-                    conn_id = "my-aiven-default-conn"
-                    enc_pw = encrypt_credential(settings.mysql_password or "", connection_id=conn_id)
-                    conn.execute(
-                        connections.insert().values(
-                            id=conn_id,
-                            user_id=dev_user_id,
-                            name="Aiven MySQL",
-                            engine="mysql",
-                            host=settings.mysql_host,
-                            port=int(settings.mysql_port or 3306),
-                            database=settings.mysql_db or "defaultdb",
-                            username=settings.mysql_user or "avnadmin",
-                            encrypted_password=enc_pw,
-                            tls_enabled=True,
-                            allowed_tables="{}",
-                        )
-                    )
 
     from querylens.auth.workspace import initialize_workspace
 

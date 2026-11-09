@@ -79,8 +79,10 @@ def test_production_settings_validation():
             credential_active_key_id="key1",
         ).validate_for_production()
 
-    # Fake LLM in production
-    with pytest.raises(SecurityProfileError, match="forbids fake LLM provider"):
+    # Removed providers are rejected by the settings schema.
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
         Settings(
             environment="production",
             session_cookie_secure=True,
