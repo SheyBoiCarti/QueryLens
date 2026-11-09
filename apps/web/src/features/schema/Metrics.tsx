@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '../../api/client.ts';
 import { CatalogSnapshot } from '../../api/catalog.ts';
 import { MetricResponse } from '../../api/generated/schema.ts';
@@ -35,14 +36,16 @@ function MetricList({ connectionId, catalog }: MetricsProps): React.JSX.Element 
     <h2 className="section-title">Business metrics</h2>
     {error && <p role="alert">{error}</p>}
     {loading && <p role="status">Loading metrics...</p>}
-    {items.map((item) => <div key={item.id} className="flex justify-between gap-3">
-      <div><span>{item.name} ({item.key}){!item.enabled && ' · disabled'}</span>
+    {items.map((item) => <div key={item.id} className="metric-row">
+      <div className="metric-details"><div className="metric-heading"><span className="font-medium">{item.name}</span> <code>({item.key})</code>{!item.enabled && <span className="badge">Disabled</span>}</div>
         {item.description && <p className="text-sm text-muted">{item.description}</p>}
         {!!item.dsl.synonyms?.length && <p className="text-sm">Also called: {item.dsl.synonyms.join(', ')}</p>}
         <p className="font-mono text-xs">{item.dsl.table}.{item.dsl.measure_column} · {item.dsl.aggregation}{item.dsl.units ? ` · ${item.dsl.units}` : ''} · version {item.version}</p>
       </div>
-      <button disabled={loading || editing !== null || catalog?.connection_id !== connectionId} onClick={() => setEditing(item)}>Edit {item.name}</button>
-      <button disabled={editing !== null} className="text-danger" onClick={() => void remove(item.id)}>Delete metric</button>
+      <div className="metric-actions">
+        <button aria-label={`Edit ${item.name}`} className="metric-action" disabled={loading || editing !== null || catalog?.connection_id !== connectionId} onClick={() => setEditing(item)}><Pencil size={14} aria-hidden="true" />Edit</button>
+        <button aria-label={`Delete metric ${item.name}`} className="metric-action metric-delete" disabled={editing !== null} onClick={() => void remove(item.id)}><Trash2 size={14} aria-hidden="true" />Delete</button>
+      </div>
     </div>)}
     {editing ? <MetricEditor connectionId={connectionId} catalog={catalog} metric={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); setVersion((value) => value + 1); }} onCancel={() => {
       setEditing(null);

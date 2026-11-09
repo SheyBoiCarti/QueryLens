@@ -1,203 +1,146 @@
 # QueryLens
 
-[![Release Gate](https://github.com/querylens/querylens/actions/workflows/release.yml/badge.svg)](.github/workflows/release.yml)
-[![Security Scans](https://github.com/querylens/querylens/actions/workflows/security.yml/badge.svg)](.github/workflows/security.yml)
-[![Benchmark Evaluation](https://github.com/querylens/querylens/actions/workflows/evaluation.yml/badge.svg)](.github/workflows/evaluation.yml)
+**Ask your PostgreSQL or MySQL database questions in plain language.** QueryLens generates read-only SQL and presents the results as charts or tables, with the SQL, assumptions, and warnings available for review.
 
-QueryLens is an enterprise natural-language analytics engine for **PostgreSQL 16â€“18** and **Oracle MySQL 8.0/8.4**. It translates natural language questions into secure, read-only SQL queries, displays bounded result grids and transparent assumptions, and provides end-to-end diagnostic observability behind strict multi-tenant isolation and security policies.
+[Quickstart](#quickstart) · [First query](#your-first-query) · [Configuration](CONFIGURATION.md) · [Contributing](CONTRIBUTING.md)
 
----
+![QueryLens answering a monthly revenue question with a chart](screenshots/query-workspace.png)
 
-## Key Features
+*Synthetic demo data. No real customer or database information is shown.*
 
-- **Constrained Read-Only AST Policy:** Translates and parses queries via SQLGlot. Strictly prohibits DDL, DML, transaction control, locking reads (`FOR UPDATE`), recursive CTEs, user variables, and filesystem access. Enforces a strict function allowlist and automatic star expansion with limit clamping.
-- **Defense-in-Depth Security:** 
-  - **AES-256-GCM Envelope Encryption:** Source database credentials encrypted at rest with 96-bit random IVs and connection-bound Additional Authenticated Data (`AAD`).
-  - **SSRF Prevention & DNS Pinning:** Remote database host destinations validated against loopback, private RFC 1918, and cloud metadata ranges (`169.254.169.254`). Sockets pin validated IPs at connect time.
-  - **Shared Workspace:** Connections, saved questions, and query history are available without signing in.
-  - **Session & CSRF Hardening:** `__Host-` prefixed secure cookies, SameSite enforcement, and cryptographic double-submit HMAC tokens for all mutating actions.
-- **Self-Correcting Repair Loop:** Deterministic error classification maps syntax, policy, or runtime engine failures into targeted, bounded repair attempts (max 2) with semantic loop detection.
-- **Volatile Caching & Safe CSV Export:** Query results cached strictly in volatile memory (300s TTL) with automatic invalidation on schema changes. CSV streaming export neutralizes spreadsheet formula injection (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`, `|`).
-- **Business Labels & Metric Editing:** The schema explorer supports table/column display names and descriptions. The structured metric editor supports synonyms, units, aggregation, filters, and grain, with version checks for concurrent edits.
-- **Verified Answer Metadata:** Completed-query responses include authorized SQL context and conservative chart recommendations derived from currently available rows. Exact numeric strings are preserved; expiry or eviction removes rows and result-derived presentation together.
-- **Manual SQL API:** Authenticated `POST /api/v1/queries/sql` accepts read-only SQL and an optional completed source run. It shares query admission, policy validation, budgets, cancellation, and completion checks with natural-language execution, without model generation or repair.
-- **Benchmark Suite & Evaluation Harness:** 150 held-out evaluation cases across 8 categories with bipartite multiset comparison, exact string/decimal equality (`1.0 == 1.00`), float tolerance matching, and ablation analysis.
+## Why QueryLens?
 
----
+- **Inspect every answer.** Review generated SQL, assumptions, warnings, and diagnostics. Write or edit read-only SQL directly when you need more control.
+- **Define what your business means.** Give tables and columns friendly names and define reusable metrics with synonyms, filters, units, and aggregations.
+- **Work across PostgreSQL and MySQL.** Import schemas, choose visible tables and columns, and configure connection security.
+- **Continue your analysis.** Ask follow-up questions, save questions for reuse, browse query history, and export available rows to CSV.
 
-## Tech Stack
+**Current status:** QueryLens is a self-hosted, shared workspace without sign-in. Anyone who can reach your instance can view and change its connections and history. Run it only where access is restricted to trusted users.
 
-| Layer | Technologies |
-|---|---|
-| **API Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic v2, SQLGlot, Psycopg 3, PyMySQL, Cryptography, Argon2-cffi |
-| **Web Frontend** | React 18, TypeScript, Tailwind CSS, Lucide icons, Vite |
-| **Infrastructure & Ingress** | Docker Compose, Caddy 2 (TLS reverse proxy, security headers), Non-Root Containers |
-| **Quality & Verification** | Pytest, Vitest, Playwright, Ruff, Mypy, ESLint |
+## Quickstart
 
----
+You need **Python 3.12+**, **Node.js 20**, and **npm 10**. You also need access to a PostgreSQL or MySQL source database to query data. Docker is optional for local sample databases; PowerShell is optional for the repository's verification scripts.
 
-## Project Structure
+The steps below run the API and frontend on your machine. Development metadata uses a local SQLite file by default; PostgreSQL is required for production metadata.
 
-```
-.
-â”œâ”€â”€ apps/
-â”‚   â”œâ”€â”€ api/                      # FastAPI Python backend service
-â”‚   â”‚   â”œâ”€â”€ src/querylens/        # Application modules (ast, llm, pipeline, connections, etc.)
-â”‚   â”‚   â””â”€â”€ tests/                # Unit, integration, evaluation, and security test suites
-â”‚   â””â”€â”€ web/                      # React SPA frontend (TypeScript, Tailwind, Vite)
-â”œâ”€â”€ benchmarks/
-â”‚   â””â”€â”€ cases/                    # 150 held-out golden benchmark cases (Contract C10)
-â”œâ”€â”€ datasets/                     # Deterministic 10-table business models (PostgreSQL & MySQL)
-â”œâ”€â”€ docs/                         # Architecture, security model, runbooks, and contracts
-â”‚   â”œâ”€â”€ CONTRACTS.md              # Normative implementation contracts (C01â€“C11)
-â”‚   â”œâ”€â”€ DESIGN.md                 # System architecture and domain design
-â”‚   â”œâ”€â”€ security.md               # 5-boundary threat model and controls
-â”‚   â”œâ”€â”€ deployment.md             # Hardened production deployment topology
-â”‚   â”œâ”€â”€ operations.md             # Disaster recovery runbooks (RPO/RTO) and key rotation
-â”‚   â”œâ”€â”€ evaluation.md             # Benchmark methodology and results
-â”‚   â””â”€â”€ limitations.md            # Text-to-SQL scope and dialect boundaries
-â”œâ”€â”€ infra/
-â”‚   â”œâ”€â”€ compose.yaml              # Local development compose with fixture databases
-â”‚   â”œâ”€â”€ compose.prod.yaml         # Hardened production compose (Caddy, non-root API, meta DB)
-â”‚   â””â”€â”€ proxy/Caddyfile           # Reverse proxy configuration with TLS and security headers
-â””â”€â”€ scripts/                      # PowerShell automation scripts (verify, dev, backup, restore, etc.)
-```
+### 1. Clone and create a Python environment
 
----
-
-## Getting Started
-
-### Prerequisites
-- **Python 3.12+**
-- **Node.js 20+** & **npm 10+**
-- **PowerShell 7 (`pwsh`)**
-- **Docker Desktop** / Docker Engine
-
-### 1. Bootstrap Local Environment
-Clone the repository and run the bootstrap script to create Python virtual environments, install locked dependencies, and initialize the frontend:
-
-```powershell
-pwsh scripts/bootstrap.ps1
-```
-
-Copy `.env.example` to `.env` and configure `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY` for natural-language queries. Supported providers are `live`, `openai`, `groq`, and `openrouter`. Missing LLM settings produce a configuration message when a prompt is submitted; there is no fallback provider or model.
-
-Add PostgreSQL and MySQL source connections through the app. Connection details and encrypted passwords are saved in the metadata database and reused after restarts; source database credentials are not needed in `.env`. Preserve the metadata database and credential encryption keyring to retain access to saved connections.
-
-### 2. Start Development Environment
-Launch local support services (PostgreSQL metadata database and integration fixtures) and start the backend and frontend dev servers:
-
-```powershell
-pwsh scripts/dev.ps1
-```
-QueryLens opens directly without authentication. All visitors share connections, saved questions, and query history. Existing account resources are moved into the shared workspace at startup.
-
-- **Web UI:** `http://localhost:5173`
-- **API Server:** `http://127.0.0.1:8000`
-- **API Documentation:** `http://127.0.0.1:8000/docs`
-
----
-
-## Verification & Quality Gates
-
-QueryLens enforces strictly non-skipping verification gates across all 10 architectural phases:
-
-```powershell
-# Run verification for a specific phase (e.g., Phase 09)
-pwsh scripts/verify.ps1 -Phase 09
-
-# Run the full end-to-end release gate (Phases 00â€“10)
-pwsh scripts/verify.ps1
-```
-
-### Running Benchmark Evaluation
-Evaluate pipeline accuracy and safety against the 150 held-out benchmark cases:
-
-```powershell
-pwsh scripts/evaluate.ps1 -Engine postgres -Provider fake
-```
-
-### Application Smoke Test
-Verify running service endpoints:
-
-```powershell
-pwsh scripts/smoke.ps1 -BaseUrl http://127.0.0.1:8000
-```
-
-### Playwright application checks
-
-Start the API and web app with a disposable metadata database, then run:
+**macOS / Linux (Bash):**
 
 ```bash
-npx playwright install chromium
-export QUERYLENS_E2E_DATABASE_URL='<PostgreSQL connection link>'
-npm run test:e2e
+git clone https://github.com/SheyBoiCarti/QueryLens.git
+cd QueryLens
+python3 -m venv .venv
+source .venv/bin/activate
+cp .env.example .env
 ```
 
-The browser checks connection import/test/edit/delete/replacement, concurrent schema
-reads, table selection, refresh, labels, metrics, manual SQL, CSV downloads, saved
-questions, diagnostics, and history. They create uniquely named connections and
-delete those connections afterward; source queries only read existing data. The
-recovery checks cover empty results, rejected SQL, cancellation, query deletion,
-and blocking cached results and exports after table access is revoked. The
-fixture expects `customers` (`id`, `name`, `tier`) and `orders` (`status`) tables,
-as provided by this project's datasets. Use a test source with read-only credentials.
+**Windows (PowerShell):**
 
-To include live questions, follow-ups, charts, and saved-question variations,
-configure `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY` on the API and set
-`QUERYLENS_E2E_LLM=true` for the test command. Answers are checked against direct SQL
-results. `E2E_BASE_URL` selects another running web app (default
-`http://127.0.0.1:5173`). Credentials are supplied through environment variables;
-browser traces, screenshots, and video recording are disabled.
+```powershell
+git clone https://github.com/SheyBoiCarti/QueryLens.git
+cd QueryLens
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+Copy-Item .env.example .env
+```
 
----
+### 2. Install dependencies and configure credentials
 
-## Production Deployment
-
-QueryLens provides a hardened, private-network deployment topology where only the Caddy reverse proxy publishes external port 443:
+With the virtual environment active, run from the repository root in either shell:
 
 ```bash
-# 1. Set required production environment secrets
-export METADATA_DB_PASSWORD="<strong-password>"
-export LLM_API_KEY="<production-llm-key>"
-export QUERYLENS_DOMAIN="analytics.example.com"
-export METADATA_DATABASE_URL="postgresql+psycopg://querylens_app:<URL-encoded-password>@metadata-db:5432/querylens_prod"
-export CREDENTIAL_KEYS_FILE="/absolute/path/to/keyring.json"
-export CREDENTIAL_ACTIVE_KEY_ID="prod-key-01"
-
-# 2. Launch production stack
-docker compose -f infra/compose.prod.yaml up -d --build
+python -m pip install -r apps/api/requirements.lock
+python -m pip install -e apps/api
+npm ci
+python -c "import json, secrets; from pathlib import Path; p = Path('local.keyring.json'); p.exists() or p.write_text(json.dumps({'keys': {'local': secrets.token_hex(32)}}), encoding='utf-8')"
 ```
 
-Provision the keyring and review the single-worker runtime requirements in [the deployment guide](docs/deployment.md). Bootstrap the administrator with `docker compose -f infra/compose.prod.yaml exec api querylens-admin bootstrap`.
+Add these lines to `.env` to use the generated credential encryption key:
 
-For operational runbooks, backup/restore procedures, and key rotation details, see [`docs/operations.md`](docs/operations.md).
+```dotenv
+CREDENTIAL_KEYS_FILE=local.keyring.json
+CREDENTIAL_ACTIVE_KEY_ID=local
+```
 
----
+For natural-language questions, also fill in the existing `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY` entries. Supported providers are `openai`, `groq`, `openrouter`, and `live` (an OpenAI-compatible endpoint). Use a model identifier supported by your provider; hosted providers may charge for API usage. Manual SQL works without an LLM provider.
+
+Keep `.env` and `local.keyring.json` private. Both are ignored by Git. Preserve the keyring alongside your metadata database so saved connection passwords remain decryptable.
+
+### 3. Start the API and frontend
+
+In the terminal with the Python environment active:
+
+```bash
+python -m uvicorn querylens.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+In a second terminal, from the repository root:
+
+```bash
+npm run dev --workspace=apps/web
+```
+
+Open the app at **<http://localhost:5173>**. The API runs at <http://127.0.0.1:8000>, with interactive documentation at <http://127.0.0.1:8000/docs>. Development startup applies metadata migrations automatically. Stop each server with `Ctrl+C`.
+
+## Your first query
+
+1. Open **Connections** and add a PostgreSQL or MySQL database using a read-only account. If you need sample data, follow the [local PostgreSQL example](CONFIGURATION.md#sample-postgresql-database).
+2. Review the imported schema and choose which tables and columns the workspace can access.
+3. Open **Ask data**, select the source, and ask a question about its visible columns. With the sample dataset, try **“Show total revenue from completed orders by month in 2024.”**
+4. Review the chart or table and expand **Executed SQL** to inspect the query. Save the question, download the available rows as CSV, or ask a follow-up.
+
+### Give questions business meaning
+
+In **Explore schema**, add business labels and define metrics so recurring terms have an explicit meaning. For an `orders` table, for example:
+
+| Metric | Definition | Example question |
+|---|---|---|
+| Completed revenue | `SUM(orders.total_amount)` where `status = 'completed'`, in USD; synonym: “sales” | “Show monthly sales in 2024.” |
+| Average order value | `AVG(orders.total_amount)` where `status = 'completed'`, in USD; synonym: “AOV” | “What was our AOV by month in 2024?” |
+
+These are examples to create in the metric editor, not preinstalled metrics. Answers include the verified metric definition when it is used.
+
+<details>
+<summary>See the schema and metrics workspace</summary>
+
+![QueryLens schema explorer with business labels and metric definitions](screenshots/schema-and-metrics.png)
+
+*Synthetic Northstar Commerce data.*
+
+</details>
+
+## How it works
+
+```text
+Question + visible schema + business definitions
+                      ↓
+             LLM proposes SQL
+                      ↓
+      SQL policy validates and bounds it
+                      ↓
+       PostgreSQL or MySQL executes it
+                      ↓
+    Chart or table + SQL + answer metadata
+```
+
+The model receives schema context and business definitions, not database credentials. QueryLens validates the proposed SQL and executes it through its own database adapters.
+
+## Security and limitations
+
+- **Use least-privilege, read-only database accounts.** The SQL policy also rejects writes, schema changes, locking reads, recursive CTEs, and other unsupported constructs; it applies a function allowlist and row limits. See the [policy implementation](apps/api/src/querylens/sql/) and [security tests](apps/api/tests/security/).
+- Saved source passwords use AES-256-GCM encryption with the configured keyring. Network destination checks and address pinning reduce server-side request forgery risk.
+- Query result rows are held temporarily in process memory. They expire or can be evicted; CSV export depends on those rows still being available and neutralizes spreadsheet formula prefixes.
+- Natural-language SQL can be wrong even when it passes validation. Review SQL, assumptions, and results before relying on an answer.
+
+See [configuration and deployment](CONFIGURATION.md) for production requirements, metadata storage, and source network settings.
+
+## Development
+
+QueryLens uses FastAPI, SQLAlchemy, Pydantic, and SQLGlot for the API; React, TypeScript, Vite, and Tailwind CSS for the frontend; and Docker Compose and Caddy for deployment.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the repository layout, test commands, and contribution guidance.
 
 ## License
 
-Proprietary and confidential. All rights reserved.
-
-### Connecting a database
-
-In **Connections**, add or edit a connection, paste the MySQL or PostgreSQL link
-from your provider into **Connection link**, and select **Use connection link**.
-QueryLens fills in the details, including the encryption setting. Save the connection
-and test it before selecting tables.
-
-Links using `sslmode=require` (PostgreSQL) or `ssl-mode=REQUIRED` (MySQL) use TLS
-without verifying the server certificate, matching the provider's requested mode.
-Links using `verify-ca`, `verify-full`, or MySQL `VERIFY_IDENTITY` retain certificate
-verification. Links without an SSL mode default to verifying the server identity.
-QueryLens never retries a verified connection with weaker security automatically.
-Existing connections retain their verification settings until edited.
-
-Most providers need no certificate file for verification. If your provider uses a
-private certificate authority, select its downloaded CA file under **Provider
-certificate**. For Aiven, download `ca.pem` from the service Overview page. Certificate
-files referenced by paths in a connection link cannot be read from your computer;
-use the file picker instead. Unsupported URL options are reported rather than ignored.
-
-Development startup applies the TLS settings migration automatically. For production,
-run the normal `alembic upgrade head` migration before starting the updated API.
+[MIT](LICENSE). Free to use, modify, and redistribute, including commercially. QueryLens does not include a hosted service or a language-model API key. Third-party dependencies retain their own licenses.
